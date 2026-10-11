@@ -6,13 +6,22 @@ from django.db import migrations, models
 class Migration(migrations.Migration):
 
     dependencies = [
-        ('accounts', '0002_user_bio_user_profile_photo_user_pronouns'),
+        ("accounts", "0002_user_bio_user_profile_photo_user_pronouns"),
     ]
 
     operations = [
         migrations.AddField(
-            model_name='user',
-            name='contact_permission',
-            field=models.CharField(choices=[('approval', 'Require approval'), ('open', 'Allow direct contact')], default='approval', help_text='Choose whether other users need your approval before contacting you.', max_length=10, verbose_name='contact permission'),
+            model_name="user",
+            name="contact_permission",
+            field=models.CharField(
+                choices=[
+                    ("approval", "Require approval"),
+                    ("open", "Allow direct contact"),
+                ],
+                default="approval",
+                help_text="Choose whether other users need your approval before contacting you.",
+                max_length=10,
+                verbose_name="contact permission",
+            ),
         ),
     ]
