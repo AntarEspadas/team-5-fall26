@@ -14,8 +14,8 @@
         {% include 'events/_search_form.html' %}
     </header>
     <main>
-        {% if query %}
-        <h2>Results for “{{ query }}”</h2>
+        {% if query or has_filters %}
+        <h2>{% if query %}Results for “{{ query }}”{% else %}Filtered upcoming events{% endif %}</h2>
         {% if events %}
         <p class="result-count">{{ paginator.count }} event{{ paginator.count|pluralize }} found</p>
         <div class="search-results">
@@ -27,16 +27,16 @@
         </div>
         {% if is_paginated %}
         <nav class="pagination" aria-label="Search result pages">
-            {% if page_obj.has_previous %}<a href="?q={{ query|urlencode }}&amp;page={{ page_obj.previous_page_number }}">Previous</a>{% endif %}
+            {% if page_obj.has_previous %}<a href="?{{ page_query }}&amp;page={{ page_obj.previous_page_number }}">Previous</a>{% endif %}
             <span aria-current="page">Page {{ page_obj.number }} of {{ paginator.num_pages }}</span>
-            {% if page_obj.has_next %}<a href="?q={{ query|urlencode }}&amp;page={{ page_obj.next_page_number }}">Next</a>{% endif %}
+            {% if page_obj.has_next %}<a href="?{{ page_query }}&amp;page={{ page_obj.next_page_number }}">Next</a>{% endif %}
         </nav>
         {% endif %}
         {% else %}
-        <p class="search-empty">No upcoming events match your search. Try another activity, park, or location.</p>
+        <p class="search-empty">No upcoming events match your search. Try another activity, park, or location{% if has_filters %}, or clear some filters{% endif %}.</p>
         {% endif %}
         {% else %}
-        <p class="search-empty">Enter a search term to find upcoming events.</p>
+        <p class="search-empty">Enter a search term or choose a filter to find upcoming events.</p>
         {% endif %}
     </main>
 </body>
