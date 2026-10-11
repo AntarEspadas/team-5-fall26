@@ -1,0 +1,171 @@
+{% load static tz %}
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{{ event.title }} | NYC Parks Events</title>
+    <link rel="stylesheet" href="{% static 'events/cards.css' %}">
+    <link rel="stylesheet" href="{% static 'events/search.css' %}">
+    <style>
+        body {
+            max-width: 850px;
+            margin: 0 auto;
+            padding: 2rem 1rem 4rem;
+        }
+
+        .detail-card {
+            background: #fff;
+            border: 1px solid #d9e1da;
+            border-radius: 14px;
+            padding: 1.5rem;
+            margin-top: 1.5rem;
+        }
+
+        .detail-image {
+            display: block;
+            width: 100%;
+            max-height: 380px;
+            object-fit: cover;
+            border-radius: 10px;
+            margin-bottom: 1.5rem;
+        }
+
+        .detail-meta {
+            margin: 0.75rem 0;
+            color: #5b6862;
+        }
+
+        .detail-description {
+            white-space: pre-line;
+            line-height: 1.7;
+        }
+
+        .detail-actions {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 0.75rem;
+            margin-top: 1.5rem;
+        }
+
+        .detail-button {
+            display: inline-block;
+            padding: 0.65rem 1rem;
+            border-radius: 8px;
+            background: #1f6f4a;
+            color: #fff;
+            text-decoration: none;
+        }
+
+        .detail-button:hover {
+            background: #154d34;
+        }
+
+        .detail-community {
+            margin-top: 2rem;
+            padding: 1.25rem;
+            border: 1px solid #d9e1da;
+            border-radius: 10px;
+            background: #f7faf8;
+        }
+
+        .detail-community h2 {
+            margin-top: 0;
+        }
+
+        .detail-community p {
+            line-height: 1.6;
+            color: #5b6862;
+        }
+    </style>
+</head>
+<body>
+    <p><a href="{% url 'landing' %}">Back to home</a> ·
+       <a href="{% url 'search' %}">Search events</a></p>
+
+    <main class="detail-card">
+        <img class="detail-image"
+             src="{% if event.image_url %}{{ event.image_url }}{% else %}{% static 'events/no-image.svg' %}{% endif %}"
+             data-placeholder="{% static 'events/no-image.svg' %}"
+             alt="{% if event.image_url %}Image for {{ event.title }}{% else %}No image available{% endif %}"
+             onerror="this.onerror=null;this.src=this.dataset.placeholder">
+
+        <h1>{{ event.title }}</h1>
+
+        <h2>Event details</h2>
+
+        <div class="detail-meta">
+            <strong>Date and time:</strong>
+            {% timezone "America/New_York" %}
+                {% if event.start_time %}
+                    {{ event.start_time|date:"l, F j, Y" }}
+                    at {{ event.start_time|date:"g:i A" }}
+                    {% if event.end_time %}
+                        – {{ event.end_time|date:"g:i A" }}
+                    {% endif %}
+                {% else %}
+                    To be announced
+                {% endif %}
+            {% endtimezone %}
+        </div>
+
+        {% if event.location or event.park_names %}
+        <p class="detail-meta">
+            <strong>Location:</strong>
+            {% if event.location %}
+                {{ event.location }}
+            {% elif event.park_names %}
+                {{ event.park_names }}
+            {% endif %}
+        </p>
+        {% endif %}
+
+        {% if event.categories %}
+        <p class="detail-meta">
+            <strong>Category:</strong> {{ event.categories }}
+        </p>
+        {% endif %}
+
+        {% if event.instructor %}
+        <p class="detail-meta">
+            <strong>Instructor:</strong> {{ event.instructor }}
+        </p>
+        {% endif %}
+
+        {% if event.contact_phone %}
+        <p class="detail-meta">
+            <strong>Contact:</strong> {{ event.contact_phone }}
+        </p>
+        {% endif %}
+
+        <h2>Description</h2>
+        <div class="detail-description">
+            {% if event.description %}
+                {{ event.description }}
+            {% else %}
+                No description is available for this event.
+            {% endif %}
+        </div>
+
+        <section class="detail-community">
+            <h2>Connect with Other Attendees</h2>
+            <p>
+                Future updates will allow users to express interest in this event
+                and join event-specific discussions.
+            </p>
+        </section>
+
+        <div class="detail-actions">
+            {% if event.registration_url %}
+            <a class="detail-button"
+               href="{{ event.registration_url }}">Register</a>
+            {% endif %}
+
+            {% if event.event_url %}
+            <a class="detail-button"
+               href="{{ event.event_url }}">Official Event Page</a>
+            {% endif %}
+        </div>
+    </main>
+</body>
+</html>

@@ -5,7 +5,7 @@ from urllib.parse import quote, urlencode
 from django.db.models import F
 from django.http import QueryDict
 from django.urls import reverse
-from django.views.generic import ListView, TemplateView
+from django.views.generic import DetailView, ListView, TemplateView
 
 from .filters import EventFilterForm, filter_events, filter_params
 from .models import Event
@@ -13,6 +13,13 @@ from .search import search_events
 
 UPCOMING_EVENT_LIMIT = 20
 SEARCH_PAGE_SIZE = 20
+
+class EventDetailView(DetailView):
+    """Display the full details of a single event."""
+
+    model = Event
+    template_name = "events/detail.html"
+    context_object_name = "event"
 
 
 class LandingView(TemplateView):

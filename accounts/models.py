@@ -13,6 +13,10 @@ class AccountManager(UserManager):
         """Lowercase the whole address so emails are unique regardless of case."""
         return super().normalize_email(email).lower()
 
+class ContactPermission(models.TextChoices):
+    """Available contact permission settings."""
+    APPROVAL_REQUIRED = "approval", "Require approval"
+    OPEN = "open", "Allow direct contact"
 
 class User(AbstractUser):
     """A person who signs up with a unique username and email address.
@@ -63,6 +67,16 @@ class User(AbstractUser):
         max_length=50,
         blank=True,
         help_text="Optional. For example, she/her, he/him, or they/them.",
+    )
+    contact_permission = models.CharField(
+        "contact permission",
+        max_length=10,
+        choices=ContactPermission.choices,
+        default=ContactPermission.APPROVAL_REQUIRED,
+        help_text=(
+            "Choose whether other users need your approval "
+            "before contacting you."
+        ),
     )
 
     objects = AccountManager()

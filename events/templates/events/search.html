@@ -20,7 +20,7 @@
         <p class="result-count">{{ paginator.count }} event{{ paginator.count|pluralize }} found</p>
         <div class="search-results">
             {% for event in events %}
-            <a class="event" href="/events/{{ event.pk }}">
+            <a class="event" href="{% url 'event_detail' event.pk %}">
                 {% include 'events/_event_card_content.html' with link_to_source=False %}
             </a>
             {% endfor %}

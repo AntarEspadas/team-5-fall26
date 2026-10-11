@@ -29,7 +29,7 @@ class LandingViewTests(TestCase):
         )
 
     def setUp(self):
-        make_event(
+        self.alpha_event = make_event(
             "a1",
             "Alpha Yoga",
             start_time=datetime(2099, 1, 15, 9, 0, tzinfo=NYC),
@@ -96,7 +96,7 @@ class LandingViewTests(TestCase):
         self.assertContains(response, "10:00 AM")
         self.assertContains(response, "Prospect Park")
         self.assertContains(response, "Fitness | Yoga")
-        self.assertContains(response, 'href="https://example.org/alpha"')
+        self.assertContains(response,f'href="{reverse("event_detail", args=[self.alpha_event.pk])}"',)
         self.assertContains(response, ">Register</a>")
         self.assertContains(response, "Stretch and breathe in the park.")
 
@@ -136,3 +136,81 @@ class LandingViewTests(TestCase):
         response = self.client.get(reverse("landing"))
 
         self.assertEqual(len(response.context["events"]), UPCOMING_EVENT_LIMIT)
+
+class EventDetailViewTests(TestCase):
+    """Tests for the event details page."""
+
+    def setUp(self):
+        self.event = make_event(
+            "detail-1",
+            "Community Yoga",
+            start_time=datetime(2099, 3, 15, 9, 0, tzinfo=NYC),
+            end_time=datetime(2099, 3, 15, 10, 0, tzinfo=NYC),
+            location="Prospect Park",
+            categories="Fitness | Yoga",
+            description="Join us for a community yoga session.",
+            event_url="https://example.org/yoga",
+            registration_url="https://example.org/yoga/register",
+            image_url="https://example.org/yoga.png",
+        )
+        self.url = reverse("event_detail", args=[self.event.pk])
+
+    def test_event_details_page_displays_event_information(self):
+        """The details page displays the selected event's information."""
+        response = self.client.get(self.url)
+
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.context["event"], self.event)
+        self.assertContains(response, "Community Yoga")
+        self.assertContains(response, "Prospect Park")
+        self.assertContains(response, "Fitness | Yoga")
+        self.assertContains(
+            response, "Join us for a community yoga session."
+        )
+
+    def test_event_details_page_shows_available_links(self):
+        """Official and registration links open in the current tab."""
+        response = self.client.get(self.url)
+
+        self.assertContains(
+            response, 'href="https://example.org/yoga"'
+        )
+        self.assertContains(
+            response, 'href="https://example.org/yoga/register"'
+        )
+        self.assertNotContains(response, 'target="_blank"')
+
+    def test_missing_event_information_is_handled(self):
+        """Missing optional information does not break the details page."""
+        event = make_event("detail-2", "Event With Missing Information")
+        response = self.client.get(
+            reverse("event_detail", args=[event.pk])
+        )
+
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, "Event With Missing Information")
+        self.assertContains(response, "To be announced")
+        self.assertContains(
+            response, "No description is available for this event."
+        )
+        self.assertContains(response, 'alt="No image available"')
+        self.assertNotContains(response, ">Register</a>")
+        self.assertNotContains(response, ">Official Event Page</a>")
+
+    def test_missing_event_returns_404(self):
+        """A nonexistent event ID returns a 404 response."""
+        response = self.client.get(
+            reverse("event_detail", args=[999999999])
+        )
+
+        self.assertEqual(response.status_code, 404)
+
+    def test_community_placeholder_is_displayed(self):
+        """The page reserves space for future community features."""
+        response = self.client.get(self.url)
+
+        self.assertContains(response, "Connect with Other Attendees")
+        self.assertContains(
+            response,
+            "join event-specific discussions",
+        )

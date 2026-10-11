@@ -1,3 +1,4 @@
+
 {% extends "accounts/base.html" %}
 {% load static %}
 
@@ -6,15 +7,71 @@
 {% block content %}
   <h1>Account settings</h1>
   <p>Choose how you introduce yourself. All profile fields are optional.</p>
-  <img id="profile-photo-preview" class="profile-photo"{% if form.initial.profile_photo %} src="{{ form.initial.profile_photo.url }}"{% else %} hidden{% endif %} alt="Your current profile photo" width="96" height="96">
-  <p id="profile-photo-preview-status" class="helptext" role="status" hidden></p>
+
+  <img
+    id="profile-photo-preview"
+    class="profile-photo"
+    {% if form.initial.profile_photo %}
+      src="{{ form.initial.profile_photo.url }}"
+    {% else %}
+      hidden
+    {% endif %}
+    alt="Your current profile photo"
+    width="96"
+    height="96"
+  >
+
+  <p
+    id="profile-photo-preview-status"
+    class="helptext"
+    role="status"
+    hidden
+  ></p>
+
   <form method="post" enctype="multipart/form-data">
     {% csrf_token %}
-    {{ form }}
+
+    {% for field in form %}
+      {% if field.name == "allow_direct_contact" %}
+        <fieldset>
+          <legend>Contact preferences</legend>
+
+          <label for="{{ field.id_for_label }}">
+            {{ field }}
+            {{ field.label }}
+          </label>
+
+          <p class="helptext">
+            {% if field.value %}
+              Other users can contact you directly without prior approval.
+            {% else %}
+              Other users must send a contact request, and you must
+              approve it before communication can begin.
+            {% endif %}
+          </p>
+
+          {% if field.errors %}
+            {{ field.errors }}
+          {% endif %}
+        </fieldset>
+      {% else %}
+        {{ field.as_field_group }}
+      {% endif %}
+    {% endfor %}
+
     <div class="actions">
-      <button type="submit" class="button primary">Save changes</button>
-      <a class="button" href="{% url 'landing' %}">Cancel</a>
+      <button type="submit" class="button primary">
+        Save changes
+      </button>
+
+      <a class="button" href="{% url 'landing' %}">
+        Cancel
+      </a>
     </div>
   </form>
-  <script src="{% static 'accounts/profile-photo-preview.js' %}" defer></script>
+
+  <script
+    src="{% static 'accounts/profile-photo-preview.js' %}"
+    defer
+  ></script>
 {% endblock %}
