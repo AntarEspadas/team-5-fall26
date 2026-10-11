@@ -96,7 +96,10 @@ class LandingViewTests(TestCase):
         self.assertContains(response, "10:00 AM")
         self.assertContains(response, "Prospect Park")
         self.assertContains(response, "Fitness | Yoga")
-        self.assertContains(response,f'href="{reverse("event_detail", args=[self.alpha_event.pk])}"',)
+        self.assertContains(
+            response,
+            f'href="{reverse("event_detail", args=[self.alpha_event.pk])}"',
+        )
         self.assertContains(response, ">Register</a>")
         self.assertContains(response, "Stretch and breathe in the park.")
 
@@ -137,6 +140,7 @@ class LandingViewTests(TestCase):
 
         self.assertEqual(len(response.context["events"]), UPCOMING_EVENT_LIMIT)
 
+
 class EventDetailViewTests(TestCase):
     """Tests for the event details page."""
 
@@ -164,53 +168,41 @@ class EventDetailViewTests(TestCase):
         self.assertContains(response, "Community Yoga")
         self.assertContains(response, "Prospect Park")
         self.assertContains(response, "Fitness | Yoga")
-        self.assertContains(
-            response, "Join us for a community yoga session."
-        )
+        self.assertContains(response, "Join us for a community yoga session.")
 
     def test_event_details_page_shows_available_links(self):
         """Official and registration links open in the current tab."""
         response = self.client.get(self.url)
 
-        self.assertContains(
-            response, 'href="https://example.org/yoga"'
-        )
-        self.assertContains(
-            response, 'href="https://example.org/yoga/register"'
-        )
+        self.assertContains(response, 'href="https://example.org/yoga"')
+        self.assertContains(response, 'href="https://example.org/yoga/register"')
         self.assertNotContains(response, 'target="_blank"')
 
     def test_missing_event_information_is_handled(self):
         """Missing optional information does not break the details page."""
         event = make_event("detail-2", "Event With Missing Information")
-        response = self.client.get(
-            reverse("event_detail", args=[event.pk])
-        )
+        response = self.client.get(reverse("event_detail", args=[event.pk]))
 
         self.assertEqual(response.status_code, 200)
         self.assertContains(response, "Event With Missing Information")
         self.assertContains(response, "To be announced")
-        self.assertContains(
-            response, "No description is available for this event."
-        )
+        self.assertContains(response, "No description is available for this event.")
         self.assertContains(response, 'alt="No image available"')
         self.assertNotContains(response, ">Register</a>")
         self.assertNotContains(response, ">Official Event Page</a>")
 
     def test_missing_event_returns_404(self):
         """A nonexistent event ID returns a 404 response."""
-        response = self.client.get(
-            reverse("event_detail", args=[999999999])
-        )
+        response = self.client.get(reverse("event_detail", args=[999999999]))
 
         self.assertEqual(response.status_code, 404)
 
-    def test_community_placeholder_is_displayed(self):
-        """The page reserves space for future community features."""
-        response = self.client.get(self.url)
+    def test_community_section_is_displayed(self):
+        """The event detail page displays the community features."""
+        response = self.client.get(reverse("event_detail", args=[self.event.pk]))
 
+        self.assertEqual(response.status_code, 200)
         self.assertContains(response, "Connect with Other Attendees")
-        self.assertContains(
-            response,
-            "join event-specific discussions",
-        )
+        self.assertContains(response, "Attendees who share their profiles")
+        self.assertContains(response, "Discuss This Event")
+        self.assertContains(response, "No discussion posts yet.")

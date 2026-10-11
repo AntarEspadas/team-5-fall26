@@ -13,10 +13,13 @@ class AccountManager(UserManager):
         """Lowercase the whole address so emails are unique regardless of case."""
         return super().normalize_email(email).lower()
 
+
 class ContactPermission(models.TextChoices):
     """Available contact permission settings."""
+
     APPROVAL_REQUIRED = "approval", "Require approval"
     OPEN = "open", "Allow direct contact"
+
 
 class User(AbstractUser):
     """A person who signs up with a unique username and email address.
@@ -74,8 +77,16 @@ class User(AbstractUser):
         choices=ContactPermission.choices,
         default=ContactPermission.APPROVAL_REQUIRED,
         help_text=(
-            "Choose whether other users need your approval "
-            "before contacting you."
+            "Choose whether other users need your approval " "before contacting you."
+        ),
+    )
+
+    share_profile_with_attendees = models.BooleanField(
+        "share profile with event attendees",
+        default=False,
+        help_text=(
+            "Allow people interested in the same event to see "
+            "your public profile information."
         ),
     )
 

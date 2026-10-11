@@ -1,4 +1,3 @@
-
 """Forms for account registration, login, and profile settings."""
 
 from io import BytesIO
@@ -10,8 +9,6 @@ from django.contrib.auth.forms import AuthenticationForm, UserCreationForm
 from django.core.files.base import ContentFile
 
 from .models import ContactPermission, User
-
-
 
 
 class ProfilePhotoInput(forms.ClearableFileInput):
@@ -27,12 +24,20 @@ class ProfilePhotoInput(forms.ClearableFileInput):
         return context
 
 
-
 class AccountSettingsForm(forms.ModelForm):
     """Edit public profile fields and contact preferences."""
 
     allow_direct_contact = forms.BooleanField(
         label="Allow anyone to contact me directly",
+        required=False,
+    )
+
+    share_profile_with_attendees = forms.BooleanField(
+        label="Share my profile with other event attendees",
+        help_text=(
+            "When enabled, people interested in the same event can "
+            "see your display name, profile photo, bio, and pronouns."
+        ),
         required=False,
     )
 
@@ -45,6 +50,7 @@ class AccountSettingsForm(forms.ModelForm):
             "profile_photo",
             "bio",
             "pronouns",
+            "share_profile_with_attendees",
         )
         widgets = {
             "profile_photo": ProfilePhotoInput(
@@ -54,8 +60,7 @@ class AccountSettingsForm(forms.ModelForm):
         }
         help_texts = {
             "profile_photo": (
-                "Optional. JPEG, PNG, or WebP; up to 5 MB "
-                "and 4096 pixels per side."
+                "Optional. JPEG, PNG, or WebP; up to 5 MB " "and 4096 pixels per side."
             ),
         }
 
@@ -97,19 +102,13 @@ class AccountSettingsForm(forms.ModelForm):
             return photo
 
         if photo.size > 5 * 1024 * 1024:
-            raise forms.ValidationError(
-                "Choose a photo no larger than 5 MB."
-            )
+            raise forms.ValidationError("Choose a photo no larger than 5 MB.")
 
         if photo.image.format not in {"JPEG", "PNG", "WEBP"}:
-            raise forms.ValidationError(
-                "Choose a JPEG, PNG, or WebP photo."
-            )
+            raise forms.ValidationError("Choose a JPEG, PNG, or WebP photo.")
 
         if max(photo.image.size) > 4096:
-            raise forms.ValidationError(
-                "Photos must be at most 4096 pixels per side."
-            )
+            raise forms.ValidationError("Photos must be at most 4096 pixels per side.")
 
         try:
             photo.seek(0)
@@ -122,9 +121,7 @@ class AccountSettingsForm(forms.ModelForm):
                 normalized.save(output, format="JPEG", quality=90)
 
         except (OSError, ValueError) as error:
-            raise forms.ValidationError(
-                "Choose a valid, undamaged photo."
-            ) from error
+            raise forms.ValidationError("Choose a valid, undamaged photo.") from error
 
         return ContentFile(
             output.getvalue(),
