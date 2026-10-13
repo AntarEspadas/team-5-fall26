@@ -1,0 +1,523 @@
+{% load static tz %}
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{{ event.title }} | NYC Parks Events</title>
+    <link rel="stylesheet" href="{% static 'events/cards.css' %}">
+    <link rel="stylesheet" href="{% static 'events/search.css' %}">
+
+    <style>
+        body {
+            max-width: 850px;
+            margin: 0 auto;
+            padding: 2rem 1rem 4rem;
+        }
+
+        .detail-card,
+        .community-section,
+        .discussion-post,
+        .attendee-card,
+        .contact-request-card {
+            background: #fff;
+            border: 1px solid #d9e1da;
+            border-radius: 12px;
+            padding: 1.25rem;
+            margin-top: 1.25rem;
+        }
+
+        .detail-image {
+            display: block;
+            width: 100%;
+            max-height: 380px;
+            object-fit: cover;
+            border-radius: 10px;
+            margin-bottom: 1.5rem;
+        }
+
+        .detail-meta {
+            margin: 0.75rem 0;
+            color: #5b6862;
+        }
+
+        .detail-description {
+            white-space: pre-line;
+            line-height: 1.7;
+        }
+
+        .detail-actions,
+        .community-actions {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 0.75rem;
+            align-items: center;
+            margin-top: 1rem;
+        }
+
+        .detail-button,
+        .community-button {
+            display: inline-block;
+            padding: 0.65rem 1rem;
+            border: 0;
+            border-radius: 8px;
+            background: #1f6f4a;
+            color: #fff;
+            text-decoration: none;
+            cursor: pointer;
+            font: inherit;
+        }
+
+        .detail-button:hover,
+        .community-button:hover {
+            background: #154d34;
+        }
+
+        .secondary-button {
+            background: #59645e;
+        }
+
+        .danger-button {
+            background: #9c3535;
+        }
+
+        .community-section h2 {
+            margin-top: 0;
+        }
+
+        .community-section p,
+        .muted {
+            color: #5b6862;
+            line-height: 1.6;
+        }
+
+        .community-form {
+            margin-top: 1rem;
+        }
+
+        .community-form textarea {
+            box-sizing: border-box;
+            width: 100%;
+            padding: 0.75rem;
+            border: 1px solid #bdc9c0;
+            border-radius: 8px;
+            font: inherit;
+        }
+
+        .attendee-list,
+        .discussion-list,
+        .contact-request-list {
+            display: grid;
+            gap: 1rem;
+        }
+
+        .attendee-card h3,
+        .discussion-post h3 {
+            margin-top: 0;
+        }
+
+        .attendee-header {
+            display: flex;
+            align-items: center;
+            gap: 1rem;
+        }
+
+        .attendee-photo {
+            width: 64px;
+            height: 64px;
+            border-radius: 50%;
+            object-fit: cover;
+        }
+
+        .post-body,
+        .reply-body {
+            white-space: pre-wrap;
+            overflow-wrap: anywhere;
+            line-height: 1.6;
+        }
+
+        .reply {
+            margin: 1rem 0 0 1rem;
+            padding: 0.75rem;
+            border-left: 3px solid #d9e1da;
+        }
+
+        .reply-form {
+            margin-top: 1rem;
+        }
+
+        .reply-form summary {
+            cursor: pointer;
+            color: #1f6f4a;
+        }
+
+        .status-message {
+            padding: 0.75rem;
+            border-radius: 8px;
+            background: #edf4ef;
+            line-height: 1.6;
+        }
+
+        .empty-message {
+            color: #5b6862;
+            font-style: italic;
+        }
+    </style>
+</head>
+
+<body>
+    <p>
+        <a href="{% url 'landing' %}">Back to home</a>
+        ·
+        <a href="{% url 'search' %}">Search events</a>
+    </p>
+
+    <main class="detail-card">
+        <img
+            class="detail-image"
+            src="{% if event.image_url %}{{ event.image_url }}{% else %}{% static 'events/no-image.svg' %}{% endif %}"
+            data-placeholder="{% static 'events/no-image.svg' %}"
+            alt="{% if event.image_url %}Image for {{ event.title }}{% else %}No image available{% endif %}"
+            onerror="this.onerror=null;this.src=this.dataset.placeholder"
+        >
+
+        <h1>{{ event.title }}</h1>
+
+        <h2>Event details</h2>
+
+        <div class="detail-meta">
+            <strong>Date and time:</strong>
+            {% timezone "America/New_York" %}
+                {% if event.start_time %}
+                    {{ event.start_time|date:"l, F j, Y" }}
+                    at {{ event.start_time|date:"g:i A" }}
+                    {% if event.end_time %}
+                        – {{ event.end_time|date:"g:i A" }}
+                    {% endif %}
+                {% else %}
+                    To be announced
+                {% endif %}
+            {% endtimezone %}
+        </div>
+
+        {% if event.location or event.park_names %}
+            <p class="detail-meta">
+                <strong>Location:</strong>
+                {% if event.location %}
+                    {{ event.location }}
+                {% else %}
+                    {{ event.park_names }}
+                {% endif %}
+            </p>
+        {% endif %}
+
+        {% if event.categories %}
+            <p class="detail-meta">
+                <strong>Category:</strong> {{ event.categories }}
+            </p>
+        {% endif %}
+
+        {% if event.instructor %}
+            <p class="detail-meta">
+                <strong>Instructor:</strong> {{ event.instructor }}
+            </p>
+        {% endif %}
+
+        {% if event.contact_phone %}
+            <p class="detail-meta">
+                <strong>Contact:</strong> {{ event.contact_phone }}
+            </p>
+        {% endif %}
+
+        <h2>Description</h2>
+        <div class="detail-description">
+            {% if event.description %}
+                {{ event.description }}
+            {% else %}
+                No description is available for this event.
+            {% endif %}
+        </div>
+
+        <div class="detail-actions">
+            {% if event.registration_url %}
+                <a class="detail-button"
+                   href="{{ event.registration_url }}">
+                    Register
+                </a>
+            {% endif %}
+
+            {% if event.event_url %}
+                <a class="detail-button"
+                   href="{{ event.event_url }}">
+                    Official Event Page
+                </a>
+            {% endif %}
+        </div>
+    </main>
+
+    <!-- Attendee interest and public profiles -->
+    <section class="community-section">
+        <h2>Connect with Other Attendees</h2>
+
+        <p>
+            <strong>{{ interest_count }}</strong>
+            {% if interest_count == 1 %}person is{% else %}people are{% endif %}
+            interested in this event.
+        </p>
+
+        {% if can_interact %}
+            {% if user.is_authenticated %}
+                <form method="post"
+                      action="{% url 'toggle_event_interest' event.pk %}">
+                    {% csrf_token %}
+                    <button class="community-button" type="submit">
+                        {% if user_has_interest %}
+                            Remove My Interest
+                        {% else %}
+                            I'm Interested
+                        {% endif %}
+                    </button>
+                </form>
+            {% else %}
+                <p>
+                    <a href="{% url 'login' %}?next={{ request.path|urlencode }}">
+                        Log in
+                    </a>
+                    to mark your interest and connect with attendees.
+                </p>
+            {% endif %}
+        {% else %}
+            <p class="status-message">
+                This event has ended. You can still read its attendee
+                information and discussion, but new interactions are closed.
+            </p>
+        {% endif %}
+
+        <h3>Attendees who share their profiles</h3>
+
+        {% if attendees %}
+            <div class="attendee-list">
+                {% for attendee in attendees %}
+                    <article class="attendee-card">
+                        <div class="attendee-header">
+                            {% if attendee.user.profile_photo %}
+                                <img
+                                    class="attendee-photo"
+                                    src="{{ attendee.user.profile_photo.url }}"
+                                    alt="Profile photo"
+                                >
+                            {% endif %}
+
+                            <div>
+                                <h3>{{ attendee.user.get_display_name }}</h3>
+
+                                {% if attendee.user.pronouns %}
+                                    <p class="muted">
+                                        {{ attendee.user.pronouns }}
+                                    </p>
+                                {% endif %}
+                            </div>
+                        </div>
+
+                        {% if attendee.user.bio %}
+                            <p>{{ attendee.user.bio }}</p>
+                        {% endif %}
+
+                        {% if user.is_authenticated and attendee.contact_request %}
+                            {% if attendee.contact_request.status == "pending" %}
+                                <p class="status-message">
+                                    Contact request sent — awaiting response.
+                                </p>
+                            {% elif attendee.contact_request.status == "accepted" %}
+                                <p class="status-message">
+                                    Contact request accepted.
+                                </p>
+                            {% endif %}
+                        {% elif can_interact and user.is_authenticated and user_has_interest %}
+                            <form
+                                class="community-form"
+                                method="post"
+                                action="{% url 'send_contact_request' event.pk attendee.user.pk %}"
+                            >
+                                {% csrf_token %}
+                                <label>
+                                    Message (optional)
+                                    <textarea
+                                        name="message"
+                                        rows="2"
+                                        maxlength="500"
+                                        placeholder="Introduce yourself..."
+                                    ></textarea>
+                                </label>
+
+                                <div class="community-actions">
+                                    <button class="community-button" type="submit">
+                                        Request to Connect
+                                    </button>
+                                </div>
+                            </form>
+                        {% elif can_interact and user.is_authenticated %}
+                            <p class="muted">
+                                Mark yourself as interested in this event
+                                before requesting to connect.
+                            </p>
+                        {% endif %}
+                    </article>
+                {% endfor %}
+            </div>
+        {% else %}
+            <p class="empty-message">
+                No attendees have chosen to share their profiles yet.
+            </p>
+        {% endif %}
+    </section>
+
+    <!-- Incoming contact requests -->
+    {% if user.is_authenticated and received_contact_requests %}
+        <section class="community-section">
+            <h2>Contact Requests</h2>
+
+            <div class="contact-request-list">
+                {% for contact_request in received_contact_requests %}
+                    <article class="contact-request-card">
+                        <h3>{{ contact_request.sender.get_display_name }}</h3>
+
+                        {% if contact_request.message %}
+                            <p>{{ contact_request.message }}</p>
+                        {% endif %}
+
+                        <div class="community-actions">
+                            <form method="post"
+                                  action="{% url 'respond_to_contact_request' contact_request.pk 'accept' %}">
+                                {% csrf_token %}
+                                <button class="community-button" type="submit">
+                                    Accept
+                                </button>
+                            </form>
+
+                            <form method="post"
+                                  action="{% url 'respond_to_contact_request' contact_request.pk 'decline' %}">
+                                {% csrf_token %}
+                                <button class="community-button danger-button"
+                                        type="submit">
+                                    Decline
+                                </button>
+                            </form>
+                        </div>
+                    </article>
+                {% endfor %}
+            </div>
+        </section>
+    {% endif %}
+
+    <!-- Event discussion -->
+    <section class="community-section">
+        <h2>Discuss This Event</h2>
+
+        {% if can_interact %}
+            {% if user.is_authenticated %}
+                <form
+                    class="community-form"
+                    method="post"
+                    action="{% url 'create_event_post' event.pk %}"
+                >
+                    {% csrf_token %}
+                    <label for="new-post-body">Start a discussion</label>
+                    <textarea
+                        id="new-post-body"
+                        name="body"
+                        rows="4"
+                        maxlength="5000"
+                        required
+                        placeholder="Share your thoughts about this event..."
+                    ></textarea>
+
+                    <div class="community-actions">
+                        <button class="community-button" type="submit">
+                            Publish Post
+                        </button>
+                    </div>
+                </form>
+            {% else %}
+                <p>
+                    <a href="{% url 'login' %}?next={{ request.path|urlencode }}">
+                        Log in
+                    </a>
+                    to publish a post or reply.
+                </p>
+            {% endif %}
+        {% else %}
+            <p class="muted">
+                This event has ended. Existing posts and replies remain
+                available to read, but new posts and replies are disabled.
+            </p>
+        {% endif %}
+
+        <div class="discussion-list">
+            {% for post in posts %}
+                <article class="discussion-post">
+                    <h3>{{ post.author.get_display_name }}</h3>
+
+                    <p class="muted">
+                        Posted {{ post.created_at|date:"M j, Y, g:i A" }}
+                        {% if post.updated_at != post.created_at %}
+                            · Edited
+                        {% endif %}
+                    </p>
+
+                    <div class="post-body">{{ post.body }}</div>
+
+                    <h4>Replies ({{ post.replies.count }})</h4>
+
+                    {% for reply in post.replies.all %}
+                        <div class="reply">
+                            <strong>{{ reply.author.get_display_name }}</strong>
+                            <p class="muted">
+                                {{ reply.created_at|date:"M j, Y, g:i A" }}
+                            </p>
+                            <div class="reply-body">{{ reply.body }}</div>
+                        </div>
+                    {% empty %}
+                        <p class="empty-message">No replies yet.</p>
+                    {% endfor %}
+
+                    {% if can_interact and user.is_authenticated %}
+                        <details class="reply-form">
+                            <summary>Write a reply</summary>
+
+                            <form
+                                class="community-form"
+                                method="post"
+                                action="{% url 'create_event_reply' post.pk %}"
+                            >
+                                {% csrf_token %}
+                                <label for="reply-{{ post.pk }}">
+                                    Your reply
+                                </label>
+                                <textarea
+                                    id="reply-{{ post.pk }}"
+                                    name="body"
+                                    rows="3"
+                                    maxlength="3000"
+                                    required
+                                    placeholder="Write a reply..."
+                                ></textarea>
+
+                                <div class="community-actions">
+                                    <button class="community-button" type="submit">
+                                        Submit Reply
+                                    </button>
+                                </div>
+                            </form>
+                        </details>
+                    {% endif %}
+                </article>
+            {% empty %}
+                <p class="empty-message">
+                    No discussion posts yet. Start the conversation!
+                </p>
+            {% endfor %}
+        </div>
+    </section>
+</body>
+</html>

@@ -1,20 +1,321 @@
+
 {% extends "accounts/base.html" %}
 {% load static %}
 
 {% block title %}Account settings{% endblock %}
 
 {% block content %}
+<style>
+  .settings-page {
+    max-width: 720px;
+    margin: 0 auto;
+    padding-bottom: 2rem;
+  }
+
+  .settings-intro {
+    margin-bottom: 1.5rem;
+    color: #5b6862;
+    line-height: 1.6;
+  }
+
+  .settings-section {
+    margin-bottom: 1.25rem;
+    padding: 1.5rem;
+    background: #fff;
+    border: 1px solid #d9e1da;
+    border-radius: 12px;
+  }
+
+  .settings-section h2 {
+    margin: 0 0 0.4rem;
+    font-size: 1.15rem;
+  }
+
+  .section-description {
+    margin: 0 0 1.25rem;
+    color: #68756d;
+    font-size: 0.92rem;
+    line-height: 1.5;
+  }
+
+  .settings-field {
+    margin-bottom: 1.25rem;
+  }
+
+  .settings-field:last-child {
+    margin-bottom: 0;
+  }
+
+  .settings-field > label,
+  .field-label {
+    display: block;
+    margin-bottom: 0.4rem;
+    font-weight: 600;
+  }
+
+  .settings-field input:not([type="checkbox"]):not([type="file"]),
+  .settings-field textarea,
+  .settings-field select {
+    box-sizing: border-box;
+    width: 100%;
+    padding: 0.7rem 0.8rem;
+    border: 1px solid #bdc9c0;
+    border-radius: 7px;
+    font: inherit;
+  }
+
+  .settings-field input[type="file"] {
+    display: block;
+    max-width: 100%;
+    margin-top: 0.5rem;
+  }
+
+  .settings-field textarea {
+    min-height: 100px;
+    resize: vertical;
+  }
+
+  .helptext {
+    margin: 0.4rem 0 0;
+    color: #68756d;
+    font-size: 0.875rem;
+    line-height: 1.5;
+  }
+
+  .field-errors {
+    margin: 0.4rem 0 0;
+    color: #a12626;
+    font-size: 0.9rem;
+  }
+
+  .profile-preview {
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+    margin-bottom: 1.25rem;
+  }
+
+  .profile-photo-preview {
+    display: block;
+    width: 84px;
+    height: 84px;
+    flex-shrink: 0;
+    border-radius: 50%;
+    object-fit: cover;
+    border: 1px solid #d9e1da;
+  }
+
+  .profile-photo-preview[hidden] {
+    display: none;
+  }
+
+  .privacy-option,
+  .contact-option {
+    display: flex;
+    align-items: flex-start;
+    gap: 0.75rem;
+  }
+
+  .privacy-option input,
+  .contact-option input {
+    margin-top: 0.3rem;
+    flex-shrink: 0;
+  }
+
+  .option-title {
+    display: block;
+    font-weight: 600;
+    line-height: 1.5;
+  }
+
+  .option-description {
+    display: block;
+    margin: 0.25rem 0 0;
+    color: #68756d;
+    font-size: 0.9rem;
+    line-height: 1.5;
+    font-weight: 400;
+  }
+
+  .settings-actions {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 0.75rem;
+    margin-top: 1.5rem;
+  }
+
+  .settings-actions .button {
+    min-width: 120px;
+    text-align: center;
+  }
+
+  @media (max-width: 480px) {
+    .settings-section {
+      padding: 1rem;
+    }
+
+    .settings-actions {
+      flex-direction: column;
+      align-items: stretch;
+    }
+  }
+</style>
+
+<div class="settings-page">
   <h1>Account settings</h1>
-  <p>Choose how you introduce yourself. All profile fields are optional.</p>
-  <img id="profile-photo-preview" class="profile-photo"{% if form.initial.profile_photo %} src="{{ form.initial.profile_photo.url }}"{% else %} hidden{% endif %} alt="Your current profile photo" width="96" height="96">
-  <p id="profile-photo-preview-status" class="helptext" role="status" hidden></p>
+
+  <p class="settings-intro">
+    Manage your profile, choose what other attendees can see,
+    and control how people can contact you.
+  </p>
+
   <form method="post" enctype="multipart/form-data">
     {% csrf_token %}
-    {{ form }}
-    <div class="actions">
-      <button type="submit" class="button primary">Save changes</button>
-      <a class="button" href="{% url 'landing' %}">Cancel</a>
+
+    <section class="settings-section">
+      <h2>Personal profile</h2>
+
+      <div class="profile-preview">
+        <img
+          id="profile-photo-preview"
+          class="profile-photo profile-photo-preview"
+          {% if form.initial.profile_photo %}
+            src="{{ form.initial.profile_photo.url }}"
+          {% else %}
+            hidden
+          {% endif %}
+          alt="Your current profile photo"
+          width="96"
+          height="96"
+        >
+
+      </div>
+
+      <p
+        id="profile-photo-preview-status"
+        class="helptext"
+        role="status"
+        hidden
+      ></p>
+
+      {% for field in form %}
+        {% if field.name == "display_name" or field.name == "profile_photo" or field.name == "bio" or field.name == "pronouns" %}
+          <div class="settings-field">
+            <label for="{{ field.id_for_label }}">
+              {{ field.label }}
+            </label>
+
+            {{ field }}
+
+            {% if field.name != "profile_photo" and field.help_text %}
+              <p class="helptext">{{ field.help_text }}</p>
+            {% endif %}
+
+            {% if field.name == "profile_photo" and field.help_text %}
+              <p class="helptext">{{ field.help_text }}</p>
+            {% endif %}
+
+            {% if field.errors %}
+              <div class="field-errors">{{ field.errors }}</div>
+            {% endif %}
+          </div>
+        {% endif %}
+      {% endfor %}
+    </section>
+
+    <section class="settings-section">
+      <h2>Profile visibility</h2>
+
+      <p class="section-description">
+        You control whether other people interested in the same event
+        can see your profile.
+      </p>
+
+      <div class="settings-field">
+        <label
+          class="privacy-option"
+          for="{{ form.share_profile_with_attendees.id_for_label }}"
+        >
+          {{ form.share_profile_with_attendees }}
+
+          <span>
+            <span class="option-title">
+              Share my profile with other event attendees
+            </span>
+
+            <span class="option-description">
+              When enabled, people interested in the same event can see
+              your display name, profile photo, bio, and pronouns.
+            </span>
+          </span>
+        </label>
+
+        {% if form.share_profile_with_attendees.errors %}
+          <div class="field-errors">
+            {{ form.share_profile_with_attendees.errors }}
+          </div>
+        {% endif %}
+      </div>
+    </section>
+
+    <section class="settings-section">
+      <h2>Contact preferences</h2>
+
+      <p class="section-description">
+        Choose whether people can contact you directly or need your
+        approval first.
+      </p>
+
+      <div class="settings-field">
+        <label
+          class="contact-option"
+          for="{{ form.allow_direct_contact.id_for_label }}"
+        >
+          {{ form.allow_direct_contact }}
+
+          <span>
+            <span class="option-title">
+              Allow anyone to contact me directly
+            </span>
+
+            <span class="option-description">
+              {% if form.allow_direct_contact.value %}
+                Other users can contact you directly without prior approval.
+              {% else %}
+                Other users must send a contact request, which you can
+                approve or decline before communication begins.
+              {% endif %}
+            </span>
+          </span>
+        </label>
+
+        {% if form.allow_direct_contact.errors %}
+          <div class="field-errors">
+            {{ form.allow_direct_contact.errors }}
+          </div>
+        {% endif %}
+      </div>
+    </section>
+
+    {% if form.non_field_errors %}
+      <div class="field-errors">{{ form.non_field_errors }}</div>
+    {% endif %}
+
+    <div class="settings-actions">
+      <button type="submit" class="button primary">
+        Save changes
+      </button>
+
+      <a class="button" href="{% url 'landing' %}">
+        Cancel
+      </a>
     </div>
   </form>
-  <script src="{% static 'accounts/profile-photo-preview.js' %}" defer></script>
+</div>
+
+<script
+  src="{% static 'accounts/profile-photo-preview.js' %}"
+  defer
+></script>
 {% endblock %}

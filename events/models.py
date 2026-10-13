@@ -62,3 +62,124 @@ class Event(models.Model):
     def __str__(self):
         """Return the event title for admin listings and debug output."""
         return self.title
+
+
+class EventInterest(models.Model):
+    """Record that a user is interested in an event."""
+
+    event = models.ForeignKey(
+        Event,
+        on_delete=models.CASCADE,
+        related_name="interests",
+    )
+    user = models.ForeignKey(
+        "accounts.User",
+        on_delete=models.CASCADE,
+        related_name="event_interests",
+    )
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ["-created_at"]
+        constraints = [
+            models.UniqueConstraint(
+                fields=["event", "user"],
+                name="unique_event_interest",
+            ),
+        ]
+
+    def __str__(self):
+        return f"{self.user} interested in {self.event}"
+
+
+class ContactRequest(models.Model):
+    """A request to contact another user through a shared event."""
+
+    class Status(models.TextChoices):
+        PENDING = "pending", "Pending"
+        ACCEPTED = "accepted", "Accepted"
+        DECLINED = "declined", "Declined"
+
+    event = models.ForeignKey(
+        Event,
+        on_delete=models.CASCADE,
+        related_name="contact_requests",
+    )
+    sender = models.ForeignKey(
+        "accounts.User",
+        on_delete=models.CASCADE,
+        related_name="sent_contact_requests",
+    )
+    recipient = models.ForeignKey(
+        "accounts.User",
+        on_delete=models.CASCADE,
+        related_name="received_contact_requests",
+    )
+    message = models.CharField(max_length=500, blank=True)
+    status = models.CharField(
+        max_length=10,
+        choices=Status.choices,
+        default=Status.PENDING,
+    )
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        ordering = ["-created_at"]
+        constraints = [
+            models.CheckConstraint(
+                condition=~models.Q(sender=models.F("recipient")),
+                name="contact_request_not_self",
+            ),
+        ]
+
+    def __str__(self):
+        return f"{self.sender} → {self.recipient} ({self.status})"
+
+
+class EventPost(models.Model):
+    """A discussion post associated with an event."""
+
+    event = models.ForeignKey(
+        Event,
+        on_delete=models.CASCADE,
+        related_name="discussion_posts",
+    )
+    author = models.ForeignKey(
+        "accounts.User",
+        on_delete=models.CASCADE,
+        related_name="event_posts",
+    )
+    body = models.TextField(max_length=5000)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        ordering = ["-created_at"]
+
+    def __str__(self):
+        return f"Post by {self.author} on {self.event}"
+
+
+class EventReply(models.Model):
+    """A reply to a discussion post."""
+
+    post = models.ForeignKey(
+        EventPost,
+        on_delete=models.CASCADE,
+        related_name="replies",
+    )
+    author = models.ForeignKey(
+        "accounts.User",
+        on_delete=models.CASCADE,
+        related_name="event_replies",
+    )
+    body = models.TextField(max_length=3000)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        ordering = ["created_at"]
+
+    def __str__(self):
+        return f"Reply by {self.author} on post {self.post_id}"

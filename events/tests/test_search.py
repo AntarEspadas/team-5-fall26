@@ -225,7 +225,7 @@ class SearchViewTests(TestCase):
         response = self.client.get(reverse("search"), {"q": "yoga"})
 
         self.assertContains(
-            response, f'<a class="event" href="/events/{self.yoga.pk}">'
+            response, f'<a class="event" href="/events/{self.yoga.pk}/">'
         )
         self.assertContains(response, "Jan 15")
         self.assertContains(response, "9:00 AM")
@@ -236,7 +236,11 @@ class SearchViewTests(TestCase):
         self.assertContains(response, 'src="https://example.org/yoga.png"')
         self.assertNotContains(response, f'href="{self.yoga.event_url}"')
         self.assertNotContains(response, f'href="{self.yoga.registration_url}"')
-        self.assertEqual(self.client.get(f"/events/{self.yoga.pk}").status_code, 404)
+        self.assertRedirects(
+            self.client.get(f"/events/{self.yoga.pk}"),
+            f"/events/{self.yoga.pk}/",
+            status_code=301,
+        )
 
     def test_undated_cards_use_park_names_and_placeholder_images(self):
         """Optional event fields have the same fallbacks as landing cards."""
