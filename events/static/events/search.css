@@ -27,6 +27,64 @@
     outline-offset: 2px;
 }
 
+.filter-bar {
+    display: grid;
+    gap: 0.75rem;
+    margin-top: 0.75rem;
+    padding: 0.9rem 1rem;
+    background: var(--surface);
+    border: 1px solid var(--line);
+    border-radius: 14px;
+}
+.filter-group { margin: 0; padding: 0; border: none; min-width: 0; }
+.filter-group legend { margin-bottom: 0.4rem; padding: 0; font-weight: 600; font-size: 0.9rem; }
+.event-search .filter-dates label { display: inline; margin: 0; font-weight: 400; }
+.filter-presets, .filter-dates, .filter-chips, .filter-actions {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 0.5rem;
+}
+.filter-dates { margin-top: 0.5rem; }
+.filter-dates input {
+    padding: 0.35rem 0.5rem;
+    border: 1px solid var(--line);
+    border-radius: 8px;
+    font: inherit;
+    color: var(--ink);
+    background: var(--surface);
+}
+.filter-preset, .event-search .filter-chip {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.35rem;
+    margin: 0;
+    padding: 0.3rem 0.75rem;
+    border: 1px solid var(--line);
+    border-radius: 999px;
+    font: inherit;
+    font-size: 0.9rem;
+    font-weight: 400;
+    color: var(--ink);
+    background: var(--canvas);
+    cursor: pointer;
+}
+.filter-preset:hover, .filter-chip:hover { border-color: var(--leaf); }
+.filter-chip input { margin: 0; accent-color: var(--leaf); }
+.filter-chip:has(input:checked) { border-color: var(--leaf); background: #e3f0e8; }
+.filter-apply {
+    padding: 0.5rem 1rem;
+    border: none;
+    border-radius: 8px;
+    font: inherit;
+    font-weight: 600;
+    color: #fff;
+    background: var(--leaf);
+    cursor: pointer;
+}
+.filter-apply:hover { background: var(--leaf-dark); }
+.filter-bar .errorlist { margin: 0.4rem 0 0; padding: 0; list-style: none; color: #b42318; font-size: 0.9rem; }
+
 .search-page {
     --ink: #17211c;
     --muted: #5b6862;

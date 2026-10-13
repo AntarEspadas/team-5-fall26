@@ -1,8 +1,13 @@
 """Views for the landing page and public event search."""
 
+from urllib.parse import quote, urlencode
+
 from django.db.models import F
+from django.http import QueryDict
+from django.urls import reverse
 from django.views.generic import ListView, TemplateView
 
+from .filters import EventFilterForm, filter_events, filter_params
 from .models import Event
 from .search import search_events
 
@@ -20,8 +25,9 @@ class LandingView(TemplateView):
     template_name = "events/landing.html"
 
     def get_context_data(self, **kwargs):
-        """Add upcoming events, soonest first, to the template context."""
+        """Add upcoming events, soonest first, and an empty filter bar."""
         context = super().get_context_data(**kwargs)
+        context["filter_form"] = EventFilterForm()
         context["events"] = []
         if self.request.user.is_authenticated:
             context["events"] = Event.objects.filter(
@@ -33,23 +39,53 @@ class LandingView(TemplateView):
 
 
 class SearchView(ListView):
-    """Let any visitor search upcoming events using PostgreSQL full-text search."""
+    """Let any visitor search and filter upcoming events.
+
+    A search term ranks results by relevance; filters alone list matching
+    events soonest first. Without either, the page asks for input instead of
+    listing every event.
+    """
 
     template_name = "events/search.html"
     context_object_name = "events"
     paginate_by = SEARCH_PAGE_SIZE
 
     def get_queryset(self):
-        """Return ranked matches, or an empty queryset until a term is supplied."""
+        """Return upcoming events matching the search term and every filter."""
         self.query = self.request.GET.get("q", "").strip()
-        if not self.query:
+        form = EventFilterForm(self.request.GET)
+        form.is_valid()
+        filters = form.cleaned_data
+        self.filter_params = filter_params(filters)
+        if form.errors:
+            self.filter_form = form
+        else:
+            self.filter_form = EventFilterForm(QueryDict(urlencode(self.filter_params)))
+        events = filter_events(
+            Event.objects.filter(status=Event.Status.UPCOMING), filters
+        )
+        if self.query:
+            return search_events(events, self.query)
+        if not self.filter_params:
             return Event.objects.none()
-        return search_events(
-            Event.objects.filter(status=Event.Status.UPCOMING), self.query
+        return events.order_by(
+            F("start_time").asc(nulls_last=True), "end_time", "title", "pk"
         )
 
     def get_context_data(self, **kwargs):
-        """Keep the search term available for the form and pagination links."""
+        """Keep the search term and filters for the form and pagination links."""
         context = super().get_context_data(**kwargs)
+        search_params = [("q", self.query)] if self.query else []
         context["query"] = self.query
+        context["filter_form"] = self.filter_form
+        context["has_filters"] = bool(self.filter_params)
+        context["page_query"] = urlencode(
+            search_params + self.filter_params, quote_via=quote
+        )
+        if self.query:
+            context["clear_filters_url"] = "?" + urlencode(
+                search_params, quote_via=quote
+            )
+        else:
+            context["clear_filters_url"] = reverse("landing")
         return context

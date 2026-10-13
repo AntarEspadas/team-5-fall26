@@ -66,6 +66,19 @@ automatically maintains the index when events are imported or edited; no
 separate indexing command is needed. Result cards link to `/events/{id}`;
 event detail pages are a future feature and currently return 404.
 
+## Event filters
+
+A filter bar under the search box narrows results by date, borough, and
+category, with or without a search term. Different filters must all match;
+choosing several boroughs or categories matches any of them. Dates use New
+York time, and an event matches a date range when it overlaps it. The
+**Today**, **This weekend**, and **This month** buttons fill in the dates.
+
+Boroughs come from the first letter of an event's NYC Parks property ID, so
+events without one, such as those at community gardens or libraries, don't
+appear when a borough is selected. Categories are groups of the feed's own
+category names, defined in `events/filters.py`.
+
 ## Cron job (hourly sync)
 
 The sync is **not automatic yet** — register it once per machine:

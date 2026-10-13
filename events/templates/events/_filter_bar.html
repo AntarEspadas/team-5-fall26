@@ -1,0 +1,38 @@
+<div class="filter-bar" role="group" aria-label="Filter events">
+    <fieldset class="filter-group">
+        <legend>When</legend>
+        <div class="filter-presets">
+            {% for value, label in form.fields.when.choices %}
+            <button type="submit" class="filter-preset" name="when" value="{{ value }}">{{ label }}</button>
+            {% endfor %}
+        </div>
+        <div class="filter-dates">
+            <label for="{{ form.date_from.id_for_label }}">{{ form.date_from.label }}</label>
+            {{ form.date_from }}
+            <label for="{{ form.date_to.id_for_label }}">{{ form.date_to.label }}</label>
+            {{ form.date_to }}
+        </div>
+        {{ form.date_from.errors }}
+        {{ form.date_to.errors }}
+    </fieldset>
+    <fieldset class="filter-group">
+        <legend>Borough</legend>
+        <div class="filter-chips">
+            {% for option in form.borough %}
+            <label class="filter-chip" for="{{ option.id_for_label }}">{{ option.tag }} {{ option.choice_label }}</label>
+            {% endfor %}
+        </div>
+    </fieldset>
+    <fieldset class="filter-group">
+        <legend>Category</legend>
+        <div class="filter-chips">
+            {% for option in form.category %}
+            <label class="filter-chip" for="{{ option.id_for_label }}">{{ option.tag }} {{ option.choice_label }}</label>
+            {% endfor %}
+        </div>
+    </fieldset>
+    <div class="filter-actions">
+        <button type="submit" class="filter-apply">Apply filters</button>
+        {% if has_filters %}<a class="filter-clear" href="{{ clear_filters_url }}">Clear filters</a>{% endif %}
+    </div>
+</div>
