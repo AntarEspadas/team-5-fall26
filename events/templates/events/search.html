@@ -4,27 +4,30 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>{% if query %}{{ query }} — {% endif %}Search events</title>
-    <link rel="stylesheet" href="{% static 'events/cards.css' %}">
     <link rel="stylesheet" href="{% static 'events/search.css' %}">
+    <link rel="stylesheet" href="{% static 'events/filters.css' %}">
+    <link rel="stylesheet" href="{% static 'events/cards.css' %}">
 </head>
 <body class="search-page">
-    <header>
-        <a href="{% url 'landing' %}">Back to home</a>
+    <header class="search-header">
+        <a class="search-back" href="{% url 'landing' %}">Back to home</a>
         <h1>Search NYC Parks events</h1>
-        {% include 'events/_search_form.html' %}
     </header>
+    {% include 'events/_search_form.html' %}
     <main>
         {% if query or has_filters %}
-        <h2>{% if query %}Results for “{{ query }}”{% else %}Filtered upcoming events{% endif %}</h2>
+        <h2 class="search-heading">{% if query %}Results for &ldquo;{{ query }}&rdquo;{% else %}Filtered upcoming events{% endif %}</h2>
         {% if events %}
         <p class="result-count">{{ paginator.count }} event{{ paginator.count|pluralize }} found</p>
-        <div class="search-results">
+        <ul class="search-results">
             {% for event in events %}
-            <a class="event" href="{% url 'event_detail' event.pk %}">
-                {% include 'events/_event_card_content.html' with link_to_source=False %}
-            </a>
+            <li>
+                <a class="event" href="{% url 'event_detail' event.pk %}">
+                    {% include 'events/_event_card_content.html' with link_to_source=False %}
+                </a>
+            </li>
             {% endfor %}
-        </div>
+        </ul>
         {% if is_paginated %}
         <nav class="pagination" aria-label="Search result pages">
             {% if page_obj.has_previous %}<a href="?{{ page_query }}&amp;page={{ page_obj.previous_page_number }}">Previous</a>{% endif %}

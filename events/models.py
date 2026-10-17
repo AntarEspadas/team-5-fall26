@@ -63,6 +63,25 @@ class Event(models.Model):
         """Return the event title for admin listings and debug output."""
         return self.title
 
+    @property
+    def primary_category(self):
+        """Return the first category the feed listed, e.g. "Fitness".
+
+        The sync stores every category in one pipe-separated string, while a
+        card tag only has room for the first name.
+        """
+        return self.categories.split("|")[0].strip()
+
+    @property
+    def is_cancelled(self):
+        """Return whether the feed marks this event as cancelled.
+
+        ``status`` only records the sync lifecycle (upcoming or done), so the
+        feed's own title prefix is the cancellation signal we have. The feed
+        spells that prefix both "CANCELLED" and "CANCELED".
+        """
+        return self.title.lstrip().upper().startswith(("CANCELLED", "CANCELED"))
+
 
 class EventInterest(models.Model):
     """Record that a user is interested in an event."""

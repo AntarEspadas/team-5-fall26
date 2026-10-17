@@ -2,7 +2,7 @@
 {% load static tz %}
 
 {% if link_to_source %}
-<a class="event-detail-link" href="{% url 'event_detail' event.pk %}">
+<a class="event-detail-link" href="{% url 'event_detail' event.pk %}" tabindex="-1" aria-hidden="true">
 {% endif %}
 <img class="event-thumb"
      data-placeholder="{% static 'events/no-image.svg' %}"
@@ -15,19 +15,24 @@
 {% endif %}
 
 <div class="event-body">
+    {% if event.primary_category %}
+    <p class="event-tag" title="{{ event.categories }}">{{ event.primary_category }}</p>
+    {% endif %}
+
     {% timezone "America/New_York" %}
     <p class="event-when">
+        <span class="event-date">
+            {% if event.start_time %}{{ event.start_time|date:"D, M j" }}{% else %}Date to be announced{% endif %}
+        </span>
         {% if event.start_time %}
-            {{ event.start_time|date:"D, M j" }} ·
-            {{ event.start_time|date:"g:i A" }}
-            {% if event.end_time %}–{{ event.end_time|date:"g:i A" }}{% endif %}
-        {% else %}
-            Date to be announced
+        <span class="event-time">
+            {{ event.start_time|date:"g:i A" }}{% if event.end_time %} &ndash; {{ event.end_time|date:"g:i A" }}{% endif %}
+        </span>
         {% endif %}
     </p>
     {% endtimezone %}
 
-    <h3>
+    <h3 class="event-title">
         {% if link_to_source %}
         <a href="{% url 'event_detail' event.pk %}">{{ event.title }}</a>
         {% else %}
@@ -41,18 +46,18 @@
     <p class="event-where">{{ event.park_names }}</p>
     {% endif %}
 
-    {% if event.categories %}
-    <p class="event-categories">{{ event.categories }}</p>
-    {% endif %}
-
     {% if event.description %}
     <p class="event-description">{{ event.description|truncatewords:25 }}</p>
     {% endif %}
 
-    {% if link_to_source and event.registration_url %}
-    <a class="register"
-       href="{{ event.registration_url }}"
-       target="_blank"
-       rel="noopener noreferrer">Register</a>
+    {% if link_to_source %}
+        {% if event.is_cancelled %}
+        <span class="register is-cancelled" aria-disabled="true">Cancelled</span>
+        {% elif event.registration_url %}
+        <a class="register"
+           href="{{ event.registration_url }}"
+           target="_blank"
+           rel="noopener noreferrer">Register</a>
+        {% endif %}
     {% endif %}
 </div>

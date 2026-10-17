@@ -1,0 +1,75 @@
+{% load static %}
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>NYC Parks Events</title>
+    <link rel="stylesheet" href="{% static 'events/search.css' %}">
+    <link rel="stylesheet" href="{% static 'events/filters.css' %}">
+    <link rel="stylesheet" href="{% static 'events/cards.css' %}">
+    <link rel="stylesheet" href="{% static 'events/home.css' %}">
+</head>
+<body class="home-page">
+    <header class="topbar">
+        <div class="topbar-inner">
+            <a class="brand" href="{% url 'landing' %}">NYC Parks <span>Events</span></a>
+            {% if user.is_authenticated %}
+            <nav class="topbar-nav" aria-label="Account">
+                <a class="nav-link" href="{% url 'account_settings' %}">Account settings</a>
+                <span class="nav-user">{{ user.display_name|default:user.username }}</span>
+                <form method="post" action="{% url 'logout' %}">
+                    {% csrf_token %}
+                    <button type="submit" class="btn-ghost">Log out</button>
+                </form>
+            </nav>
+            {% else %}
+            <nav class="topbar-nav" aria-label="Account">
+                <a class="nav-link" href="{% url 'login' %}">Log in</a>
+            </nav>
+            {% endif %}
+        </div>
+    </header>
+
+    <main class="shell">
+        <h1 class="headline">
+            {% if user.is_authenticated %}What's happening in your parks, {{ user.display_name|default:user.username }}?{% else %}What's happening in your parks?{% endif %}
+        </h1>
+
+        {% include 'events/_search_form.html' %}
+
+        {% if user.is_authenticated %}
+        <section class="events-section" aria-labelledby="events-heading">
+            <div class="section-head">
+                <h2 id="events-heading">Upcoming events</h2>
+                {% if events %}
+                <span class="count-pill">{{ events|length }} event{{ events|length|pluralize }}</span>
+                {% endif %}
+            </div>
+
+            {% if events %}
+            <ul class="event-grid">
+                {% for event in events %}
+                <li class="event">
+                    {% include 'events/_event_card_content.html' with link_to_source=True %}
+                </li>
+                {% endfor %}
+            </ul>
+            {% else %}
+            <p class="empty-state">No upcoming events yet. Check back after the next sync.</p>
+            {% endif %}
+        </section>
+
+        <section class="plans-section" aria-labelledby="plans-heading">
+            <div class="section-head">
+                <h2 id="plans-heading">Personal plans</h2>
+            </div>
+            <p class="plans-card">Plan placeholder: Gym every Monday &amp; Wednesday</p>
+        </section>
+        {% else %}
+        <p class="empty-state">Please log in to view your saved events and plans.</p>
+        <p><a class="btn-primary" href="{% url 'login' %}">Go to Login</a></p>
+        {% endif %}
+    </main>
+</body>
+</html>

@@ -104,7 +104,7 @@ class LandingView(TemplateView):
     behaviour the accounts tests expect, but no event list.
     """
 
-    template_name = "events/landing.html"
+    template_name = "events/home.html"
 
     def get_context_data(self, **kwargs):
         """Add upcoming events, soonest first, and an empty filter bar."""
