@@ -74,10 +74,20 @@ choosing several boroughs or categories matches any of them. Dates use New
 York time, and an event matches a date range when it overlaps it. The
 **Today**, **This weekend**, and **This month** buttons fill in the dates.
 
-Boroughs come from the first letter of an event's NYC Parks property ID, so
-events without one, such as those at community gardens or libraries, don't
-appear when a borough is selected. Categories are groups of the feed's own
-category names, defined in `events/filters.py`.
+For feed events, boroughs come from the first letter of the NYC Parks
+property ID, so feed events without one, such as those at community gardens
+or libraries, don't appear when a borough is selected. Categories are groups
+of the feed's own category names, defined in `events/filters.py`.
+
+## Posting events
+
+Signed-in users can post their own events at `/events/new/`, linked as
+**Post an event** on the home page. Hosts choose a borough and categories from
+the same lists as the filter bar, so their events appear in search, filters,
+and the home page like NYC Parks events. Times are entered in New York time.
+
+The hourly sync never edits hosted events. It marks them done once they end,
+or after the day they start if they have no end time.
 
 ## Cron job (hourly sync)
 

@@ -1,19 +1,43 @@
-"""Views for the landing page and public event search."""
+"""Views for the landing page, public event search, and posting events."""
 
 from urllib.parse import quote, urlencode
+from uuid import uuid4
 
+from django.contrib import messages
 from django.contrib.auth import get_user_model
+from django.contrib.auth.mixins import LoginRequiredMixin
 from django.db.models import F
 from django.http import QueryDict
 from django.urls import reverse
-from django.views.generic import DetailView, ListView, TemplateView
+from django.views.generic import CreateView, DetailView, ListView, TemplateView
 
 from .filters import EventFilterForm, filter_events, filter_params
+from .forms import EventListingForm
 from .models import ContactRequest, Event, EventInterest, EventPost
 from .search import search_events
 
 UPCOMING_EVENT_LIMIT = 20
 SEARCH_PAGE_SIZE = 20
+
+
+class EventCreateView(LoginRequiredMixin, CreateView):
+    """Let a signed-in user post an event that everyone can discover."""
+
+    model = Event
+    form_class = EventListingForm
+    template_name = "events/event_form.html"
+
+    def form_valid(self, form):
+        """Make the current user the host and give the event its own ID."""
+        form.instance.host = self.request.user
+        form.instance.guid = Event.HOSTED_GUID_PREFIX + uuid4().hex
+        response = super().form_valid(form)
+        messages.success(self.request, "Your event is posted.")
+        return response
+
+    def get_success_url(self):
+        """Show the new event's detail page."""
+        return reverse("event_detail", args=[self.object.pk])
 
 
 class EventDetailView(DetailView):

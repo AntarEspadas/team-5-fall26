@@ -173,6 +173,10 @@
     </p>
 
     <main class="detail-card">
+        {% for message in messages %}
+            <p class="status-message" role="status">{{ message }}</p>
+        {% endfor %}
+
         <img
             class="detail-image"
             src="{% if event.image_url %}{{ event.image_url }}{% else %}{% static 'events/no-image.svg' %}{% endif %}"
@@ -182,6 +186,10 @@
         >
 
         <h1>{{ event.title }}</h1>
+
+        {% if event.host %}
+            <p class="detail-meta">Hosted by <strong>{{ event.host.get_display_name }}</strong></p>
+        {% endif %}
 
         <h2>Event details</h2>
 
@@ -208,6 +216,7 @@
                 {% else %}
                     {{ event.park_names }}
                 {% endif %}
+                {% if event.borough %}({{ event.get_borough_display }}){% endif %}
             </p>
         {% endif %}
 
