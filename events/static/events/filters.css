@@ -1,0 +1,261 @@
+/* Filter bar: quick date presets, then a disclosure holding every other
+ * filter. The disclosure is a native <details>, so the page needs no script
+ * and a date validation error can open it with the `open` attribute.
+ */
+
+.filter-bar {
+    margin-top: 12px;
+    padding: 14px;
+    background: var(--surface);
+    border: 1px solid var(--line);
+    border-radius: var(--radius-card);
+    box-shadow: 0 1px 2px rgba(22, 36, 27, 0.05);
+}
+
+.filter-row {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    justify-content: space-between;
+    gap: 8px 16px;
+}
+
+.filter-presets {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+}
+
+.filter-preset,
+.filter-clear-all,
+.filter-clear {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-height: var(--touch);
+    padding: 0 16px;
+    border: 1px solid var(--line);
+    border-radius: var(--radius-pill);
+    background: var(--chip);
+    color: var(--ink);
+    font: inherit;
+    font-size: 0.95rem;
+    text-decoration: none;
+    cursor: pointer;
+}
+
+.filter-preset:hover,
+.filter-clear:hover,
+.filter-clear-all:hover {
+    border-color: var(--leaf);
+}
+
+.filter-clear,
+.filter-clear-all {
+    background: transparent;
+    color: var(--leaf);
+    font-weight: 600;
+}
+
+/* ---------- Disclosure ---------- */
+
+.filter-panel {
+    margin-top: 12px;
+    border-top: 1px solid var(--line);
+    padding-top: 4px;
+}
+
+.filter-toggle {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    width: 100%;
+    min-height: var(--touch);
+    padding: 0 4px;
+    border: 0;
+    background: none;
+    color: var(--ink);
+    font: inherit;
+    font-weight: 600;
+    text-align: left;
+    cursor: pointer;
+    list-style: none;
+}
+
+.filter-toggle::-webkit-details-marker {
+    display: none;
+}
+
+.filter-toggle::marker {
+    content: "";
+}
+
+.filter-toggle::after {
+    content: "";
+    width: 8px;
+    height: 8px;
+    margin-left: auto;
+    border-right: 2px solid var(--muted);
+    border-bottom: 2px solid var(--muted);
+    transform: rotate(45deg) translate(-3px, -3px);
+    transition: transform 0.15s ease;
+}
+
+.filter-panel[open] .filter-toggle::after {
+    transform: rotate(225deg) translate(-1px, -1px);
+}
+
+.filter-count {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-width: 24px;
+    height: 24px;
+    padding: 0 7px;
+    border-radius: var(--radius-pill);
+    background: var(--leaf);
+    color: #fff;
+    font-size: 0.8rem;
+    font-weight: 700;
+}
+
+/* ---------- Filter groups ---------- */
+
+.filter-groups {
+    display: grid;
+    gap: 18px;
+    padding: 14px 4px 4px;
+}
+
+.filter-group {
+    margin: 0;
+    padding: 0;
+    border: 0;
+    min-width: 0;
+}
+
+.filter-group legend {
+    margin-bottom: 8px;
+    padding: 0;
+    font-size: 0.95rem;
+    font-weight: 600;
+}
+
+.filter-dates {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 8px 16px;
+}
+
+.filter-dates label {
+    font-size: 0.95rem;
+}
+
+.filter-dates input {
+    min-height: var(--touch);
+    padding: 0 12px;
+    border: 1px solid var(--line);
+    border-radius: 12px;
+    background: var(--surface);
+    font: inherit;
+    color: var(--ink);
+}
+
+.filter-chips {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+}
+
+.filter-chip {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    min-height: var(--touch);
+    padding: 0 14px;
+    border: 1px solid var(--line);
+    border-radius: var(--radius-pill);
+    background: var(--chip);
+    color: var(--ink);
+    font-size: 0.95rem;
+    cursor: pointer;
+    transition: border-color 0.15s ease, background 0.15s ease;
+}
+
+.filter-chip:hover {
+    border-color: var(--leaf);
+}
+
+.filter-chip:has(input:checked) {
+    border-color: var(--leaf);
+    background: #dcebe2;
+    font-weight: 600;
+}
+
+.filter-chip:has(input:focus-visible) {
+    outline: 3px solid var(--focus);
+    outline-offset: 2px;
+}
+
+.filter-chip input {
+    width: 18px;
+    height: 18px;
+    margin: 0;
+    accent-color: var(--leaf);
+}
+
+.filter-actions {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 10px;
+}
+
+.filter-apply {
+    min-height: var(--touch);
+    padding: 0 22px;
+    border: 0;
+    border-radius: var(--radius-pill);
+    background: var(--leaf);
+    color: #fff;
+    font: inherit;
+    font-weight: 600;
+    cursor: pointer;
+    transition: background 0.15s ease;
+}
+
+.filter-apply:hover {
+    background: var(--leaf-dark);
+}
+
+.filter-groups .errorlist {
+    margin: 8px 0 0;
+    padding: 0;
+    list-style: none;
+    color: var(--error);
+    font-size: 0.9rem;
+    font-weight: 600;
+}
+
+@media (max-width: 560px) {
+    .filter-bar {
+        padding: 12px;
+    }
+
+    .filter-row {
+        justify-content: flex-start;
+    }
+
+    .filter-clear,
+    .filter-clear-all {
+        margin-left: auto;
+    }
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .filter-toggle::after,
+    .filter-chip {
+        transition: none;
+    }
+}

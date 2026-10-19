@@ -1,6 +1,12 @@
 <form class="event-search" role="search" method="get" action="{% url 'search' %}">
-    <label for="event-search">Search events</label>
+    <label class="search-label" for="event-search">Search events</label>
     <div class="search-controls">
+        <span class="search-icon" aria-hidden="true">
+            <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" focusable="false">
+                <circle cx="11" cy="11" r="7"></circle>
+                <path d="m20 20-3.6-3.6"></path>
+            </svg>
+        </span>
         <input id="event-search" type="search" name="q" value="{{ query|default:'' }}" placeholder="Search by activity, park, or location">
         <button type="submit">Search</button>
     </div>

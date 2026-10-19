@@ -126,6 +126,21 @@ class LandingViewTests(TestCase):
 
         self.assertContains(response, "No upcoming events yet.")
 
+    def test_cancelled_events_show_a_label_instead_of_register(self):
+        """A "CANCELLED" title swaps the registration link for a plain label."""
+        cancelled = make_event(
+            "e5",
+            "CANCELLED: Twilight Kayak Tour",
+            start_time=datetime(2099, 1, 17, 19, 0, tzinfo=NYC),
+            registration_url="https://example.org/e5/register",
+        )
+        self.client.login(username="alice", password="pass12345")
+
+        response = self.client.get(reverse("landing"))
+
+        self.assertContains(response, "Cancelled")
+        self.assertNotContains(response, f'href="{cancelled.registration_url}"')
+
     def test_event_list_is_capped(self):
         """Only the first 20 upcoming events are loaded per page view."""
         for index in range(UPCOMING_EVENT_LIMIT + 5):
