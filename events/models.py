@@ -2,7 +2,9 @@
 
 from django.contrib.postgres.indexes import GinIndex
 from django.db import models
+from django.utils import timezone
 
+from .filters import NYC_TIMEZONE, nyc_today
 from .search import event_search_vector
 
 
@@ -95,6 +97,23 @@ class Event(models.Model):
         card tag only has room for the first name.
         """
         return self.categories.split("|")[0].strip()
+
+    @property
+    def has_ended(self):
+        """Return whether the event is over, even before the sync notices.
+
+        Uses the sync's rule: an event ends at its end time, or, without one,
+        once the day it starts has passed in New York.
+        """
+        if self.status == self.Status.DONE:
+            return True
+        if self.end_time:
+            return self.end_time < timezone.now()
+        if self.start_time:
+            return timezone.localtime(self.start_time, NYC_TIMEZONE).date() < (
+                nyc_today()
+            )
+        return False
 
     @property
     def is_cancelled(self):

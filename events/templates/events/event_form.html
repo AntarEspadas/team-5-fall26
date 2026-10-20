@@ -3,16 +3,22 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Post an event | NYC Parks Events</title>
+    <title>{% if object %}Edit {{ object.title }}{% else %}Post an event{% endif %} | NYC Parks Events</title>
     <link rel="stylesheet" href="{% static 'events/search.css' %}">
     <link rel="stylesheet" href="{% static 'events/home.css' %}">
     <link rel="stylesheet" href="{% static 'events/event_form.css' %}">
 </head>
 <body>
     <main class="event-form-page">
+        {% if object %}
+        <a class="search-back" href="{% url 'event_detail' object.pk %}">Back to event</a>
+        <h1>Edit event</h1>
+        <p class="event-form-intro">Update your event's details. Changes show up right away. Times are in New York time.</p>
+        {% else %}
         <a class="search-back" href="{% url 'landing' %}">Back to home</a>
         <h1>Post an event</h1>
         <p class="event-form-intro">Share your event so people can discover it alongside NYC Parks events. Times are in New York time.</p>
+        {% endif %}
 
         <form class="event-form" method="post">
             {% csrf_token %}
@@ -37,8 +43,13 @@
             </div>
             {% endfor %}
             <div class="form-actions">
+                {% if object %}
+                <button type="submit" class="btn-primary">Save changes</button>
+                <a href="{% url 'event_detail' object.pk %}">Cancel</a>
+                {% else %}
                 <button type="submit" class="btn-primary">Post event</button>
                 <a href="{% url 'landing' %}">Cancel</a>
+                {% endif %}
             </div>
         </form>
     </main>

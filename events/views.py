@@ -1,4 +1,4 @@
-"""Views for the landing page, public event search, and posting events."""
+"""Views for the landing page, public event search, and hosted events."""
 
 from urllib.parse import quote, urlencode
 from uuid import uuid4
@@ -7,9 +7,15 @@ from django.contrib import messages
 from django.contrib.auth import get_user_model
 from django.contrib.auth.mixins import LoginRequiredMixin
 from django.db.models import F
-from django.http import QueryDict
+from django.http import Http404, QueryDict
 from django.urls import reverse
-from django.views.generic import CreateView, DetailView, ListView, TemplateView
+from django.views.generic import (
+    CreateView,
+    DetailView,
+    ListView,
+    TemplateView,
+    UpdateView,
+)
 
 from .filters import EventFilterForm, filter_events, filter_params
 from .forms import EventListingForm
@@ -37,6 +43,38 @@ class EventCreateView(LoginRequiredMixin, CreateView):
 
     def get_success_url(self):
         """Show the new event's detail page."""
+        return reverse("event_detail", args=[self.object.pk])
+
+
+class EventUpdateView(LoginRequiredMixin, UpdateView):
+    """Let a host edit their own event until it ends.
+
+    Other users' events, NYC Parks feed events, and events that have ended
+    are reported as not found.
+    """
+
+    form_class = EventListingForm
+    template_name = "events/event_form.html"
+
+    def get_queryset(self):
+        """Limit editing to events the current user hosts."""
+        return Event.objects.filter(host=self.request.user)
+
+    def get_object(self, queryset=None):
+        """Refuse events that are already over."""
+        event = super().get_object(queryset)
+        if event.has_ended:
+            raise Http404("This event has ended and can no longer be edited.")
+        return event
+
+    def form_valid(self, form):
+        """Save the changes and confirm them on the detail page."""
+        response = super().form_valid(form)
+        messages.success(self.request, "Event updated.")
+        return response
+
+    def get_success_url(self):
+        """Show the updated event's detail page."""
         return reverse("event_detail", args=[self.object.pk])
 
 

@@ -86,6 +86,11 @@ Signed-in users can post their own events at `/events/new/`, linked as
 the same lists as the filter bar, so their events appear in search, filters,
 and the home page like NYC Parks events. Times are entered in New York time.
 
+Hosts see an **Edit event** button on their own events' detail pages, at
+`/events/<id>/edit/`. Only the host can edit an event, and only until it ends;
+NYC Parks feed events can't be edited. A start time that was already in the
+past can stay as it is, so hosts can still correct events that are under way.
+
 The hourly sync never edits hosted events. It marks them done once they end,
 or after the day they start if they have no end time.
 

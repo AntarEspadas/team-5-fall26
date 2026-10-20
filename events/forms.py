@@ -30,7 +30,7 @@ class NYCDateTimeField(forms.DateTimeField):
 
 
 class EventListingForm(forms.ModelForm):
-    """Validate the details an event holder fills in to post an event.
+    """Validate the details an event holder fills in to post or edit an event.
 
     Categories are chosen from the same groups as the filter bar and stored
     as their labels, so hosted events show up under those filters.
@@ -74,13 +74,17 @@ class EventListingForm(forms.ModelForm):
         widgets = {"description": forms.Textarea(attrs={"rows": 6})}
 
     def __init__(self, *args, **kwargs):
-        """Require the details every listing needs to be useful."""
+        """Require the details every listing needs, and show saved categories."""
         super().__init__(*args, **kwargs)
         for name in ("description", "location", "borough"):
             self.fields[name].required = True
         self.fields["borough"].choices = [("", "Choose a borough")] + list(
             Event.Borough.choices
         )
+        saved = self.instance.categories.split(CATEGORY_SEPARATOR)
+        self.initial["categories"] = [
+            slug for slug, label in CATEGORY_LABELS.items() if label in saved
+        ]
 
     def clean_categories(self):
         """Store the chosen groups as one string, in the filter bar's order."""
@@ -90,10 +94,14 @@ class EventListingForm(forms.ModelForm):
         )
 
     def clean(self):
-        """Reject events that start in the past or end before they start."""
+        """Reject new start times in the past and events that end too early.
+
+        An unchanged start time is allowed to be in the past, so hosts can
+        still fix the details of an event that is already under way.
+        """
         cleaned = super().clean()
         start, end = cleaned.get("start_time"), cleaned.get("end_time")
-        if start and start <= timezone.now():
+        if start and "start_time" in self.changed_data and start <= timezone.now():
             self.add_error("start_time", "Choose a start time in the future.")
         if start and end and end <= start:
             self.add_error("end_time", "The end time must be after the start time.")

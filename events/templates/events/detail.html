@@ -189,6 +189,9 @@
 
         {% if event.host %}
             <p class="detail-meta">Hosted by <strong>{{ event.host.get_display_name }}</strong></p>
+            {% if user.is_authenticated and event.host_id == user.pk and not event.has_ended %}
+                <p><a class="detail-button" href="{% url 'event_edit' event.pk %}">Edit event</a></p>
+            {% endif %}
         {% endif %}
 
         <h2>Event details</h2>
