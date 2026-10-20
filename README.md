@@ -94,6 +94,19 @@ past can stay as it is, so hosts can still correct events that are under way.
 The hourly sync never edits hosted events. It marks them done once they end,
 or after the day they start if they have no end time.
 
+## Notifications
+
+While an event is upcoming, its host can message everyone who clicked
+**I'm Interested** from the event's detail page. The host sees how many people
+will get it, but not who they are. Each person gets an email and an in-app
+notification. When a host changes an event's date, time, or location,
+interested users are told automatically.
+
+Signed-in users see a **Notifications** link on the home page with their
+unread count. `/notifications/` lists notifications newest first and marks
+them read when opened. In development, emails are printed to the `runserver`
+console instead of being sent.
+
 ## Cron job (hourly sync)
 
 The sync is **not automatic yet** — register it once per machine:

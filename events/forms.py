@@ -108,6 +108,15 @@ class EventListingForm(forms.ModelForm):
         return cleaned
 
 
+class NotifyAttendeesForm(forms.Form):
+    """Validate a host's message to everyone interested in their event."""
+
+    subject = forms.CharField(label="Subject", max_length=200)
+    message = forms.CharField(
+        label="Message", max_length=5000, widget=forms.Textarea(attrs={"rows": 4})
+    )
+
+
 class EventPostForm(forms.ModelForm):
     """Validate a new discussion post."""
 

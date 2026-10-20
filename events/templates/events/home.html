@@ -17,6 +17,9 @@
             {% if user.is_authenticated %}
             <nav class="topbar-nav" aria-label="Account">
                 <a class="nav-link" href="{% url 'event_create' %}">Post an event</a>
+                {% with unread=unread_notification_count %}
+                <a class="nav-link" href="{% url 'notifications' %}">Notifications{% if unread %}&nbsp;<span class="count-pill">{{ unread }} new</span>{% endif %}</a>
+                {% endwith %}
                 <a class="nav-link" href="{% url 'account_settings' %}">Account settings</a>
                 <span class="nav-user">{{ user.display_name|default:user.username }}</span>
                 <form method="post" action="{% url 'logout' %}">

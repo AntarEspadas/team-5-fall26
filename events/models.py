@@ -154,6 +154,35 @@ class EventInterest(models.Model):
         return f"{self.user} interested in {self.event}"
 
 
+class Notification(models.Model):
+    """A message about an event shown in a user's in-app notifications.
+
+    Hosts' messages and automatic notices about event changes create one
+    notification per interested user, alongside the matching email.
+    """
+
+    recipient = models.ForeignKey(
+        "accounts.User",
+        on_delete=models.CASCADE,
+        related_name="notifications",
+    )
+    event = models.ForeignKey(
+        Event,
+        on_delete=models.CASCADE,
+        related_name="notifications",
+    )
+    subject = models.CharField("subject", max_length=200)
+    body = models.TextField("message")
+    created_at = models.DateTimeField(auto_now_add=True)
+    read_at = models.DateTimeField("read at", null=True, blank=True)
+
+    class Meta:
+        ordering = ["-created_at", "-pk"]
+
+    def __str__(self):
+        return f"{self.subject} → {self.recipient}"
+
+
 class ContactRequest(models.Model):
     """A request to contact another user through a shared event."""
 

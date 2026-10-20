@@ -5,10 +5,14 @@ from uuid import uuid4
 
 from django.contrib import messages
 from django.contrib.auth import get_user_model
+from django.contrib.auth.decorators import login_required
 from django.contrib.auth.mixins import LoginRequiredMixin
 from django.db.models import F
 from django.http import Http404, QueryDict
+from django.shortcuts import get_object_or_404, redirect
 from django.urls import reverse
+from django.utils import timezone
+from django.views.decorators.http import require_POST
 from django.views.generic import (
     CreateView,
     DetailView,
@@ -18,12 +22,14 @@ from django.views.generic import (
 )
 
 from .filters import EventFilterForm, filter_events, filter_params
-from .forms import EventListingForm
-from .models import ContactRequest, Event, EventInterest, EventPost
+from .forms import EventListingForm, NotifyAttendeesForm
+from .models import ContactRequest, Event, EventInterest, EventPost, Notification
+from .notifications import change_notice, interested_recipients, notify_interested
 from .search import search_events
 
 UPCOMING_EVENT_LIMIT = 20
 SEARCH_PAGE_SIZE = 20
+NOTIFICATION_PAGE_SIZE = 20
 
 
 class EventCreateView(LoginRequiredMixin, CreateView):
@@ -46,36 +52,99 @@ class EventCreateView(LoginRequiredMixin, CreateView):
         return reverse("event_detail", args=[self.object.pk])
 
 
-class EventUpdateView(LoginRequiredMixin, UpdateView):
-    """Let a host edit their own event until it ends.
+def get_hosted_upcoming_event(user, pk):
+    """Return an event the user hosts that has not ended yet.
 
     Other users' events, NYC Parks feed events, and events that have ended
     are reported as not found.
+    """
+    event = get_object_or_404(Event, pk=pk, host=user)
+    if event.has_ended:
+        raise Http404("This event has ended.")
+    return event
+
+
+def people(count):
+    """Return e.g. "1 interested person" or "3 interested people"."""
+    return f"{count} interested {'person' if count == 1 else 'people'}"
+
+
+class EventUpdateView(LoginRequiredMixin, UpdateView):
+    """Let a host edit their own event until it ends.
+
+    Changing the date, time, or location notifies everyone interested.
     """
 
     form_class = EventListingForm
     template_name = "events/event_form.html"
 
-    def get_queryset(self):
-        """Limit editing to events the current user hosts."""
-        return Event.objects.filter(host=self.request.user)
-
     def get_object(self, queryset=None):
-        """Refuse events that are already over."""
-        event = super().get_object(queryset)
-        if event.has_ended:
-            raise Http404("This event has ended and can no longer be edited.")
-        return event
+        """Only the host can edit, and only before the event ends."""
+        return get_hosted_upcoming_event(self.request.user, self.kwargs["pk"])
 
     def form_valid(self, form):
-        """Save the changes and confirm them on the detail page."""
+        """Save the changes, notify interested users, and confirm on the page."""
+        notice = change_notice(form.instance, form.initial, form.changed_data)
         response = super().form_valid(form)
-        messages.success(self.request, "Event updated.")
+        confirmation = "Event updated."
+        if notice:
+            event_url = self.request.build_absolute_uri(self.get_success_url())
+            count = notify_interested(self.object, *notice, event_url=event_url)
+            if count:
+                confirmation += f" We let {people(count)} know about the change."
+        messages.success(self.request, confirmation)
         return response
 
     def get_success_url(self):
         """Show the updated event's detail page."""
         return reverse("event_detail", args=[self.object.pk])
+
+
+@login_required
+@require_POST
+def notify_attendees(request, pk):
+    """Send the host's message to everyone interested in their event."""
+    event = get_hosted_upcoming_event(request.user, pk)
+    detail_url = reverse("event_detail", args=[event.pk])
+    form = NotifyAttendeesForm(request.POST)
+    if not form.is_valid():
+        messages.error(request, "Write a subject and a message before sending.")
+        return redirect(detail_url)
+    count = notify_interested(
+        event,
+        form.cleaned_data["subject"],
+        form.cleaned_data["message"],
+        event_url=request.build_absolute_uri(detail_url),
+    )
+    if count:
+        messages.success(request, f"Your message was sent to {people(count)}.")
+    else:
+        messages.info(request, "Nobody is interested in this event yet.")
+    return redirect(detail_url)
+
+
+class NotificationListView(LoginRequiredMixin, ListView):
+    """List the signed-in user's notifications, newest first.
+
+    Opening the page marks the notifications on it as read; they still show
+    as new on that first view.
+    """
+
+    template_name = "events/notifications.html"
+    context_object_name = "notifications"
+    paginate_by = NOTIFICATION_PAGE_SIZE
+
+    def get_queryset(self):
+        """Return the current user's notifications with their events."""
+        return self.request.user.notifications.select_related("event")
+
+    def get_context_data(self, **kwargs):
+        """Mark the notifications being shown as read."""
+        context = super().get_context_data(**kwargs)
+        shown = context["notifications"]
+        unread = [n.pk for n in shown if n.read_at is None]
+        Notification.objects.filter(pk__in=unread).update(read_at=timezone.now())
+        return context
 
 
 class EventDetailView(DetailView):
@@ -103,6 +172,12 @@ class EventDetailView(DetailView):
         context["can_interact"] = (
             is_authenticated and event.status == Event.Status.UPCOMING
         )
+
+        context["can_manage"] = (
+            is_authenticated and event.host_id == user.pk and not event.has_ended
+        )
+        if context["can_manage"]:
+            context["recipient_count"] = interested_recipients(event).count()
 
         User = get_user_model()
         attendee_query = User.objects.filter(
