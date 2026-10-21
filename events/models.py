@@ -2,12 +2,14 @@
 
 from django.contrib.postgres.indexes import GinIndex
 from django.db import models
+from django.utils import timezone
 
+from .filters import NYC_TIMEZONE, nyc_today
 from .search import event_search_vector
 
 
 class Event(models.Model):
-    """One NYC Parks event, copied from the open data feed.
+    """One event, either copied from the NYC Parks feed or posted by a user.
 
     The feed only publishes a rolling two-week window, so this table is the
     durable copy of the data: rows stay in the database after they disappear
@@ -15,8 +17,12 @@ class Event(models.Model):
 
     ``content_hash`` fingerprints the imported content so an hourly sync can
     skip rows that have not really changed, and ``guid`` is the unique
-    identifier the feed uses for each event.
+    identifier the feed uses for each event. Events posted on the platform
+    have a ``host`` and a ``guid`` starting with ``HOSTED_GUID_PREFIX``, which
+    the feed never uses, so the sync leaves them alone.
     """
+
+    HOSTED_GUID_PREFIX = "host-"
 
     class Status(models.TextChoices):
         """Lifecycle of an event as tracked by the hourly sync."""
@@ -24,7 +30,27 @@ class Event(models.Model):
         UPCOMING = "upcoming", "Upcoming"
         DONE = "done", "Done"
 
+    class Borough(models.TextChoices):
+        """The five NYC boroughs a hosted event can take place in."""
+
+        MANHATTAN = "manhattan", "Manhattan"
+        BROOKLYN = "brooklyn", "Brooklyn"
+        QUEENS = "queens", "Queens"
+        BRONX = "bronx", "The Bronx"
+        STATEN_ISLAND = "staten-island", "Staten Island"
+
     guid = models.CharField("source id", max_length=64, unique=True, db_index=True)
+    host = models.ForeignKey(
+        "accounts.User",
+        on_delete=models.CASCADE,
+        null=True,
+        blank=True,
+        related_name="hosted_events",
+        verbose_name="host",
+    )
+    borough = models.CharField(
+        "borough", max_length=20, choices=Borough.choices, blank=True
+    )
     title = models.CharField("title", max_length=300)
     description = models.TextField("description", blank=True)
     start_time = models.DateTimeField("start time", null=True, blank=True)
@@ -73,6 +99,23 @@ class Event(models.Model):
         return self.categories.split("|")[0].strip()
 
     @property
+    def has_ended(self):
+        """Return whether the event is over, even before the sync notices.
+
+        Uses the sync's rule: an event ends at its end time, or, without one,
+        once the day it starts has passed in New York.
+        """
+        if self.status == self.Status.DONE:
+            return True
+        if self.end_time:
+            return self.end_time < timezone.now()
+        if self.start_time:
+            return timezone.localtime(self.start_time, NYC_TIMEZONE).date() < (
+                nyc_today()
+            )
+        return False
+
+    @property
     def is_cancelled(self):
         """Return whether the feed marks this event as cancelled.
 
@@ -109,6 +152,35 @@ class EventInterest(models.Model):
 
     def __str__(self):
         return f"{self.user} interested in {self.event}"
+
+
+class Notification(models.Model):
+    """A message about an event shown in a user's in-app notifications.
+
+    Hosts' messages and automatic notices about event changes create one
+    notification per interested user, alongside the matching email.
+    """
+
+    recipient = models.ForeignKey(
+        "accounts.User",
+        on_delete=models.CASCADE,
+        related_name="notifications",
+    )
+    event = models.ForeignKey(
+        Event,
+        on_delete=models.CASCADE,
+        related_name="notifications",
+    )
+    subject = models.CharField("subject", max_length=200)
+    body = models.TextField("message")
+    created_at = models.DateTimeField(auto_now_add=True)
+    read_at = models.DateTimeField("read at", null=True, blank=True)
+
+    class Meta:
+        ordering = ["-created_at", "-pk"]
+
+    def __str__(self):
+        return f"{self.subject} → {self.recipient}"
 
 
 class ContactRequest(models.Model):

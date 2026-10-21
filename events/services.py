@@ -18,6 +18,7 @@ from urllib.request import Request, urlopen
 from zoneinfo import ZoneInfo
 
 from django.db import transaction
+from django.db.models import Q
 from django.utils import timezone
 from django.utils.html import strip_tags
 
@@ -178,8 +179,10 @@ def sync_events():
 
     New records are created, records whose content changed are updated, and
     unchanged records are left alone. Records that vanished from the feed are
-    kept because the feed only publishes a rolling window. Finally, upcoming
-    events whose end time has passed are marked done.
+    kept because the feed only publishes a rolling window. Events posted by
+    hosts never appear in the feed, so only this last step affects them:
+    upcoming events whose end time has passed are marked done, and hosted
+    events without an end time are done once the day they start has ended.
 
     Returns:
         dict: counts for ``fetched``, ``created``, ``updated``, ``unchanged``
@@ -217,8 +220,20 @@ def sync_events():
         if created:
             Event.objects.bulk_create(created, batch_size=100)
             counts["created"] = len(created)
-        counts["marked_done"] = Event.objects.filter(
-            status=Event.Status.UPCOMING, end_time__lt=now
-        ).update(status=Event.Status.DONE)
+        start_of_today = timezone.localtime(now, NYC_TIMEZONE).replace(
+            hour=0, minute=0, second=0, microsecond=0
+        )
+        counts["marked_done"] = (
+            Event.objects.filter(status=Event.Status.UPCOMING)
+            .filter(
+                Q(end_time__lt=now)
+                | Q(
+                    host__isnull=False,
+                    end_time__isnull=True,
+                    start_time__lt=start_of_today,
+                )
+            )
+            .update(status=Event.Status.DONE)
+        )
     logger.info("event sync finished: %s", counts)
     return counts

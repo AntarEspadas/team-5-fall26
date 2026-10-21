@@ -1,0 +1,42 @@
+{% load static tz %}<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Notifications | NYC Parks Events</title>
+    <link rel="stylesheet" href="{% static 'events/search.css' %}">
+    <link rel="stylesheet" href="{% static 'events/home.css' %}">
+    <link rel="stylesheet" href="{% static 'events/notifications.css' %}">
+</head>
+<body>
+    <main class="notifications-page">
+        <a class="search-back" href="{% url 'landing' %}">Back to home</a>
+        <h1>Notifications</h1>
+
+        {% if notifications %}
+        <ul class="notification-list">
+            {% for notification in notifications %}
+            <li class="notification{% if not notification.read_at %} is-new{% endif %}">
+                <p class="notification-meta">
+                    {% if not notification.read_at %}<span class="count-pill">New</span>{% endif %}
+                    {% timezone "America/New_York" %}{{ notification.created_at|date:"M j, Y, g:i A" }}{% endtimezone %} &middot;
+                    <a href="{% url 'event_detail' notification.event.pk %}">{{ notification.event.title }}</a>
+                </p>
+                <h2>{{ notification.subject }}</h2>
+                <p class="notification-body">{{ notification.body }}</p>
+            </li>
+            {% endfor %}
+        </ul>
+        {% if is_paginated %}
+        <nav class="pagination" aria-label="Notification pages">
+            {% if page_obj.has_previous %}<a href="?page={{ page_obj.previous_page_number }}">Newer</a>{% endif %}
+            <span aria-current="page">Page {{ page_obj.number }} of {{ paginator.num_pages }}</span>
+            {% if page_obj.has_next %}<a href="?page={{ page_obj.next_page_number }}">Older</a>{% endif %}
+        </nav>
+        {% endif %}
+        {% else %}
+        <p class="empty-state">No notifications yet. When hosts of events you're interested in send updates, they'll show up here.</p>
+        {% endif %}
+    </main>
+</body>
+</html>

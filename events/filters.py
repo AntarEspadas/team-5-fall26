@@ -107,9 +107,13 @@ CATEGORY_GROUPS = (
     ("volunteer", "Volunteering", ("Volunteer", "It's My Park")),
     ("seniors", "Seniors & Accessible", ("Seniors", "Accessible Activities")),
 )
-CATEGORY_NAMES = {slug: names for slug, _, names in CATEGORY_GROUPS}
+# Hosted events store the group labels themselves, so labels match as well.
+CATEGORY_NAMES = {
+    slug: tuple(dict.fromkeys((label, *names)))
+    for slug, label, names in CATEGORY_GROUPS
+}
 
-# The sync stores a feed record's categories as one string, e.g. "Art | Games".
+# Categories are stored as one string, e.g. "Art | Games".
 CATEGORY_SEPARATOR = " | "
 
 
@@ -231,7 +235,7 @@ def filter_events(events, filters):
         events = events.filter(start_time__lt=start_of_day(end + timedelta(days=1)))
     boroughs = Q()
     for slug in filters.get("borough", []):
-        boroughs |= Q(park_ids__istartswith=BOROUGH_PREFIXES[slug])
+        boroughs |= Q(borough=slug) | Q(park_ids__istartswith=BOROUGH_PREFIXES[slug])
     categories = Q()
     for slug in filters.get("category", []):
         for name in CATEGORY_NAMES[slug]:

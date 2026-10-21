@@ -95,6 +95,7 @@
             margin-top: 1rem;
         }
 
+        .community-form input[type="text"],
         .community-form textarea {
             box-sizing: border-box;
             width: 100%;
@@ -102,6 +103,12 @@
             border: 1px solid #bdc9c0;
             border-radius: 8px;
             font: inherit;
+        }
+
+        .notify-form label {
+            display: block;
+            margin: 0.75rem 0 0.25rem;
+            font-weight: 600;
         }
 
         .attendee-list,
@@ -173,6 +180,10 @@
     </p>
 
     <main class="detail-card">
+        {% for message in messages %}
+            <p class="status-message" role="status">{{ message }}</p>
+        {% endfor %}
+
         <img
             class="detail-image"
             src="{% if event.image_url %}{{ event.image_url }}{% else %}{% static 'events/no-image.svg' %}{% endif %}"
@@ -182,6 +193,13 @@
         >
 
         <h1>{{ event.title }}</h1>
+
+        {% if event.host %}
+            <p class="detail-meta">Hosted by <strong>{{ event.host.get_display_name }}</strong></p>
+            {% if can_manage %}
+                <p><a class="detail-button" href="{% url 'event_edit' event.pk %}">Edit event</a></p>
+            {% endif %}
+        {% endif %}
 
         <h2>Event details</h2>
 
@@ -208,6 +226,7 @@
                 {% else %}
                     {{ event.park_names }}
                 {% endif %}
+                {% if event.borough %}({{ event.get_borough_display }}){% endif %}
             </p>
         {% endif %}
 
@@ -254,6 +273,34 @@
             {% endif %}
         </div>
     </main>
+
+    {% if can_manage %}
+    <!-- Host messages to interested attendees -->
+    <section class="community-section">
+        <h2>Message interested attendees</h2>
+        <p>
+            {% if recipient_count %}
+                Your message goes to <strong>{{ recipient_count }}</strong>
+                {% if recipient_count == 1 %}person{% else %}people{% endif %}
+                by email and in their notifications.
+            {% else %}
+                Nobody is interested in this event yet. People who click
+                "I'm Interested" will get your messages.
+            {% endif %}
+        </p>
+        <form class="community-form notify-form" method="post" action="{% url 'event_notify' event.pk %}">
+            {% csrf_token %}
+            <label for="notify-subject">Subject</label>
+            <input id="notify-subject" type="text" name="subject" maxlength="200" required>
+            <label for="notify-message">Message</label>
+            <textarea id="notify-message" name="message" rows="4" maxlength="5000" required
+                      placeholder="Share a reminder or update..."></textarea>
+            <div class="community-actions">
+                <button class="community-button" type="submit">Send message</button>
+            </div>
+        </form>
+    </section>
+    {% endif %}
 
     <!-- Attendee interest and public profiles -->
     <section class="community-section">
