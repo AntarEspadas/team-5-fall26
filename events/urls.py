@@ -1,10 +1,14 @@
-"""URL patterns for event community actions."""
+"""URL patterns for hosted events and event community actions."""
 
 from django.urls import path
 
 from . import community_views
+from .views import EventCreateView, EventUpdateView, notify_attendees
 
 urlpatterns = [
+    path("new/", EventCreateView.as_view(), name="event_create"),
+    path("<int:pk>/edit/", EventUpdateView.as_view(), name="event_edit"),
+    path("<int:pk>/notify/", notify_attendees, name="event_notify"),
     path(
         "<int:event_id>/interest/",
         community_views.toggle_event_interest,

@@ -1,0 +1,57 @@
+{% load static %}<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{% if object %}Edit {{ object.title }}{% else %}Post an event{% endif %} | NYC Parks Events</title>
+    <link rel="stylesheet" href="{% static 'events/search.css' %}">
+    <link rel="stylesheet" href="{% static 'events/home.css' %}">
+    <link rel="stylesheet" href="{% static 'events/event_form.css' %}">
+</head>
+<body>
+    <main class="event-form-page">
+        {% if object %}
+        <a class="search-back" href="{% url 'event_detail' object.pk %}">Back to event</a>
+        <h1>Edit event</h1>
+        <p class="event-form-intro">Update your event's details. Changes show up right away. Times are in New York time.</p>
+        {% else %}
+        <a class="search-back" href="{% url 'landing' %}">Back to home</a>
+        <h1>Post an event</h1>
+        <p class="event-form-intro">Share your event so people can discover it alongside NYC Parks events. Times are in New York time.</p>
+        {% endif %}
+
+        <form class="event-form" method="post">
+            {% csrf_token %}
+            {% if form.non_field_errors %}<div class="form-errors">{{ form.non_field_errors }}</div>{% endif %}
+            {% for field in form %}
+            <div class="form-field{% if field.errors %} has-error{% endif %}">
+                {% if field.name == "categories" %}
+                <fieldset>
+                    <legend>{{ field.label }}</legend>
+                    <div class="category-choices">
+                        {% for option in field %}
+                        <label class="category-choice" for="{{ option.id_for_label }}">{{ option.tag }} {{ option.choice_label }}</label>
+                        {% endfor %}
+                    </div>
+                </fieldset>
+                {% else %}
+                <label for="{{ field.id_for_label }}">{{ field.label }}{% if not field.field.required %} <span class="optional">(optional)</span>{% endif %}</label>
+                {{ field }}
+                {% endif %}
+                {% if field.help_text %}<p class="help-text">{{ field.help_text }}</p>{% endif %}
+                {{ field.errors }}
+            </div>
+            {% endfor %}
+            <div class="form-actions">
+                {% if object %}
+                <button type="submit" class="btn-primary">Save changes</button>
+                <a href="{% url 'event_detail' object.pk %}">Cancel</a>
+                {% else %}
+                <button type="submit" class="btn-primary">Post event</button>
+                <a href="{% url 'landing' %}">Cancel</a>
+                {% endif %}
+            </div>
+        </form>
+    </main>
+</body>
+</html>

@@ -1,0 +1,130 @@
+/* Form that event holders fill in to post an event. */
+
+.event-form-page {
+    max-width: 720px;
+    margin: 0 auto;
+    padding: 32px 24px 64px;
+}
+
+.event-form-page h1 {
+    margin: 8px 0 4px;
+    font-size: clamp(1.75rem, 3vw, 2.4rem);
+    letter-spacing: -0.02em;
+}
+
+.event-form-intro {
+    margin: 0 0 24px;
+    color: var(--muted);
+}
+
+.event-form {
+    display: grid;
+    gap: 20px;
+    padding: 24px;
+    border: 1px solid var(--line);
+    border-radius: var(--radius-card);
+    background: var(--surface);
+}
+
+.form-field {
+    display: grid;
+    gap: 6px;
+}
+
+.form-field > label,
+.form-field legend {
+    padding: 0;
+    font-weight: 700;
+}
+
+.form-field fieldset {
+    margin: 0;
+    padding: 0;
+    border: none;
+    min-width: 0;
+}
+
+.optional {
+    color: var(--muted);
+    font-weight: 400;
+}
+
+.form-field input:not([type="checkbox"]),
+.form-field select,
+.form-field textarea {
+    width: 100%;
+    min-height: var(--touch);
+    padding: 10px 12px;
+    border: 1px solid var(--line);
+    border-radius: 10px;
+    background: var(--surface);
+    color: var(--ink);
+    font: inherit;
+}
+
+.form-field textarea {
+    resize: vertical;
+}
+
+.has-error input:not([type="checkbox"]),
+.has-error select,
+.has-error textarea {
+    border-color: var(--error);
+}
+
+.category-choices {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    margin-top: 6px;
+}
+
+.category-choice {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 6px 12px;
+    border: 1px solid var(--line);
+    border-radius: var(--radius-pill);
+    background: var(--chip);
+    cursor: pointer;
+}
+
+.category-choice input {
+    margin: 0;
+    accent-color: var(--leaf);
+}
+
+.category-choice:has(input:checked) {
+    border-color: var(--leaf);
+    background: #dcebe1;
+}
+
+.help-text {
+    margin: 0;
+    color: var(--muted);
+    font-size: 0.9rem;
+}
+
+.form-field .errorlist,
+.form-errors .errorlist {
+    margin: 0;
+    padding: 0;
+    list-style: none;
+    color: var(--error);
+    font-weight: 600;
+}
+
+.form-actions {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 16px;
+}
+
+.form-actions .btn-primary {
+    border: none;
+    font: inherit;
+    font-weight: 600;
+    cursor: pointer;
+}
