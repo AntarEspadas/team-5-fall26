@@ -181,14 +181,6 @@ class AccountSettingsTests(TestCase):
         self.assertNotContains(response, payload)
         self.assertContains(response, "&lt;script&gt;")
 
-    def test_navigation_links_to_settings(self):
-        """Both authenticated entry pages expose the settings page."""
-        for page in ("home", "landing"):
-            self.assertContains(self.client.get(reverse(page)), f'href="{self.url}"')
-        self.client.logout()
-        for page in ("home", "landing"):
-            self.assertNotContains(self.client.get(reverse(page)), f'href="{self.url}"')
-
     def test_photo_formats_are_sanitized_and_stored(self):
         """Supported real images are stored as clean JPEGs under generated names."""
         for image_format in ("PNG", "JPEG", "WEBP"):

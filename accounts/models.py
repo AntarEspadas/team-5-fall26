@@ -71,6 +71,12 @@ class User(AbstractUser):
         blank=True,
         help_text="Optional. For example, she/her, he/him, or they/them.",
     )
+    interests = models.JSONField(
+        "interests",
+        default=list,
+        blank=True,
+        help_text="Choose the activities and topics you are interested in.",
+    )
     contact_permission = models.CharField(
         "contact permission",
         max_length=10,

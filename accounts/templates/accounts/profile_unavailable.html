@@ -1,0 +1,44 @@
+{% extends "accounts/base.html" %}
+
+{% block content %}
+<div class="container py-5">
+    <div class="row justify-content-center">
+        <div class="col-12 col-md-8 col-lg-6">
+            <div class="card border-0 shadow-sm rounded-4 text-center">
+                <div class="card-body p-4 p-md-5">
+
+                    <div
+                        class="d-inline-flex align-items-center justify-content-center
+                               rounded-circle bg-light mb-4"
+                        style="width: 76px; height: 76px;"
+                    >
+                        <span style="font-size: 2rem;" aria-hidden="true">
+                            🔒
+                        </span>
+                    </div>
+
+                    <h1 class="h3 fw-bold mb-3">
+                        Profile Unavailable
+                    </h1>
+
+                    <p class="text-secondary mb-3">
+                        This user has chosen not to share their profile
+                        publicly.
+                    </p>
+
+                    <p class="text-secondary small mb-4">
+                        You won't be able to view this profile unless
+                        the user enables profile sharing.
+                    </p>
+
+                    <a href="/" class="btn btn-primary rounded-pill px-4">
+                        <span aria-hidden="true">&larr;</span>
+                        Back to Home
+                    </a>
+
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

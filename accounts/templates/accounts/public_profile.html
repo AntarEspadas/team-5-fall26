@@ -1,0 +1,506 @@
+
+{% load static %}
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{{ profile_user.display_name|default:profile_user.username }} | NYC Parks Events</title>
+
+    <link rel="stylesheet" href="{% static 'events/search.css' %}">
+    <link rel="stylesheet" href="{% static 'events/filters.css' %}">
+    <link rel="stylesheet" href="{% static 'events/cards.css' %}">
+    <link rel="stylesheet" href="{% static 'events/home.css' %}">
+
+    <style>
+        * {
+            box-sizing: border-box;
+        }
+
+        body.profile-page {
+            margin: 0;
+            padding: 0;
+            width: 100%;
+            color: #24352c;
+            background: #f5f7f5;
+            font-family: Arial, Helvetica, sans-serif;
+        }
+
+        /* Active navigation item */
+        .topbar .nav-link.active {
+            color: #237b53;
+            font-weight: 800;
+            position: relative;
+        }
+
+        .topbar .nav-link.active::after {
+            content: "";
+            position: absolute;
+            left: 12px;
+            right: 12px;
+            bottom: -8px;
+            height: 3px;
+            border-radius: 3px;
+            background: #237b53;
+        }
+
+        /* Full-width page */
+        .public-profile {
+            width: 100%;
+            margin: 0;
+            padding: 30px 4% 56px;
+        }
+
+        .profile-page-heading {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 20px;
+            margin-bottom: 26px;
+        }
+
+        .profile-page-heading h1 {
+            margin: 0;
+            color: #244b37;
+            font-size: 30px;
+            font-weight: 800;
+        }
+
+        .profile-page-heading p {
+            margin: 8px 0 0;
+            color: #64756a;
+            font-size: 15px;
+        }
+
+        .profile-button {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            min-height: 42px;
+            padding: 0 20px;
+            border: 1px solid #237b53;
+            border-radius: 8px;
+            background: #237b53;
+            color: #ffffff;
+            font-size: 14px;
+            font-weight: 700;
+            text-decoration: none;
+            white-space: nowrap;
+        }
+
+        .profile-button:hover {
+            background: #1c6544;
+        }
+
+        /* Profile summary */
+        .profile-summary {
+            display: flex;
+            align-items: flex-start;
+            gap: 24px;
+            width: 100%;
+            margin-bottom: 28px;
+            padding: 28px 32px;
+            border: 1px solid #e0e8e1;
+            border-radius: 12px;
+            background: #ffffff;
+            box-shadow: 0 2px 8px rgba(30, 65, 43, 0.04);
+        }
+
+        .profile-avatar-wrap {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            width: 104px;
+            height: 104px;
+            flex-shrink: 0;
+            overflow: hidden;
+            border: 3px solid #e0eee5;
+            border-radius: 50%;
+            background: #e8f2eb;
+        }
+
+        .profile-avatar {
+            display: block;
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+        }
+
+        .profile-avatar-placeholder {
+            color: #237b53;
+            font-size: 38px;
+            font-weight: 800;
+        }
+
+        .profile-summary-details {
+            flex: 1;
+            min-width: 0;
+        }
+
+        .profile-display-name {
+            margin: 0;
+            color: #244b37;
+            font-size: 25px;
+            font-weight: 800;
+            overflow-wrap: anywhere;
+        }
+
+        .profile-username {
+            margin: 6px 0 0;
+            color: #718076;
+            font-size: 14px;
+            overflow-wrap: anywhere;
+        }
+
+        .profile-pronouns {
+            display: inline-block;
+            margin-top: 8px;
+            color: #64756a;
+            font-size: 13px;
+        }
+
+        .profile-bio {
+            margin: 14px 0 0;
+            color: #34483a;
+            font-size: 15px;
+            line-height: 1.7;
+            white-space: pre-line;
+            overflow-wrap: anywhere;
+        }
+
+        .profile-member-label {
+            margin: 14px 0 0;
+            color: #64756a;
+            font-size: 13px;
+        }
+
+        .profile-privacy-note {
+            margin: 10px 0 0;
+            color: #64756a;
+            font-size: 13px;
+            line-height: 1.6;
+        }
+
+        /* Content sections */
+        .profile-content {
+            display: grid;
+            grid-template-columns: minmax(0, 0.85fr) minmax(0, 1.15fr);
+            gap: 28px;
+            width: 100%;
+            align-items: start;
+        }
+
+        .profile-section {
+            min-width: 0;
+            padding: 26px 28px;
+            border: 1px solid #e0e8e1;
+            border-radius: 12px;
+            background: #ffffff;
+            box-shadow: 0 2px 8px rgba(30, 65, 43, 0.04);
+        }
+
+        .profile-section-header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 16px;
+            margin-bottom: 8px;
+        }
+
+        .profile-section h2 {
+            margin: 0;
+            color: #244b37;
+            font-size: 21px;
+            font-weight: 800;
+        }
+
+        .profile-section-description {
+            margin: 8px 0 22px;
+            color: #718076;
+            font-size: 14px;
+            line-height: 1.6;
+        }
+
+        .section-count {
+            color: #718076;
+            font-size: 13px;
+            white-space: nowrap;
+        }
+
+        /* Interest tags */
+        .interest-tags {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 10px;
+        }
+
+        .interest-tag {
+            display: inline-flex;
+            align-items: center;
+            min-height: 34px;
+            padding: 7px 13px;
+            border: 1px solid #c9e1d1;
+            border-radius: 7px;
+            background: #edf6ef;
+            color: #286b47;
+            font-size: 13px;
+            font-weight: 600;
+        }
+
+        .profile-empty-state {
+            margin: 0;
+            padding: 18px;
+            border-radius: 8px;
+            background: #f6f8f6;
+            color: #718076;
+            font-size: 14px;
+            line-height: 1.7;
+        }
+
+        .profile-empty-state a {
+            color: #237b53;
+            font-weight: 700;
+            text-decoration: none;
+        }
+
+        .profile-empty-state a:hover {
+            text-decoration: underline;
+        }
+
+        /* Interested event list */
+        .profile-event-list {
+            display: flex;
+            flex-direction: column;
+            gap: 14px;
+            margin: 0;
+            padding: 0;
+            list-style: none;
+        }
+
+        .profile-event {
+            padding: 18px 20px;
+            border: 1px solid #e4eae5;
+            border-radius: 9px;
+            background: #ffffff;
+        }
+
+        .profile-event:hover {
+            border-color: #b9d6c2;
+            background: #fbfdfb;
+        }
+
+        .profile-event-title {
+            color: #28583c;
+            font-size: 16px;
+            font-weight: 700;
+            line-height: 1.5;
+            text-decoration: none;
+            overflow-wrap: anywhere;
+        }
+
+        .profile-event-title:hover {
+            color: #237b53;
+            text-decoration: underline;
+        }
+
+        .profile-event-meta {
+            display: flex;
+            flex-direction: column;
+            gap: 7px;
+            margin-top: 10px;
+            color: #718076;
+            font-size: 13px;
+            line-height: 1.6;
+        }
+
+        .profile-event-status {
+            display: inline-flex;
+            margin-top: 12px;
+            padding: 5px 10px;
+            border-radius: 6px;
+            background: #edf6ef;
+            color: #286b47;
+            font-size: 12px;
+            font-weight: 700;
+        }
+
+        .profile-footer {
+            margin-top: 32px;
+            padding-top: 20px;
+            border-top: 1px solid #e0e8e1;
+            color: #718076;
+            font-size: 13px;
+        }
+    </style>
+</head>
+
+<body class="home-page profile-page">
+    <header class="topbar">
+        <div class="topbar-inner">
+            <a class="brand" href="{% url 'landing' %}">
+                NYC Parks <span>Events</span>
+            </a>
+
+            {% if user.is_authenticated %}
+            <nav class="topbar-nav" aria-label="Account">
+                <a class="nav-link" href="{% url 'event_create' %}">
+                    Post an event
+                </a>
+
+                {% with unread=unread_notification_count %}
+                <a class="nav-link" href="{% url 'notifications' %}">
+                    Notifications{% if unread %}&nbsp;<span class="count-pill">{{ unread }} new</span>{% endif %}
+                </a>
+                {% endwith %}
+
+                <a
+                    class="nav-link active"
+                    href="{% url 'public_profile' username=request.user.username %}"
+                    aria-current="page"
+                >Public Profile</a>
+
+                <span class="nav-user">
+                    {{ user.display_name|default:user.username }}
+                </span>
+
+                <form method="post" action="{% url 'logout' %}">
+                    {% csrf_token %}
+                    <button type="submit" class="btn-ghost">Log out</button>
+                </form>
+            </nav>
+            {% else %}
+            <nav class="topbar-nav" aria-label="Account">
+                <a class="nav-link" href="{% url 'login' %}">Log in</a>
+            </nav>
+            {% endif %}
+        </div>
+    </header>
+
+    <main class="public-profile">
+        <div class="profile-page-heading">
+            <div>
+                <h1>Community Profile</h1>
+                <p>Get to know the people who share your interest in NYC parks.</p>
+            </div>
+
+            {% if request.user.is_authenticated and request.user.pk == profile_user.pk %}
+            <a class="profile-button" href="{% url 'account_settings' %}">
+                Edit profile
+            </a>
+            {% endif %}
+        </div>
+
+        <section class="profile-summary" aria-label="Profile information">
+            <div class="profile-avatar-wrap">
+                {% if profile_user.profile_photo %}
+                    <img
+                        class="profile-avatar"
+                        src="{{ profile_user.profile_photo.url }}"
+                        alt="{{ profile_user.display_name|default:profile_user.username }}'s profile photo"
+                    >
+                {% else %}
+                    <div class="profile-avatar-placeholder">
+                        {{ profile_user.display_name|default:profile_user.username|slice:":1"|upper }}
+                    </div>
+                {% endif %}
+            </div>
+
+            <div class="profile-summary-details">
+                <h2 class="profile-display-name">
+                    {{ profile_user.display_name|default:profile_user.username }}
+                </h2>
+
+                <p class="profile-username">@{{ profile_user.username }}</p>
+
+                {% if profile_user.pronouns %}
+                    <span class="profile-pronouns">{{ profile_user.pronouns }}</span>
+                {% endif %}
+
+                {% if profile_user.bio %}
+                    <p class="profile-bio">{{ profile_user.bio }}</p>
+                {% endif %}
+
+                <p class="profile-member-label">NYC Parks Community Member</p>
+
+                {% if request.user.is_authenticated and request.user.pk == profile_user.pk %}
+                    <p class="profile-privacy-note">
+                        Update your profile details, interests, and privacy preferences using Edit profile.
+                    </p>
+                {% endif %}
+            </div>
+        </section>
+
+        <div class="profile-content">
+            <section class="profile-section" id="interests">
+                <div class="profile-section-header">
+                    <h2>Interests</h2>
+                </div>
+
+                <p class="profile-section-description">
+                    Activities and topics this member is interested in.
+                </p>
+
+                {% if interest_categories %}
+                    <div class="interest-tags">
+                        {% for interest in interest_categories %}
+                            <span class="interest-tag">{{ interest }}</span>
+                        {% endfor %}
+                    </div>
+                {% else %}
+                    <p class="profile-empty-state">
+                        No interests added yet.
+                        {% if request.user.is_authenticated and request.user.pk == profile_user.pk %}
+                            <a href="{% url 'account_settings' %}">Choose your interests</a> in Account Settings.
+                        {% endif %}
+                    </p>
+                {% endif %}
+            </section>
+
+            <section class="profile-section" id="interested-events">
+                <div class="profile-section-header">
+                    <h2>Interested Events</h2>
+                    {% if upcoming_events %}
+                        <span class="section-count">
+                            {{ upcoming_events|length }} event{{ upcoming_events|length|pluralize }}
+                        </span>
+                    {% endif %}
+                </div>
+
+                <p class="profile-section-description">
+                    Upcoming events this member has marked as Interested.
+                </p>
+
+                {% if upcoming_events %}
+                    <ul class="profile-event-list">
+                        {% for event in upcoming_events %}
+                            <li class="profile-event">
+                                <a
+                                    class="profile-event-title"
+                                    href="{% url 'event_detail' event.pk %}"
+                                >{{ event.title }}</a>
+
+                                <div class="profile-event-meta">
+                                    <span>{{ event.start_time|date:"M d, Y, g:i A" }}</span>
+                                    {% if event.location %}
+                                        <span>{{ event.location }}</span>
+                                    {% endif %}
+                                </div>
+
+                                <span class="profile-event-status">Interested</span>
+                            </li>
+                        {% endfor %}
+                    </ul>
+                {% else %}
+                    <p class="profile-empty-state">
+                        No upcoming events marked as Interested.
+                    </p>
+                {% endif %}
+            </section>
+        </div>
+
+        <footer class="profile-footer">
+            NYC Parks Events · Community Profiles
+        </footer>
+    </main>
+</body>
+</html>

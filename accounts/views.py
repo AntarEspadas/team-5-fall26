@@ -1,16 +1,20 @@
 """Views for user account pages."""
 
+import time
 from django.conf import settings
+from django.contrib.auth import get_user_model
 from django.contrib.auth import views as auth_views
 from django.contrib.auth.mixins import LoginRequiredMixin
-from django.contrib.messages.views import SuccessMessageMixin
-from django.shortcuts import resolve_url, render
-from django.urls import reverse_lazy
-from django.views.generic import CreateView, UpdateView
 from django.contrib.auth.views import LoginView
+from django.contrib.messages.views import SuccessMessageMixin
 from django.core.cache import cache
-import time
+from django.http import Http404
+from django.shortcuts import render, resolve_url
+from django.urls import reverse_lazy
+from django.utils import timezone
+from django.views.generic import CreateView, DetailView, UpdateView
 
+from events.models import Event
 from .forms import AccountSettingsForm, LoginForm, RegistrationForm
 
 
@@ -25,6 +29,70 @@ class AccountSettingsView(LoginRequiredMixin, SuccessMessageMixin, UpdateView):
     def get_object(self, queryset=None):
         """Select the account from the session, never from submitted identifiers."""
         return self.request.user
+
+
+class PublicProfileView(LoginRequiredMixin, DetailView):
+    """Display a lightweight community profile."""
+
+    model = get_user_model()
+    template_name = "accounts/public_profile.html"
+    context_object_name = "profile_user"
+    slug_field = "username"
+    slug_url_kwarg = "username"
+
+    def get(self, request, *args, **kwargs):
+        """Check whether the profile exists and can be viewed."""
+        profile_user = (
+            get_user_model().objects.filter(username=kwargs["username"]).first()
+        )
+
+        if profile_user is None:
+            raise Http404("User not found")
+
+        # Members can always view their own profile.
+        if (
+            not profile_user.share_profile_with_attendees
+            and profile_user.pk != request.user.pk
+        ):
+            return render(
+                request,
+                "accounts/profile_unavailable.html",
+                status=200,
+            )
+
+        self.object = profile_user
+        context = self.get_context_data(object=self.object)
+        return self.render_to_response(context)
+
+    def get_context_data(self, **kwargs):
+        """Provide real profile information from existing event data."""
+        context = super().get_context_data(**kwargs)
+        profile_user = self.object
+
+        # Upcoming events the member marked as Interested.
+        context["upcoming_events"] = (
+            Event.objects.filter(
+                interests__user=profile_user,
+                status=Event.Status.UPCOMING,
+                start_time__gte=timezone.now(),
+            )
+            .distinct()
+            .order_by("start_time", "title")
+        )
+
+        # Derive interests from categories of events the member is
+        # interested in. No separate interest tags are assumed.
+
+        interest_labels = dict(AccountSettingsForm.INTEREST_CHOICES)
+        context["interest_categories"] = [
+            interest_labels.get(value, value)
+            for value in (profile_user.interests or [])
+        ]
+
+        # No past_events or attendance statistics are added
+        # because actual attendance data has not been confirmed.
+
+        return context
 
 
 # Lockout configuration

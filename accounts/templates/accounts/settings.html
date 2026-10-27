@@ -45,6 +45,41 @@
   .settings-field:last-child {
     margin-bottom: 0;
   }
+    /* Interest selection tags */
+  .interest-options ul {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.65rem;
+    padding: 0;
+    margin: 0;
+    list-style: none;
+  }
+
+  .interest-options li {
+    margin: 0;
+  }
+
+  .interest-options label {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.45rem;
+    padding: 0.65rem 0.85rem;
+    border: 1px solid #bdc9c0;
+    border-radius: 999px;
+    background: #fff;
+    cursor: pointer;
+    font-size: 0.92rem;
+  }
+
+  .interest-options input[type="checkbox"] {
+    accent-color: #285c3b;
+  }
+
+  .interest-options label:has(input:checked) {
+    background: #edf2ed;
+    border-color: #285c3b;
+    color: #285c3b;
+  }
 
   .settings-field > label,
   .field-label {
@@ -163,18 +198,30 @@
 </style>
 
 <div class="settings-page">
-  <h1>Account settings</h1>
+  <h1>Account Settings</h1>
 
-  <p class="settings-intro">
-    Manage your profile, choose what other attendees can see,
-    and control how people can contact you.
-  </p>
+    <p class="settings-intro">
+        Manage your account, edit your community profile, and control
+        what other members can see.
+    </p>
+    
+    <p>
+        <a
+            class="button"
+            href="{% url 'public_profile' username=request.user.username %}"
+        >
+            View My Profile
+        </a>
+    </p>
 
   <form method="post" enctype="multipart/form-data">
     {% csrf_token %}
 
     <section class="settings-section">
-      <h2>Personal profile</h2>
+      <h2>Profile information</h2>
+    <p class="section-description">
+        Update the name, photo, and introduction shown on your community profile.
+    </p>
 
       <div class="profile-preview">
         <img
@@ -221,11 +268,35 @@
             {% endif %}
           </div>
         {% endif %}
+
       {% endfor %}
     </section>
 
+    <!-- My Interests -->
     <section class="settings-section">
-      <h2>Profile visibility</h2>
+      <h2>My Interests</h2>
+
+      <p class="section-description">
+        Select the activities and topics you enjoy.
+        Your choices will appear on your public profile.
+      </p>
+
+      <div class="settings-field interest-options">
+        {{ form.interests }}
+
+        {% if form.interests.help_text %}
+          <p class="helptext">{{ form.interests.help_text }}</p>
+        {% endif %}
+
+        {% if form.interests.errors %}
+          <div class="field-errors">{{ form.interests.errors }}</div>
+        {% endif %}
+      </div>
+    </section>
+
+    <!-- Profile & Privacy -->
+    <section class="settings-section">
+      <h2>Profile &amp; Privacy</h2>
 
       <p class="section-description">
         You control whether other people interested in the same event

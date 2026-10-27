@@ -27,6 +27,30 @@ class ProfilePhotoInput(forms.ClearableFileInput):
 class AccountSettingsForm(forms.ModelForm):
     """Edit public profile fields and contact preferences."""
 
+    INTEREST_CHOICES = [
+        ("walking", "Walking & Hiking"),
+        ("gardening", "Gardening"),
+        ("volunteering", "Volunteering"),
+        ("nature", "Nature & Wildlife"),
+        ("sports", "Sports & Fitness"),
+        ("photography", "Photography"),
+        ("community", "Community Events"),
+        ("cleanup", "Park Cleanup"),
+        ("arts", "Arts & Culture"),
+        ("other", "Other"),
+    ]
+
+    interests = forms.MultipleChoiceField(
+        label="My interests",
+        choices=INTEREST_CHOICES,
+        required=False,
+        widget=forms.CheckboxSelectMultiple,
+        help_text=(
+            "Choose any interests that describe you. "
+            "You can change these at any time."
+        ),
+    )
+
     allow_direct_contact = forms.BooleanField(
         label="Allow anyone to contact me directly",
         required=False,
@@ -50,6 +74,7 @@ class AccountSettingsForm(forms.ModelForm):
             "profile_photo",
             "bio",
             "pronouns",
+            "interests",
             "share_profile_with_attendees",
         )
         widgets = {
@@ -71,6 +96,9 @@ class AccountSettingsForm(forms.ModelForm):
         self.fields["profile_photo"].max_length = 512
 
         if self.instance and self.instance.pk:
+            self.fields["interests"].initial = self.instance.interests or []
+
+        if self.instance and self.instance.pk:
             self.fields["allow_direct_contact"].initial = (
                 self.instance.contact_permission == ContactPermission.OPEN
             )
@@ -78,9 +106,11 @@ class AccountSettingsForm(forms.ModelForm):
             self.fields["allow_direct_contact"].initial = False
 
     def save(self, commit=True):
-        """Save profile data and map the checkbox to the permission choice."""
+        """Save profile data, interests, and contact preferences."""
 
         user = super().save(commit=False)
+
+        user.interests = self.cleaned_data["interests"]
 
         if self.cleaned_data["allow_direct_contact"]:
             user.contact_permission = ContactPermission.OPEN
