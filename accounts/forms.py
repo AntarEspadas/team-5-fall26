@@ -26,6 +26,7 @@ class ProfilePhotoInput(forms.ClearableFileInput):
 
 class AccountSettingsForm(forms.ModelForm):
     """Edit public profile fields and contact preferences."""
+
     INTEREST_CHOICES = [
         ("walking", "Walking & Hiking"),
         ("gardening", "Gardening"),

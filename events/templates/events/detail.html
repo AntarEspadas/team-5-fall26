@@ -1,3 +1,4 @@
+
 {% load static tz %}
 <!DOCTYPE html>
 <html lang="en">
@@ -8,168 +9,492 @@
     <link rel="stylesheet" href="{% static 'events/cards.css' %}">
     <link rel="stylesheet" href="{% static 'events/search.css' %}">
 
-    <style>
-        body {
-            max-width: 850px;
-            margin: 0 auto;
-            padding: 2rem 1rem 4rem;
+
+<style>
+    body {
+        max-width: 850px;
+        margin: 0 auto;
+        padding: 2rem 1rem 4rem;
+    }
+
+    .detail-card,
+    .community-section,
+    .discussion-post,
+    .attendee-card,
+    .contact-request-card {
+        background: #fff;
+        border: 1px solid #d9e1da;
+        border-radius: 12px;
+        padding: 1.25rem;
+        margin-top: 1.25rem;
+    }
+
+    .detail-image {
+        display: block;
+        width: 100%;
+        max-height: 380px;
+        object-fit: cover;
+        border-radius: 10px;
+        margin-bottom: 1.5rem;
+    }
+
+    .detail-meta {
+        margin: 0.75rem 0;
+        color: #5b6862;
+    }
+
+    .detail-description {
+        white-space: pre-line;
+        line-height: 1.7;
+    }
+
+    .detail-actions,
+    .community-actions {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 0.75rem;
+        align-items: center;
+        margin-top: 1rem;
+    }
+
+    .detail-button,
+    .community-button {
+        display: inline-block;
+        padding: 0.65rem 1rem;
+        border: 0;
+        border-radius: 8px;
+        background: #1f6f4a;
+        color: #fff;
+        text-decoration: none;
+        cursor: pointer;
+        font: inherit;
+    }
+
+    .detail-button:hover,
+    .community-button:hover {
+        background: #154d34;
+    }
+
+    .secondary-button {
+        background: #59645e;
+    }
+
+    .danger-button {
+        background: #9c3535;
+    }
+
+    .community-section h2 {
+        margin-top: 0;
+    }
+
+    .community-section p,
+    .muted {
+        color: #5b6862;
+        line-height: 1.6;
+    }
+
+    .community-form {
+        margin-top: 1rem;
+    }
+
+    .community-form input[type="text"],
+    .community-form textarea {
+        box-sizing: border-box;
+        width: 100%;
+        padding: 0.75rem;
+        border: 1px solid #bdc9c0;
+        border-radius: 8px;
+        font: inherit;
+    }
+
+    .notify-form label {
+        display: block;
+        margin: 0.75rem 0 0.25rem;
+        font-weight: 600;
+    }
+
+    .attendee-list,
+    .discussion-list,
+    .contact-request-list {
+        display: grid;
+        gap: 1rem;
+    }
+
+    .attendee-card h3,
+    .discussion-post h3 {
+        margin-top: 0;
+    }
+
+    .attendee-header {
+        display: flex;
+        align-items: center;
+        gap: 1rem;
+    }
+
+    .attendee-photo {
+        width: 64px;
+        height: 64px;
+        border-radius: 50%;
+        object-fit: cover;
+    }
+
+    /* Attendance intention buttons */
+    .intention-button {
+        background: #fff;
+        color: #1f6f4a;
+        border: 1px solid #1f6f4a;
+    }
+
+    .intention-button:hover,
+    .intention-button.selected {
+        background: #1f6f4a;
+        color: #fff;
+    }
+
+    /* Legacy participant preview styles */
+    .participant-group {
+        margin-top: 1.5rem;
+    }
+
+    .participant-group h3 {
+        margin-bottom: 0.75rem;
+    }
+
+    .participant-avatars {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 1rem;
+        margin: 1rem 0 1.5rem;
+    }
+
+    .profile-preview {
+        position: relative;
+        display: inline-flex;
+        flex-direction: column;
+        align-items: center;
+        width: 76px;
+    }
+
+    .profile-preview-trigger {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        width: 56px;
+        height: 56px;
+        padding: 0;
+        overflow: hidden;
+        border: 2px solid #d9e1da;
+        border-radius: 50%;
+        background: #edf4ef;
+        color: #1f6f4a;
+        cursor: pointer;
+        font: inherit;
+        font-size: 1.2rem;
+        font-weight: 600;
+    }
+
+    .profile-preview-trigger img {
+        width: 100%;
+        height: 100%;
+        object-fit: cover;
+    }
+
+    .profile-preview-name {
+        max-width: 76px;
+        margin-top: 0.35rem;
+        overflow-wrap: anywhere;
+        text-align: center;
+        font-size: 0.8rem;
+    }
+
+    .profile-preview-card {
+        display: none;
+        position: absolute;
+        z-index: 20;
+        top: calc(100% + 4px);
+        left: 0;
+        width: 240px;
+        max-width: min(240px, 80vw);
+        padding: 1rem;
+        background: #fff;
+        border: 1px solid #d9e1da;
+        border-radius: 10px;
+        box-shadow: 0 4px 16px rgba(0, 0, 0, 0.12);
+        overflow-wrap: anywhere;
+    }
+
+    .profile-preview:hover .profile-preview-card,
+    .profile-preview:focus-within .profile-preview-card,
+    .profile-preview.open .profile-preview-card {
+        display: block;
+    }
+
+    .profile-preview-card p {
+        margin: 0.4rem 0;
+    }
+
+    .profile-preview-card .preview-bio {
+        white-space: pre-line;
+    }
+
+    .profile-preview-card a {
+        display: inline-block;
+        margin-top: 0.5rem;
+        color: #1f6f4a;
+    }
+
+    /* Public attendee avatar groups */
+    .attendee-avatars {
+        display: flex;
+        flex-wrap: wrap;
+        align-items: flex-start;
+        gap: 16px;
+        margin: 16px 0 24px;
+    }
+
+    .attendee-profile {
+        position: relative;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        width: 64px;
+        flex: 0 0 64px;
+    }
+
+    .attendee-avatar-trigger {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        width: 56px;
+        height: 56px;
+        padding: 0;
+        overflow: hidden;
+        border: 2px solid #d9e7dc;
+        border-radius: 50%;
+        background: #edf5ef;
+        color: #246b46;
+        cursor: pointer;
+        font-family: inherit;
+        font-size: 21px;
+        font-weight: 700;
+        transition: border-color 0.18s ease, transform 0.18s ease;
+    }
+
+    .attendee-avatar-trigger:hover,
+    .attendee-avatar-trigger:focus-visible {
+        border-color: #237b53;
+        transform: scale(1.06);
+        outline: none;
+    }
+
+    .attendee-avatar-trigger img {
+        display: block;
+        width: 100%;
+        height: 100%;
+        object-fit: cover;
+    }
+
+    /* Hover card: open to the RIGHT of the avatar */
+    .attendee-hover-card {
+        position: absolute;
+        z-index: 100;
+        top: 0;
+        left: calc(100% + 10px);
+        right: auto;
+        width: 280px;
+        max-width: min(280px, calc(100vw - 32px));
+        padding: 18px;
+        border: 1px solid #dce7de;
+        border-radius: 12px;
+        background: #fff;
+        box-shadow: 0 8px 28px rgba(30, 65, 43, 0.18);
+        color: #24352c;
+        text-align: left;
+        box-sizing: border-box;
+
+        visibility: hidden;
+        opacity: 0;
+        pointer-events: none;
+        transform: translate(6px, 0);
+        transition:
+            opacity 0.16s ease,
+            transform 0.16s ease,
+            visibility 0.16s ease;
+    }
+
+    .attendee-profile:hover .attendee-hover-card,
+    .attendee-profile:focus-within .attendee-hover-card {
+        visibility: visible;
+        opacity: 1;
+        pointer-events: auto;
+        transform: translate(0, 0);
+    }
+
+    .attendee-card-name {
+        margin: 0;
+        color: #244b37;
+        font-size: 17px;
+        font-weight: 800;
+        line-height: 1.4;
+        overflow-wrap: anywhere;
+    }
+
+    .attendee-card-username {
+        margin: 4px 0 0;
+        color: #718076;
+        font-size: 13px;
+        overflow-wrap: anywhere;
+    }
+
+    .attendee-card-pronouns {
+        margin: 8px 0 0;
+        color: #64756a;
+        font-size: 12px;
+    }
+
+    .attendee-card-bio {
+        margin: 10px 0 0;
+        color: #34483a;
+        font-size: 13px;
+        line-height: 1.6;
+        white-space: pre-line;
+        overflow-wrap: anywhere;
+    }
+
+    .attendee-card-actions {
+        display: flex;
+        flex-direction: column;
+        gap: 8px;
+        margin-top: 14px;
+    }
+
+    .attendee-card-actions form {
+        margin: 0;
+    }
+
+    .attendee-card-actions button,
+    .attendee-card-actions a {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        width: 100%;
+        min-height: 38px;
+        padding: 9px 12px;
+        border: 1px solid #237b53;
+        border-radius: 7px;
+        background: #237b53;
+        color: #fff;
+        font-family: inherit;
+        font-size: 13px;
+        font-weight: 700;
+        text-align: center;
+        text-decoration: none;
+        cursor: pointer;
+        box-sizing: border-box;
+    }
+
+    .attendee-card-actions button:hover,
+    .attendee-card-actions a:hover {
+        background: #1c6544;
+    }
+
+    .attendee-card-actions a.attendee-details-link {
+        background: #fff;
+        color: #237b53;
+    }
+
+    .attendee-card-actions a.attendee-details-link:hover {
+        background: #edf6ef;
+    }
+
+    .attendee-contact-message {
+        display: block;
+        width: 100%;
+        min-height: 62px;
+        margin-bottom: 8px;
+        padding: 8px;
+        resize: vertical;
+        border: 1px solid #d6e1d8;
+        border-radius: 7px;
+        font: inherit;
+        font-size: 13px;
+        box-sizing: border-box;
+    }
+
+    .attendee-contact-message:focus {
+        border-color: #237b53;
+        outline: 2px solid rgba(35, 123, 83, 0.14);
+    }
+
+    .attendee-contact-note {
+        margin: 10px 0 0;
+        color: #718076;
+        font-size: 12px;
+        line-height: 1.5;
+    }
+
+    .post-body,
+    .reply-body {
+        white-space: pre-wrap;
+        overflow-wrap: anywhere;
+        line-height: 1.6;
+    }
+
+    .reply {
+        margin: 1rem 0 0 1rem;
+        padding: 0.75rem;
+        border-left: 3px solid #d9e1da;
+    }
+
+    .reply-form {
+        margin-top: 1rem;
+    }
+
+    .reply-form summary {
+        cursor: pointer;
+        color: #1f6f4a;
+    }
+
+    .status-message {
+        padding: 0.75rem;
+        border-radius: 8px;
+        background: #edf4ef;
+        line-height: 1.6;
+    }
+
+    .empty-message {
+        color: #5b6862;
+        font-style: italic;
+    }
+
+    @media (max-width: 480px) {
+        .profile-preview-card {
+            position: fixed;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            width: 280px;
+            max-width: 85vw;
         }
 
-        .detail-card,
-        .community-section,
-        .discussion-post,
-        .attendee-card,
-        .contact-request-card {
-            background: #fff;
-            border: 1px solid #d9e1da;
-            border-radius: 12px;
-            padding: 1.25rem;
-            margin-top: 1.25rem;
+        /* On narrow screens, keep the card inside the viewport */
+        .attendee-hover-card {
+            position: fixed;
+            top: 50%;
+            left: 50%;
+            right: auto;
+            width: 280px;
+            max-width: 85vw;
+            transform: translate(-50%, -50%);
         }
 
-        .detail-image {
-            display: block;
-            width: 100%;
-            max-height: 380px;
-            object-fit: cover;
-            border-radius: 10px;
-            margin-bottom: 1.5rem;
+        .attendee-profile:hover .attendee-hover-card,
+        .attendee-profile:focus-within .attendee-hover-card {
+            transform: translate(-50%, -50%);
         }
+    }
+</style>
 
-        .detail-meta {
-            margin: 0.75rem 0;
-            color: #5b6862;
-        }
-
-        .detail-description {
-            white-space: pre-line;
-            line-height: 1.7;
-        }
-
-        .detail-actions,
-        .community-actions {
-            display: flex;
-            flex-wrap: wrap;
-            gap: 0.75rem;
-            align-items: center;
-            margin-top: 1rem;
-        }
-
-        .detail-button,
-        .community-button {
-            display: inline-block;
-            padding: 0.65rem 1rem;
-            border: 0;
-            border-radius: 8px;
-            background: #1f6f4a;
-            color: #fff;
-            text-decoration: none;
-            cursor: pointer;
-            font: inherit;
-        }
-
-        .detail-button:hover,
-        .community-button:hover {
-            background: #154d34;
-        }
-
-        .secondary-button {
-            background: #59645e;
-        }
-
-        .danger-button {
-            background: #9c3535;
-        }
-
-        .community-section h2 {
-            margin-top: 0;
-        }
-
-        .community-section p,
-        .muted {
-            color: #5b6862;
-            line-height: 1.6;
-        }
-
-        .community-form {
-            margin-top: 1rem;
-        }
-
-        .community-form input[type="text"],
-        .community-form textarea {
-            box-sizing: border-box;
-            width: 100%;
-            padding: 0.75rem;
-            border: 1px solid #bdc9c0;
-            border-radius: 8px;
-            font: inherit;
-        }
-
-        .notify-form label {
-            display: block;
-            margin: 0.75rem 0 0.25rem;
-            font-weight: 600;
-        }
-
-        .attendee-list,
-        .discussion-list,
-        .contact-request-list {
-            display: grid;
-            gap: 1rem;
-        }
-
-        .attendee-card h3,
-        .discussion-post h3 {
-            margin-top: 0;
-        }
-
-        .attendee-header {
-            display: flex;
-            align-items: center;
-            gap: 1rem;
-        }
-
-        .attendee-photo {
-            width: 64px;
-            height: 64px;
-            border-radius: 50%;
-            object-fit: cover;
-        }
-
-        .post-body,
-        .reply-body {
-            white-space: pre-wrap;
-            overflow-wrap: anywhere;
-            line-height: 1.6;
-        }
-
-        .reply {
-            margin: 1rem 0 0 1rem;
-            padding: 0.75rem;
-            border-left: 3px solid #d9e1da;
-        }
-
-        .reply-form {
-            margin-top: 1rem;
-        }
-
-        .reply-form summary {
-            cursor: pointer;
-            color: #1f6f4a;
-        }
-
-        .status-message {
-            padding: 0.75rem;
-            border-radius: 8px;
-            background: #edf4ef;
-            line-height: 1.6;
-        }
-
-        .empty-message {
-            color: #5b6862;
-            font-style: italic;
-        }
-    </style>
 </head>
 
 <body>
@@ -195,9 +520,13 @@
         <h1>{{ event.title }}</h1>
 
         {% if event.host %}
-            <p class="detail-meta">Hosted by <strong>{{ event.host.get_display_name }}</strong></p>
+            <p class="detail-meta">
+                Hosted by <strong>{{ event.host.get_display_name }}</strong>
+            </p>
             {% if can_manage %}
-                <p><a class="detail-button" href="{% url 'event_edit' event.pk %}">Edit event</a></p>
+                <p>
+                    <a class="detail-button" href="{% url 'event_edit' event.pk %}">Edit event</a>
+                </p>
             {% endif %}
         {% endif %}
 
@@ -259,15 +588,13 @@
 
         <div class="detail-actions">
             {% if event.registration_url %}
-                <a class="detail-button"
-                   href="{{ event.registration_url }}">
+                <a class="detail-button" href="{{ event.registration_url }}">
                     Register
                 </a>
             {% endif %}
 
             {% if event.event_url %}
-                <a class="detail-button"
-                   href="{{ event.event_url }}">
+                <a class="detail-button" href="{{ event.event_url }}">
                     Official Event Page
                 </a>
             {% endif %}
@@ -275,149 +602,266 @@
     </main>
 
     {% if can_manage %}
-    <!-- Host messages to interested attendees -->
-    <section class="community-section">
-        <h2>Message interested attendees</h2>
-        <p>
-            {% if recipient_count %}
-                Your message goes to <strong>{{ recipient_count }}</strong>
-                {% if recipient_count == 1 %}person{% else %}people{% endif %}
-                by email and in their notifications.
-            {% else %}
-                Nobody is interested in this event yet. People who click
-                "I'm Interested" will get your messages.
-            {% endif %}
-        </p>
-        <form class="community-form notify-form" method="post" action="{% url 'event_notify' event.pk %}">
-            {% csrf_token %}
-            <label for="notify-subject">Subject</label>
-            <input id="notify-subject" type="text" name="subject" maxlength="200" required>
-            <label for="notify-message">Message</label>
-            <textarea id="notify-message" name="message" rows="4" maxlength="5000" required
-                      placeholder="Share a reminder or update..."></textarea>
-            <div class="community-actions">
-                <button class="community-button" type="submit">Send message</button>
-            </div>
-        </form>
-    </section>
+        <!-- Host messages to interested attendees -->
+        <section class="community-section">
+            <h2>Message interested attendees</h2>
+
+            <p>
+                {% if recipient_count %}
+                    Your message goes to <strong>{{ recipient_count }}</strong>
+                    {% if recipient_count == 1 %}person{% else %}people{% endif %}
+                    by email and in their notifications.
+                {% else %}
+                    Nobody is interested in this event yet. People who select
+                    "Interested" will get your messages.
+                {% endif %}
+            </p>
+
+            <form class="community-form notify-form"
+                  method="post"
+                  action="{% url 'event_notify' event.pk %}">
+                {% csrf_token %}
+
+                <label for="notify-subject">Subject</label>
+                <input id="notify-subject" type="text" name="subject"
+                       maxlength="200" required>
+
+                <label for="notify-message">Message</label>
+                <textarea id="notify-message" name="message" rows="4"
+                          maxlength="5000" required
+                          placeholder="Share a reminder or update..."></textarea>
+
+                <div class="community-actions">
+                    <button class="community-button" type="submit">
+                        Send message
+                    </button>
+                </div>
+            </form>
+        </section>
     {% endif %}
 
-    <!-- Attendee interest and public profiles -->
+    <!-- Attendance intentions and public attendee profiles -->
     <section class="community-section">
         <h2>Connect with Other Attendees</h2>
-
         <p>
-            <strong>{{ interest_count }}</strong>
-            {% if interest_count == 1 %}person is{% else %}people are{% endif %}
-            interested in this event.
-        </p>
-
-        {% if can_interact %}
-            {% if user.is_authenticated %}
-                <form method="post"
-                      action="{% url 'toggle_event_interest' event.pk %}">
-                    {% csrf_token %}
-                    <button class="community-button" type="submit">
-                        {% if user_has_interest %}
-                            Remove My Interest
-                        {% else %}
-                            I'm Interested
-                        {% endif %}
-                    </button>
-                </form>
-            {% else %}
-                <p>
-                    <a href="{% url 'login' %}?next={{ request.path|urlencode }}">
-                        Log in
-                    </a>
-                    to mark your interest and connect with attendees.
-                </p>
-            {% endif %}
-        {% else %}
-            <p class="status-message">
-                This event has ended. You can still read its attendee
-                information and discussion, but new interactions are closed.
-            </p>
-        {% endif %}
-
-        <h3>Attendees who share their profiles</h3>
-
-        {% if attendees %}
-            <div class="attendee-list">
-                {% for attendee in attendees %}
-                    <article class="attendee-card">
-                        <div class="attendee-header">
-                            {% if attendee.user.profile_photo %}
-                                <img
-                                    class="attendee-photo"
-                                    src="{{ attendee.user.profile_photo.url }}"
-                                    alt="Profile photo"
-                                >
-                            {% endif %}
-
-                            <div>
-                                <h3>{{ attendee.user.get_display_name }}</h3>
-
-                                {% if attendee.user.pronouns %}
-                                    <p class="muted">
-                                        {{ attendee.user.pronouns }}
-                                    </p>
-                                {% endif %}
-                            </div>
-                        </div>
-
-                        {% if attendee.user.bio %}
-                            <p>{{ attendee.user.bio }}</p>
-                        {% endif %}
-
-                        {% if user.is_authenticated and attendee.contact_request %}
-                            {% if attendee.contact_request.status == "pending" %}
-                                <p class="status-message">
-                                    Contact request sent — awaiting response.
-                                </p>
-                            {% elif attendee.contact_request.status == "accepted" %}
-                                <p class="status-message">
-                                    Contact request accepted.
-                                </p>
-                            {% endif %}
-                        {% elif can_interact and user.is_authenticated and user_has_interest %}
-                            <form
-                                class="community-form"
-                                method="post"
-                                action="{% url 'send_contact_request' event.pk attendee.user.pk %}"
-                            >
-                                {% csrf_token %}
-                                <label>
-                                    Message (optional)
-                                    <textarea
-                                        name="message"
-                                        rows="2"
-                                        maxlength="500"
-                                        placeholder="Introduce yourself..."
-                                    ></textarea>
-                                </label>
-
-                                <div class="community-actions">
-                                    <button class="community-button" type="submit">
-                                        Request to Connect
-                                    </button>
-                                </div>
-                            </form>
-                        {% elif can_interact and user.is_authenticated %}
-                            <p class="muted">
-                                Mark yourself as interested in this event
-                                before requesting to connect.
-                            </p>
-                        {% endif %}
-                    </article>
-                {% endfor %}
-            </div>
-        {% else %}
-            <p class="empty-message">
-                No attendees have chosen to share their profiles yet.
-            </p>
-        {% endif %}
+            See who's interested in this event and connect with other attendees.
+    </p>
+    <p>Attendees who share their profiles can be explored below.</p>
     </section>
+    <div class="community-actions">
+    <form
+        method="post"
+        action="{% url 'toggle_event_interest' event.pk %}"
+    >
+        {% csrf_token %}
+
+        <button
+            class="community-button intention-button {% if current_interest_status == 'interested' %}selected{% endif %}"
+            type="submit"
+            name="status"
+            value="interested"
+            aria-pressed="{% if current_interest_status == 'interested' %}true{% else %}false{% endif %}"
+        >
+            {% if current_interest_status == "interested" %}
+                ✓ Interested (click to cancel)
+            {% else %}
+                Interested
+            {% endif %}
+        </button>
+
+        <button
+            class="community-button intention-button {% if current_interest_status == 'want_to_attend' %}selected{% endif %}"
+            type="submit"
+            name="status"
+            value="want_to_attend"
+            aria-pressed="{% if current_interest_status == 'want_to_attend' %}true{% else %}false{% endif %}"
+        >
+            {% if current_interest_status == "want_to_attend" %}
+                ✓ Want to Attend (click to cancel)
+            {% else %}
+                Want to Attend
+            {% endif %}
+        </button>
+    </form>
+</div>
+
+<p>
+    <strong>{{ interest_count }}</strong>
+    people have selected an attendance intention.
+</p>
+
+
+<h3>Interested ({{ interested_count }})</h3>
+
+{% if interested_users %}
+    <div class="attendee-avatars">
+        {% for attendee in interested_users %}
+            <div class="attendee-profile">
+                <button
+                    type="button"
+                    class="attendee-avatar-trigger"
+                    aria-label="View {{ attendee.user.get_display_name|default:attendee.user.username }}'s profile preview"
+                    aria-haspopup="true"
+                >
+                    {% if attendee.user.profile_photo %}
+                        <img
+                            src="{{ attendee.user.profile_photo.url }}"
+                            alt=""
+                        >
+                    {% else %}
+                        {{ attendee.user.get_display_name|default:attendee.user.username|slice:":1"|upper }}
+                    {% endif %}
+                </button>
+
+                <div class="attendee-hover-card">
+                    <h4 class="attendee-card-name">
+                        {{ attendee.user.get_display_name|default:attendee.user.username }}
+                    </h4>
+
+                    <p class="attendee-card-username">
+                        @{{ attendee.user.username }}
+                    </p>
+
+                    {% if attendee.user.pronouns %}
+                        <p class="attendee-card-pronouns">
+                            {{ attendee.user.pronouns }}
+                        </p>
+                    {% endif %}
+
+                    {% if attendee.user.bio %}
+                        <p class="attendee-card-bio">{{ attendee.user.bio }}</p>
+                    {% else %}
+                        <p class="attendee-contact-note">
+                            This member hasn't added a bio yet.
+                        </p>
+                    {% endif %}
+
+                    <div class="attendee-card-actions">
+                        {% if user.is_authenticated %}
+                            {% if user.pk != attendee.user.pk %}
+                                <form
+                                    method="post"
+                                    action="{% url 'send_contact_request' event.pk attendee.user.pk %}"
+                                >
+                                    {% csrf_token %}
+                                    <textarea
+                                        class="attendee-contact-message"
+                                        name="message"
+                                        maxlength="500"
+                                        rows="2"
+                                        placeholder="Add an optional message..."
+                                        aria-label="Optional contact request message"
+                                    ></textarea>
+                                    <button type="submit">Send Contact Request</button>
+                                </form>
+                            {% else %}
+                                <p class="attendee-contact-note">
+                                    This is your profile.
+                                </p>
+                            {% endif %}
+                        {% else %}
+                            <a href="{% url 'login' %}">Log in to Contact</a>
+                        {% endif %}
+
+                        <a
+                            class="attendee-details-link"
+                            href="{% url 'public_profile' username=attendee.user.username %}"
+                        >See Details</a>
+                    </div>
+                </div>
+            </div>
+        {% endfor %}
+    </div>
+{% else %}
+    <p>No public profiles are available in this group yet.</p>
+{% endif %}
+
+
+<h3>Want to Attend ({{ want_to_attend_count }})</h3>
+
+{% if want_to_attend_users %}
+    <div class="attendee-avatars">
+        {% for attendee in want_to_attend_users %}
+            <div class="attendee-profile">
+                <button
+                    type="button"
+                    class="attendee-avatar-trigger"
+                    aria-label="View {{ attendee.user.get_display_name|default:attendee.user.username }}'s profile preview"
+                    aria-haspopup="true"
+                >
+                    {% if attendee.user.profile_photo %}
+                        <img
+                            src="{{ attendee.user.profile_photo.url }}"
+                            alt=""
+                        >
+                    {% else %}
+                        {{ attendee.user.get_display_name|default:attendee.user.username|slice:":1"|upper }}
+                    {% endif %}
+                </button>
+
+                <div class="attendee-hover-card">
+                    <h4 class="attendee-card-name">
+                        {{ attendee.user.get_display_name|default:attendee.user.username }}
+                    </h4>
+
+                    <p class="attendee-card-username">
+                        @{{ attendee.user.username }}
+                    </p>
+
+                    {% if attendee.user.pronouns %}
+                        <p class="attendee-card-pronouns">
+                            {{ attendee.user.pronouns }}
+                        </p>
+                    {% endif %}
+
+                    {% if attendee.user.bio %}
+                        <p class="attendee-card-bio">{{ attendee.user.bio }}</p>
+                    {% else %}
+                        <p class="attendee-contact-note">
+                            This member hasn't added a bio yet.
+                        </p>
+                    {% endif %}
+
+                    <div class="attendee-card-actions">
+                        {% if user.is_authenticated %}
+                            {% if user.pk != attendee.user.pk %}
+                                <form
+                                    method="post"
+                                    action="{% url 'send_contact_request' event.pk attendee.user.pk %}"
+                                >
+                                    {% csrf_token %}
+                                    <textarea
+                                        class="attendee-contact-message"
+                                        name="message"
+                                        maxlength="500"
+                                        rows="2"
+                                        placeholder="Add an optional message..."
+                                        aria-label="Optional contact request message"
+                                    ></textarea>
+                                    <button type="submit">Send Contact Request</button>
+                                </form>
+                            {% else %}
+                                <p class="attendee-contact-note">
+                                    This is your profile.
+                                </p>
+                            {% endif %}
+                        {% else %}
+                            <a href="{% url 'login' %}">Log in to Contact</a>
+                        {% endif %}
+
+                        <a
+                            class="attendee-details-link"
+                            href="{% url 'public_profile' username=attendee.user.username %}"
+                        >See Details</a>
+                    </div>
+                </div>
+            </div>
+        {% endfor %}
+    </div>
+{% else %}
+    <p>No public profiles are available in this group yet.</p>
+{% endif %}
+
 
     <!-- Incoming contact requests -->
     {% if user.is_authenticated and received_contact_requests %}
@@ -457,10 +901,10 @@
         </section>
     {% endif %}
 
-
     <!-- Event discussion -->
     <section class="community-section">
-        <h2>Event Discussion</h2>
+        <h2>Discuss This Event</h2>
+
 
         <p class="muted">
             Share your thoughts about this event and connect with other
@@ -554,10 +998,7 @@
                                 ></textarea>
 
                                 <div class="community-actions">
-                                    <button
-                                        class="community-button"
-                                        type="submit"
-                                    >
+                                    <button class="community-button" type="submit">
                                         Post Reply
                                     </button>
                                 </div>
@@ -573,13 +1014,27 @@
                     {% endif %}
                 </article>
             {% empty %}
-                <p class="empty-message">
-                    No comments yet. Start the conversation!
-                </p>
+                <p class="empty-message">No discussion posts yet.</p>
             {% endfor %}
         </div>
     </section>
 
-
+    <script>
+        document.addEventListener("click", function (event) {
+            if (!event.target.closest(".profile-preview")) {
+                document.querySelectorAll(".profile-preview.open").forEach(
+                    function (item) {
+                        item.classList.remove("open");
+                        const button = item.querySelector(
+                            ".profile-preview-trigger"
+                        );
+                        if (button) {
+                            button.setAttribute("aria-expanded", "false");
+                        }
+                    }
+                );
+            }
+        });
+    </script>
 </body>
 </html>

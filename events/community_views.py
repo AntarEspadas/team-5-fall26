@@ -1,4 +1,3 @@
-
 """Views for event interests, discussions, and contact requests."""
 
 from django.contrib.auth.decorators import login_required
@@ -37,21 +36,43 @@ def get_open_event(event_id):
 @login_required
 @require_POST
 def toggle_event_interest(request, event_id):
-    """Add or remove the current user's interest in an upcoming event."""
+    """Set, switch, or remove the current user's attendance intention."""
     event = get_open_event(event_id)
 
     if event is None:
         return redirect(event_detail_url(event_id))
 
-    interest = EventInterest.objects.filter(
-        event=event,
-        user=request.user,
-    ).first()
+    # Keep compatibility with requests that do not specify a status.
+    status = request.POST.get(
+        "status",
+        EventInterest.Status.INTERESTED,
+    )
 
-    if interest:
-        interest.delete()
-    else:
-        EventInterest.objects.create(event=event, user=request.user)
+    valid_statuses = {
+        EventInterest.Status.INTERESTED,
+        EventInterest.Status.WANT_TO_ATTEND,
+    }
+
+    if status not in valid_statuses:
+        return redirect(event_detail_url(event_id))
+
+    with transaction.atomic():
+        interest = EventInterest.objects.filter(
+            event=event,
+            user=request.user,
+        ).first()
+
+        if interest is None:
+            EventInterest.objects.create(
+                event=event,
+                user=request.user,
+                status=status,
+            )
+        elif interest.status == status:
+            interest.delete()
+        else:
+            interest.status = status
+            interest.save(update_fields=["status"])
 
     return redirect(event_detail_url(event_id))
 
@@ -59,8 +80,11 @@ def toggle_event_interest(request, event_id):
 @login_required
 @require_POST
 def create_event_post(request, event_id):
-    """Create a discussion post for any event, regardless of its status."""
+    """Create a discussion post only when the event is upcoming."""
     event = get_object_or_404(Event, pk=event_id)
+
+    if event.status != Event.Status.UPCOMING:
+        return redirect(event_detail_url(event_id))
 
     form = EventPostForm(request.POST)
 
@@ -76,11 +100,14 @@ def create_event_post(request, event_id):
 @login_required
 @require_POST
 def create_event_reply(request, post_id):
-    """Reply to a discussion post and notify its author when appropriate."""
+    """Reply to a post only when its event is upcoming."""
     post = get_object_or_404(
         EventPost.objects.select_related("event", "author"),
         pk=post_id,
     )
+
+    if post.event.status != Event.Status.UPCOMING:
+        return redirect(event_detail_url(post.event_id))
 
     form = EventReplyForm(request.POST)
 

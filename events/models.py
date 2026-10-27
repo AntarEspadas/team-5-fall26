@@ -127,7 +127,11 @@ class Event(models.Model):
 
 
 class EventInterest(models.Model):
-    """Record that a user is interested in an event."""
+    """Record a user's attendance intention for an event."""
+
+    class Status(models.TextChoices):
+        INTERESTED = "interested", "Interested"
+        WANT_TO_ATTEND = "want_to_attend", "Want to Attend"
 
     event = models.ForeignKey(
         Event,
@@ -138,6 +142,11 @@ class EventInterest(models.Model):
         "accounts.User",
         on_delete=models.CASCADE,
         related_name="event_interests",
+    )
+    status = models.CharField(
+        max_length=20,
+        choices=Status.choices,
+        default=Status.INTERESTED,
     )
     created_at = models.DateTimeField(auto_now_add=True)
 
@@ -151,7 +160,7 @@ class EventInterest(models.Model):
         ]
 
     def __str__(self):
-        return f"{self.user} interested in {self.event}"
+        return f"{self.user} — {self.get_status_display()} — {self.event}"
 
 
 class Notification(models.Model):

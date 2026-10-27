@@ -1,23 +1,21 @@
 """Views for user account pages."""
-
-from django.conf import settings
-from django.contrib.auth import views as auth_views
-from django.contrib.auth import get_user_model
-from django.contrib.auth.mixins import LoginRequiredMixin
-from django.contrib.messages.views import SuccessMessageMixin
-from django.shortcuts import resolve_url, render
-from django.urls import reverse_lazy
-from django.views.generic import CreateView, DetailView, UpdateView
-from django.contrib.auth.views import LoginView
-from django.core.cache import cache
 import time
-from events.models import Event, EventInterest
-from .forms import AccountSettingsForm, LoginForm, RegistrationForm
-from django.http import HttpResponse
-from django.http import Http404
+from django.conf import settings
 from django.contrib.auth import get_user_model
-from django.shortcuts import render
+from django.contrib.auth import views as auth_views
+from django.contrib.auth.mixins import LoginRequiredMixin
+from django.contrib.auth.views import LoginView
+from django.contrib.messages.views import SuccessMessageMixin
+from django.core.cache import cache
+from django.http import Http404
+from django.shortcuts import render, resolve_url
+from django.urls import reverse_lazy
 from django.utils import timezone
+from django.views.generic import CreateView, DetailView, UpdateView
+
+from events.models import Event
+from .forms import AccountSettingsForm, LoginForm, RegistrationForm
+
 
 class AccountSettingsView(LoginRequiredMixin, SuccessMessageMixin, UpdateView):
     """Allow signed-in users to edit only their own account's profile."""
@@ -31,8 +29,10 @@ class AccountSettingsView(LoginRequiredMixin, SuccessMessageMixin, UpdateView):
         """Select the account from the session, never from submitted identifiers."""
         return self.request.user
 
+
 class PublicProfileView(LoginRequiredMixin, DetailView):
     """Display a lightweight community profile."""
+
     model = get_user_model()
     template_name = "accounts/public_profile.html"
     context_object_name = "profile_user"
@@ -41,9 +41,9 @@ class PublicProfileView(LoginRequiredMixin, DetailView):
 
     def get(self, request, *args, **kwargs):
         """Check whether the profile exists and can be viewed."""
-        profile_user = get_user_model().objects.filter(
-            username=kwargs["username"]
-        ).first()
+        profile_user = (
+            get_user_model().objects.filter(username=kwargs["username"]).first()
+        )
 
         if profile_user is None:
             raise Http404("User not found")
@@ -69,11 +69,15 @@ class PublicProfileView(LoginRequiredMixin, DetailView):
         profile_user = self.object
 
         # Upcoming events the member marked as Interested.
-        context["upcoming_events"] = Event.objects.filter(
-            interests__user=profile_user,
-            status=Event.Status.UPCOMING,
-            start_time__gte=timezone.now(),
-        ).distinct().order_by("start_time", "title")
+        context["upcoming_events"] = (
+            Event.objects.filter(
+                interests__user=profile_user,
+                status=Event.Status.UPCOMING,
+                start_time__gte=timezone.now(),
+            )
+            .distinct()
+            .order_by("start_time", "title")
+        )
 
         # Derive interests from categories of events the member is
         # interested in. No separate interest tags are assumed.
@@ -84,9 +88,11 @@ class PublicProfileView(LoginRequiredMixin, DetailView):
             for value in (profile_user.interests or [])
         ]
 
-        # No past_events or attendance statistics are added because actual attendance data has not been confirmed.
+        # No past_events or attendance statistics are added
+        # because actual attendance data has not been confirmed.
 
         return context
+
 
 # Lockout configuration
 LOCKOUT_THRESHOLD = 5

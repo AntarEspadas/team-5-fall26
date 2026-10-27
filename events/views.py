@@ -4,7 +4,6 @@ from urllib.parse import quote, urlencode
 from uuid import uuid4
 
 from django.contrib import messages
-from django.contrib.auth import get_user_model
 from django.contrib.auth.decorators import login_required
 from django.contrib.auth.mixins import LoginRequiredMixin
 from django.db.models import F
@@ -155,42 +154,49 @@ class EventDetailView(DetailView):
     context_object_name = "event"
 
     def get_context_data(self, **kwargs):
-        """Add interests, public attendee profiles, and discussions."""
+        """Add attendance intentions, attendee profiles, and discussions."""
         context = super().get_context_data(**kwargs)
+
         event = self.object
         user = self.request.user
         is_authenticated = user.is_authenticated
 
-        context["interest_count"] = EventInterest.objects.filter(event=event).count()
+        # Get all attendance intention records for this event.
+        interests = EventInterest.objects.filter(event=event)
 
-        context["user_has_interest"] = (
-            EventInterest.objects.filter(event=event, user=user).exists()
-            if is_authenticated
-            else False
+        # Count intentions directly from the database.
+        context["interest_count"] = interests.count()
+        context["interested_count"] = interests.filter(
+            status=EventInterest.Status.INTERESTED
+        ).count()
+        context["want_to_attend_count"] = interests.filter(
+            status=EventInterest.Status.WANT_TO_ATTEND
+        ).count()
+
+        # Get the current user's selected intention.
+        current_interest = (
+            interests.filter(user=user).first() if is_authenticated else None
         )
 
+        context["user_has_interest"] = current_interest is not None
+        context["current_interest_status"] = (
+            current_interest.status if current_interest else ""
+        )
+
+        # Control whether users can interact with the event.
         context["can_interact"] = (
             is_authenticated and event.status == Event.Status.UPCOMING
         )
-
         context["can_manage"] = (
             is_authenticated and event.host_id == user.pk and not event.has_ended
         )
+
         if context["can_manage"]:
             context["recipient_count"] = interested_recipients(event).count()
 
-        User = get_user_model()
-        attendee_query = User.objects.filter(
-            share_profile_with_attendees=True,
-            event_interests__event=event,
-        ).distinct()
-
-        if is_authenticated:
-            attendee_query = attendee_query.exclude(pk=user.pk)
-
-        attendees = list(attendee_query.order_by("display_name", "username"))
-
+        # Find contact requests sent by the current user.
         request_by_recipient = {}
+
         if is_authenticated:
             requests = (
                 ContactRequest.objects.filter(
@@ -207,20 +213,47 @@ class EventDetailView(DetailView):
                     contact_request,
                 )
 
-        context["attendees"] = [
+        # Include all users who have chosen to share their profiles.
+        # Do not exclude the current user: their avatar should also move
+        # between the two groups when they change their intention.
+        visible_interests = (
+            interests.filter(user__share_profile_with_attendees=True)
+            .select_related("user")
+            .order_by("user__display_name", "user__username")
+        )
+
+        attendees = [
             {
-                "user": attendee,
-                "contact_request": request_by_recipient.get(attendee.pk),
+                "user": interest.user,
+                "status": interest.status,
+                "contact_request": request_by_recipient.get(interest.user_id),
             }
-            for attendee in attendees
+            for interest in visible_interests
         ]
 
+        # Split the same attendee list into the two intention groups.
+        context["interested_users"] = [
+            attendee
+            for attendee in attendees
+            if attendee["status"] == EventInterest.Status.INTERESTED
+        ]
+
+        context["want_to_attend_users"] = [
+            attendee
+            for attendee in attendees
+            if attendee["status"] == EventInterest.Status.WANT_TO_ATTEND
+        ]
+
+        context["attendees"] = attendees
+
+        # Event discussion posts and replies.
         context["posts"] = (
             EventPost.objects.filter(event=event)
             .select_related("author")
             .prefetch_related("replies__author")
         )
 
+        # Contact requests received by the current user.
         context["received_contact_requests"] = (
             ContactRequest.objects.filter(
                 event=event,
