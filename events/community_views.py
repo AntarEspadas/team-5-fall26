@@ -4,18 +4,14 @@ from django.contrib.auth.decorators import login_required
 from django.db import transaction
 from django.shortcuts import get_object_or_404, redirect
 from django.urls import reverse
+from django.utils import timezone
 from django.views.decorators.http import require_POST
 
 from accounts.models import ContactPermission, User
 
 from .forms import ContactRequestForm, EventPostForm, EventReplyForm
-from .models import (
-    ContactRequest,
-    Event,
-    EventInterest,
-    EventPost,
-    Notification,
-)
+from .models import ContactRequest, Event, EventInterest, EventPost, Notification
+from .notifications import notify_contact_request
 
 
 def event_detail_url(event_id):
@@ -120,10 +116,13 @@ def create_event_reply(request, post_id):
 
             # Notify the original post author, but never notify yourself.
             if post.author_id != request.user.pk:
+                subject = f"New reply to your comment on {post.event.title}"
                 Notification.objects.create(
                     recipient=post.author,
                     event=post.event,
-                    subject=f"New reply to your comment on {post.event.title}",
+                    subject=subject[
+                        : Notification._meta.get_field("subject").max_length
+                    ],
                     body=(
                         f"{request.user.get_display_name()} replied to "
                         f"your comment on '{post.event.title}'."
@@ -164,6 +163,8 @@ def send_contact_request(request, event_id, user_id):
         return redirect(event_detail_url(event_id))
 
     with transaction.atomic():
+        # Serialize this sender's duplicate checks across simultaneous submissions.
+        User.objects.select_for_update(no_key=True).get(pk=request.user.pk)
         existing = ContactRequest.objects.filter(
             event=event,
             sender=request.user,
@@ -184,6 +185,7 @@ def send_contact_request(request, event_id, user_id):
             contact_request.status = ContactRequest.Status.PENDING
 
         contact_request.save()
+        notify_contact_request(contact_request)
 
     return redirect(event_detail_url(event_id))
 
@@ -192,20 +194,31 @@ def send_contact_request(request, event_id, user_id):
 @require_POST
 def respond_to_contact_request(request, request_id, action):
     """Accept or decline a pending contact request addressed to the user."""
-    contact_request = get_object_or_404(
-        ContactRequest,
-        pk=request_id,
-        recipient=request.user,
-        status=ContactRequest.Status.PENDING,
-    )
+    with transaction.atomic():
+        contact_request = get_object_or_404(
+            ContactRequest.objects.select_for_update(),
+            pk=request_id,
+            recipient=request.user,
+            status=ContactRequest.Status.PENDING,
+        )
+        destination = (
+            "notifications"
+            if request.POST.get("return_to") == "notifications"
+            else event_detail_url(contact_request.event_id)
+        )
 
-    if action == "accept":
-        contact_request.status = ContactRequest.Status.ACCEPTED
-    elif action == "decline":
-        contact_request.status = ContactRequest.Status.DECLINED
-    else:
-        return redirect(event_detail_url(contact_request.event_id))
+        if action == "accept":
+            contact_request.status = ContactRequest.Status.ACCEPTED
+        elif action == "decline":
+            contact_request.status = ContactRequest.Status.DECLINED
+        else:
+            return redirect(destination)
 
-    contact_request.save(update_fields=["status", "updated_at"])
+        contact_request.save(update_fields=["status", "updated_at"])
+        Notification.objects.filter(
+            contact_request=contact_request,
+            recipient=request.user,
+            read_at__isnull=True,
+        ).update(read_at=timezone.now())
 
-    return redirect(event_detail_url(contact_request.event_id))
+    return redirect(destination)

@@ -1,0 +1,34 @@
+{% if user.is_authenticated %}
+    {% if user.pk == attendee.user.pk %}
+        <p class="attendee-contact-note">This is your profile.</p>
+    {% elif attendee.contact_request %}
+        <p class="status-message">
+            {% if attendee.contact_request.status == "pending" %}
+                Contact request sent &mdash; awaiting response.
+            {% else %}
+                Contact request accepted.
+            {% endif %}
+        </p>
+    {% elif can_interact and user_has_interest %}
+        <form method="post" action="{% url 'send_contact_request' event.pk attendee.user.pk %}">
+            {% csrf_token %}
+            <textarea
+                class="attendee-contact-message"
+                name="message"
+                maxlength="500"
+                rows="2"
+                placeholder="Add an optional message..."
+                aria-label="Optional contact request message"
+            ></textarea>
+            <button type="submit">Send Contact Request</button>
+        </form>
+    {% elif can_interact %}
+        <p class="attendee-contact-note">
+            Select Interested or Want to Attend before requesting to connect.
+        </p>
+    {% else %}
+        <p class="attendee-contact-note">New contact requests are closed for this event.</p>
+    {% endif %}
+{% else %}
+    <a href="{% url 'login' %}">Log in to Contact</a>
+{% endif %}

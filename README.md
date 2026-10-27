@@ -96,16 +96,35 @@ or after the day they start if they have no end time.
 
 ## Notifications
 
-While an event is upcoming, its host can message everyone who clicked
-**I'm Interested** from the event's detail page. The host sees how many people
-will get it, but not who they are. Each person gets an email and an in-app
-notification. When a host changes an event's date, time, or location,
+While an event is upcoming, its host can message everyone who selected
+**Interested** or **Want to Attend** from the event's detail page. The host
+sees how many people will get it, but not who they are. Each person gets an
+email and an in-app notification. When a host changes an event's date, time, or location,
 interested users are told automatically.
 
 Signed-in users see a **Notifications** link on the home page with their
-unread count. `/notifications/` lists notifications newest first and marks
-them read when opened. In development, emails are printed to the `runserver`
-console instead of being sent.
+unread count. `/notifications/` lists contact requests first, then event
+updates and discussion replies, with the newest items first within each
+group. Event updates and reply alerts are marked read when displayed.
+Pending contact requests keep their **New** badge and remain in the unread
+count until accepted or declined.
+
+Replies to discussion posts notify the original author in-app, except when
+replying to your own post. Reply notifications do not send email.
+
+To connect with someone, select **Interested** or **Want to Attend** on an
+upcoming event, open a shared attendee profile preview in either group,
+optionally add an introduction, and click **Send Contact Request**. The
+recipient gets an in-app notification with **Accept** and **Decline** buttons;
+they can also respond from the event page. Both actions mark the request
+notification read. If the
+recipient allows direct contact, the request is automatically accepted and
+appears as an already-read introduction. Senders receive no response
+notifications, and contact requests do not send emails. Existing pending
+requests are included when the notification migrations are applied.
+
+In development, event-update emails are printed to the `runserver` console
+instead of being sent.
 
 ## Cron job (hourly sync)
 

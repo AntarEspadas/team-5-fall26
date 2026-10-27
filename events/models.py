@@ -164,10 +164,10 @@ class EventInterest(models.Model):
 
 
 class Notification(models.Model):
-    """A message about an event shown in a user's in-app notifications.
+    """An event update or incoming contact request.
 
-    Hosts' messages and automatic notices about event changes create one
-    notification per interested user, alongside the matching email.
+    Event updates become read when displayed. Contact requests stay unread
+    until accepted or declined.
     """
 
     recipient = models.ForeignKey(
@@ -179,6 +179,13 @@ class Notification(models.Model):
         Event,
         on_delete=models.CASCADE,
         related_name="notifications",
+    )
+    contact_request = models.OneToOneField(
+        "ContactRequest",
+        on_delete=models.CASCADE,
+        null=True,
+        blank=True,
+        related_name="notification",
     )
     subject = models.CharField("subject", max_length=200)
     body = models.TextField("message")

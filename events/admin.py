@@ -9,8 +9,20 @@ from .models import Event, Notification
 class NotificationAdmin(admin.ModelAdmin):
     """List sent notifications so staff can check who was told what."""
 
-    list_display = ("subject", "recipient", "event", "created_at", "read_at")
-    list_select_related = ("recipient", "event")
+    list_display = (
+        "subject",
+        "recipient",
+        "event",
+        "contact_request",
+        "created_at",
+        "read_at",
+    )
+    list_select_related = (
+        "recipient",
+        "event",
+        "contact_request__sender",
+        "contact_request__recipient",
+    )
 
 
 @admin.register(Event)

@@ -23,7 +23,33 @@
                     <a href="{% url 'event_detail' notification.event.pk %}">{{ notification.event.title }}</a>
                 </p>
                 <h2>{{ notification.subject }}</h2>
+                {% if notification.contact_request_id %}
+                {% with contact_request=notification.contact_request %}
+                <p>From <a href="{% url 'public_profile' username=contact_request.sender.username %}">{{ contact_request.sender.get_display_name }}</a></p>
                 <p class="notification-body">{{ notification.body }}</p>
+                <p class="notification-status">Status: {{ contact_request.get_status_display }}</p>
+                {% if contact_request.status == "pending" %}
+                <div class="notification-actions">
+                    <form method="post" action="{% url 'respond_to_contact_request' contact_request.pk 'accept' %}">
+                        {% csrf_token %}
+                        <input type="hidden" name="return_to" value="notifications">
+                        <button type="submit">Accept</button>
+                    </form>
+                    <form method="post" action="{% url 'respond_to_contact_request' contact_request.pk 'decline' %}">
+                        {% csrf_token %}
+                        <input type="hidden" name="return_to" value="notifications">
+                        <button class="notification-decline" type="submit">Decline</button>
+                    </form>
+                </div>
+                {% elif contact_request.status == "accepted" %}
+                <div class="notification-actions">
+                    <a class="notification-message" href="/messages/{{ contact_request.sender.pk }}/" aria-label="Message {{ contact_request.sender.get_display_name }}">Message</a>
+                </div>
+                {% endif %}
+                {% endwith %}
+                {% else %}
+                <p class="notification-body">{{ notification.body }}</p>
+                {% endif %}
             </li>
             {% endfor %}
         </ul>
@@ -35,7 +61,7 @@
         </nav>
         {% endif %}
         {% else %}
-        <p class="empty-state">No notifications yet. When hosts of events you're interested in send updates, they'll show up here.</p>
+        <p class="empty-state">No notifications yet. Contact requests and updates from events you're interested in will show up here.</p>
         {% endif %}
     </main>
 </body>

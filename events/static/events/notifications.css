@@ -58,3 +58,41 @@
     gap: 16px;
     margin-top: 24px;
 }
+
+.notification-status {
+    margin: 12px 0;
+    font-weight: 600;
+}
+
+.notification-actions {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 12px;
+}
+
+.notification-actions button,
+.notification-actions a {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    padding: 8px 16px;
+    border: 1px solid var(--leaf);
+    border-radius: var(--radius-card);
+    background: var(--leaf);
+    color: white;
+    font: inherit;
+    text-decoration: none;
+    cursor: pointer;
+}
+
+.notification-actions .notification-decline {
+    background: var(--surface);
+    color: var(--muted);
+    border-color: var(--line);
+}
+
+.notification-actions button:focus-visible,
+.notification-actions a:focus-visible {
+    outline: 2px solid var(--leaf);
+    outline-offset: 3px;
+}

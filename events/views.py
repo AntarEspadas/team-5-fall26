@@ -6,7 +6,7 @@ from uuid import uuid4
 from django.contrib import messages
 from django.contrib.auth.decorators import login_required
 from django.contrib.auth.mixins import LoginRequiredMixin
-from django.db.models import F
+from django.db.models import Case, F, Value, When
 from django.http import Http404, QueryDict
 from django.shortcuts import get_object_or_404, redirect
 from django.urls import reverse
@@ -123,10 +123,10 @@ def notify_attendees(request, pk):
 
 
 class NotificationListView(LoginRequiredMixin, ListView):
-    """List the signed-in user's notifications, newest first.
+    """List contact requests first, newest first within each group.
 
-    Opening the page marks the notifications on it as read; they still show
-    as new on that first view.
+    Displayed event updates become read. Pending contact requests stay new
+    until the recipient resolves them.
     """
 
     template_name = "events/notifications.html"
@@ -134,14 +134,27 @@ class NotificationListView(LoginRequiredMixin, ListView):
     paginate_by = NOTIFICATION_PAGE_SIZE
 
     def get_queryset(self):
-        """Return the current user's notifications with their events."""
-        return self.request.user.notifications.select_related("event")
+        """Order both groups before pagination and load request context."""
+        return (
+            self.request.user.notifications.select_related(
+                "event", "contact_request__sender"
+            )
+            .annotate(
+                _request_priority=Case(
+                    When(contact_request__isnull=False, then=Value(0)),
+                    default=Value(1),
+                )
+            )
+            .order_by("_request_priority", "-created_at", "-pk")
+        )
 
     def get_context_data(self, **kwargs):
-        """Mark the notifications being shown as read."""
+        """Mark only displayed event updates read."""
         context = super().get_context_data(**kwargs)
         shown = context["notifications"]
-        unread = [n.pk for n in shown if n.read_at is None]
+        unread = [
+            n.pk for n in shown if n.read_at is None and n.contact_request_id is None
+        ]
         Notification.objects.filter(pk__in=unread).update(read_at=timezone.now())
         return context
 

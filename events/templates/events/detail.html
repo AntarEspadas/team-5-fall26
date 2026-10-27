@@ -737,31 +737,7 @@
                     {% endif %}
 
                     <div class="attendee-card-actions">
-                        {% if user.is_authenticated %}
-                            {% if user.pk != attendee.user.pk %}
-                                <form
-                                    method="post"
-                                    action="{% url 'send_contact_request' event.pk attendee.user.pk %}"
-                                >
-                                    {% csrf_token %}
-                                    <textarea
-                                        class="attendee-contact-message"
-                                        name="message"
-                                        maxlength="500"
-                                        rows="2"
-                                        placeholder="Add an optional message..."
-                                        aria-label="Optional contact request message"
-                                    ></textarea>
-                                    <button type="submit">Send Contact Request</button>
-                                </form>
-                            {% else %}
-                                <p class="attendee-contact-note">
-                                    This is your profile.
-                                </p>
-                            {% endif %}
-                        {% else %}
-                            <a href="{% url 'login' %}">Log in to Contact</a>
-                        {% endif %}
+                        {% include "events/_contact_request_action.html" %}
 
                         <a
                             class="attendee-details-link"
@@ -823,31 +799,7 @@
                     {% endif %}
 
                     <div class="attendee-card-actions">
-                        {% if user.is_authenticated %}
-                            {% if user.pk != attendee.user.pk %}
-                                <form
-                                    method="post"
-                                    action="{% url 'send_contact_request' event.pk attendee.user.pk %}"
-                                >
-                                    {% csrf_token %}
-                                    <textarea
-                                        class="attendee-contact-message"
-                                        name="message"
-                                        maxlength="500"
-                                        rows="2"
-                                        placeholder="Add an optional message..."
-                                        aria-label="Optional contact request message"
-                                    ></textarea>
-                                    <button type="submit">Send Contact Request</button>
-                                </form>
-                            {% else %}
-                                <p class="attendee-contact-note">
-                                    This is your profile.
-                                </p>
-                            {% endif %}
-                        {% else %}
-                            <a href="{% url 'login' %}">Log in to Contact</a>
-                        {% endif %}
+                        {% include "events/_contact_request_action.html" %}
 
                         <a
                             class="attendee-details-link"

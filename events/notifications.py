@@ -1,4 +1,4 @@
-"""Email and in-app notifications for people interested in an event."""
+"""Event announcements and in-app contact request notifications."""
 
 from django.conf import settings
 from django.contrib.auth import get_user_model
@@ -6,7 +6,7 @@ from django.core.mail import send_mass_mail
 from django.utils import dateformat, timezone
 
 from .filters import NYC_TIMEZONE
-from .models import Notification
+from .models import ContactRequest, Notification
 
 # Edits to these fields send interested users an automatic notice.
 NOTIFIED_CHANGES = ("start_time", "end_time", "location")
@@ -44,6 +44,23 @@ def notify_interested(event, subject, body, event_url):
         ]
     )
     return len(recipients)
+
+
+def notify_contact_request(contact_request):
+    """Create at most one recipient notification for a saved request."""
+    pending = contact_request.status == ContactRequest.Status.PENDING
+    subject = "Contact request" if pending else "Introduction"
+    notification, _ = Notification.objects.get_or_create(
+        contact_request=contact_request,
+        defaults={
+            "recipient_id": contact_request.recipient_id,
+            "event_id": contact_request.event_id,
+            "subject": f"{subject} from {contact_request.sender.get_display_name()}",
+            "body": contact_request.message,
+            "read_at": None if pending else timezone.now(),
+        },
+    )
+    return notification
 
 
 def describe_when(start, end):
