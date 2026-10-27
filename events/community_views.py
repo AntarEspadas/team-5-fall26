@@ -1,28 +1,36 @@
+
 """Views for event interests, discussions, and contact requests."""
 
 from django.contrib.auth.decorators import login_required
 from django.db import transaction
 from django.shortcuts import get_object_or_404, redirect
+from django.urls import reverse
 from django.views.decorators.http import require_POST
 
 from accounts.models import ContactPermission, User
 
 from .forms import ContactRequestForm, EventPostForm, EventReplyForm
-from .models import ContactRequest, Event, EventInterest, EventPost
+from .models import (
+    ContactRequest,
+    Event,
+    EventInterest,
+    EventPost,
+    Notification,
+)
 
 
 def event_detail_url(event_id):
     """Return the URL for an event detail page."""
-    from django.urls import reverse
-
     return reverse("event_detail", args=[event_id])
 
 
 def get_open_event(event_id):
-    """Return an event that still accepts new community interactions."""
+    """Return an event that still accepts interest and contact interactions."""
     event = get_object_or_404(Event, pk=event_id)
+
     if event.status != Event.Status.UPCOMING:
         return None
+
     return event
 
 
@@ -31,6 +39,7 @@ def get_open_event(event_id):
 def toggle_event_interest(request, event_id):
     """Add or remove the current user's interest in an upcoming event."""
     event = get_open_event(event_id)
+
     if event is None:
         return redirect(event_detail_url(event_id))
 
@@ -50,12 +59,11 @@ def toggle_event_interest(request, event_id):
 @login_required
 @require_POST
 def create_event_post(request, event_id):
-    """Create a discussion post for an upcoming event."""
-    event = get_open_event(event_id)
-    if event is None:
-        return redirect(event_detail_url(event_id))
+    """Create a discussion post for any event, regardless of its status."""
+    event = get_object_or_404(Event, pk=event_id)
 
     form = EventPostForm(request.POST)
+
     if form.is_valid():
         post = form.save(commit=False)
         post.event = event
@@ -68,20 +76,32 @@ def create_event_post(request, event_id):
 @login_required
 @require_POST
 def create_event_reply(request, post_id):
-    """Reply to a post while its event still accepts interactions."""
+    """Reply to a discussion post and notify its author when appropriate."""
     post = get_object_or_404(
-        EventPost.objects.select_related("event"),
+        EventPost.objects.select_related("event", "author"),
         pk=post_id,
     )
-    if get_open_event(post.event_id) is None:
-        return redirect(event_detail_url(post.event_id))
 
     form = EventReplyForm(request.POST)
+
     if form.is_valid():
-        reply = form.save(commit=False)
-        reply.post = post
-        reply.author = request.user
-        reply.save()
+        with transaction.atomic():
+            reply = form.save(commit=False)
+            reply.post = post
+            reply.author = request.user
+            reply.save()
+
+            # Notify the original post author, but never notify yourself.
+            if post.author_id != request.user.pk:
+                Notification.objects.create(
+                    recipient=post.author,
+                    event=post.event,
+                    subject=f"New reply to your comment on {post.event.title}",
+                    body=(
+                        f"{request.user.get_display_name()} replied to "
+                        f"your comment on '{post.event.title}'."
+                    ),
+                )
 
     return redirect(event_detail_url(post.event_id))
 
@@ -91,6 +111,7 @@ def create_event_reply(request, post_id):
 def send_contact_request(request, event_id, user_id):
     """Send a contact request to a visible attendee of the same event."""
     event = get_open_event(event_id)
+
     if event is None:
         return redirect(event_detail_url(event_id))
 
@@ -111,6 +132,7 @@ def send_contact_request(request, event_id, user_id):
         return redirect(event_detail_url(event_id))
 
     form = ContactRequestForm(request.POST)
+
     if not form.is_valid():
         return redirect(event_detail_url(event_id))
 
@@ -158,4 +180,5 @@ def respond_to_contact_request(request, request_id, action):
         return redirect(event_detail_url(contact_request.event_id))
 
     contact_request.save(update_fields=["status", "updated_at"])
+
     return redirect(event_detail_url(contact_request.event_id))

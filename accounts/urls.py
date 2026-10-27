@@ -14,6 +14,11 @@ from .views import RegisterView, CustomLoginView
 
 urlpatterns = [
     path("settings/", views.AccountSettingsView.as_view(), name="account_settings"),
+    path(
+        "profile/<str:username>/",
+        views.PublicProfileView.as_view(),
+        name="public_profile",
+    ),
     path("register/", RegisterView.as_view(), name="register"),
     path("login/", CustomLoginView.as_view(), name="login"),
     path("logout/", LogoutView.as_view(next_page="landing"), name="logout"),
