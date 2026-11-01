@@ -117,6 +117,20 @@ class NotifyAttendeesForm(forms.Form):
     )
 
 
+class CancelEventForm(forms.Form):
+    """Validate the optional note a host sends when cancelling an event."""
+
+    message = forms.CharField(
+        label="Message to attendees",
+        max_length=2000,
+        required=False,
+        help_text="Included in the cancellation email and notification.",
+        widget=forms.Textarea(
+            attrs={"rows": 4, "placeholder": "Let people know why, or what's next."}
+        ),
+    )
+
+
 class EventPostForm(forms.ModelForm):
     """Validate a new discussion post."""
 

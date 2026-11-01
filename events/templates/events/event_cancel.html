@@ -1,0 +1,51 @@
+{% load static tz %}<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Cancel {{ event.title }} | NYC Parks Events</title>
+    <link rel="stylesheet" href="{% static 'events/search.css' %}">
+    <link rel="stylesheet" href="{% static 'events/home.css' %}">
+    <link rel="stylesheet" href="{% static 'events/event_form.css' %}">
+</head>
+<body>
+    <main class="event-form-page">
+        <a class="search-back" href="{% url 'event_detail' event.pk %}">Back to event</a>
+        <h1>Cancel this event?</h1>
+        <p class="event-form-intro">
+            <strong>{{ event.title }}</strong>,
+            {% timezone "America/New_York" %}
+                {% if event.start_time %}{{ event.start_time|date:"l, F j, Y" }} at {{ event.start_time|date:"g:i A" }}{% else %}date to be announced{% endif %}{% endtimezone %}.
+            It will be removed from the home page and search, and moved to the
+            archive in My events. This can't be undone.
+        </p>
+
+        <form class="event-form" method="post">
+            {% csrf_token %}
+            <p class="cancel-recipients">
+                {% if recipient_count %}
+                    <strong>{{ recipient_count }}</strong>
+                    {% if recipient_count == 1 %}person is{% else %}people are{% endif %}
+                    signed up as Interested or Want to Attend. They'll get an
+                    email and a notification that the event is cancelled.
+                {% else %}
+                    Nobody is signed up for this event yet, so no one will be
+                    notified.
+                {% endif %}
+            </p>
+            {% with field=form.message %}
+            <div class="form-field{% if field.errors %} has-error{% endif %}">
+                <label for="{{ field.id_for_label }}">{{ field.label }} <span class="optional">(optional)</span></label>
+                {{ field }}
+                <p class="help-text">{{ field.help_text }}</p>
+                {{ field.errors }}
+            </div>
+            {% endwith %}
+            <div class="form-actions">
+                <button type="submit" class="btn-primary btn-danger">Cancel event</button>
+                <a href="{% url 'event_detail' event.pk %}">Keep event</a>
+            </div>
+        </form>
+    </main>
+</body>
+</html>

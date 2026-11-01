@@ -347,6 +347,8 @@
                     Post an event
                 </a>
 
+                <a class="nav-link" href="{% url 'my_events' %}">My events</a>
+
                 {% with unread=unread_notification_count %}
                 <a class="nav-link" href="{% url 'notifications' %}">
                     Notifications{% if unread %}&nbsp;<span class="count-pill">{{ unread }} new</span>{% endif %}

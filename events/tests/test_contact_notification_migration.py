@@ -29,7 +29,8 @@ class ContactNotificationMigrationTests(TransactionTestCase):
         self.old_apps = executor.loader.project_state(self.before).apps
 
     def restore_latest(self):
-        MigrationExecutor(connection).migrate(self.after)
+        executor = MigrationExecutor(connection)
+        executor.migrate(executor.loader.graph.leaf_nodes())
 
     def test_backfill_is_pending_only_idempotent_and_reversible(self):
         user_model = self.old_apps.get_model("accounts", "User")

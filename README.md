@@ -99,6 +99,14 @@ past can stay as it is, so hosts can still correct events that are under way.
 The hourly sync never edits hosted events. It marks them done once they end,
 or after the day they start if they have no end time.
 
+Hosts can also **Cancel event** from the detail page, at `/events/<id>/cancel/`.
+A confirmation page lets them add an optional message, and cancelling can't
+be undone. A cancelled event leaves the home page, search, and filters, and
+its page shows a cancellation banner with interest, comments, and editing
+closed. Everyone who selected Interested or Want to Attend gets an email and
+a notification. **My events** (`/events/mine/`), linked in the header, lists a
+host's upcoming events and archives the cancelled and ended ones.
+
 ## Notifications
 
 While an event is upcoming, its host can message everyone who selected

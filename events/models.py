@@ -25,10 +25,16 @@ class Event(models.Model):
     HOSTED_GUID_PREFIX = "host-"
 
     class Status(models.TextChoices):
-        """Lifecycle of an event as tracked by the hourly sync."""
+        """Lifecycle of an event.
+
+        The hourly sync moves upcoming events to done; hosts can cancel their
+        own upcoming events. Only upcoming events are listed or accept
+        interest, posts, and contact requests.
+        """
 
         UPCOMING = "upcoming", "Upcoming"
         DONE = "done", "Done"
+        CANCELLED = "cancelled", "Cancelled"
 
     class Borough(models.TextChoices):
         """The five NYC boroughs a hosted event can take place in."""
@@ -116,13 +122,20 @@ class Event(models.Model):
         return False
 
     @property
-    def is_cancelled(self):
-        """Return whether the feed marks this event as cancelled.
+    def is_open(self):
+        """Return whether the event is upcoming or under way, not cancelled."""
+        return self.status == self.Status.UPCOMING and not self.has_ended
 
-        ``status`` only records the sync lifecycle (upcoming or done), so the
-        feed's own title prefix is the cancellation signal we have. The feed
-        spells that prefix both "CANCELLED" and "CANCELED".
+    @property
+    def is_cancelled(self):
+        """Return whether the host or the feed cancelled this event.
+
+        Hosts cancel through the cancelled status. The feed has no such
+        status and instead prefixes the title, spelled both "CANCELLED" and
+        "CANCELED".
         """
+        if self.status == self.Status.CANCELLED:
+            return True
         return self.title.lstrip().upper().startswith(("CANCELLED", "CANCELED"))
 
 

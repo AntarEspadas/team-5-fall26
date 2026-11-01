@@ -4,12 +4,15 @@ from django.conf import settings
 from django.contrib.auth import get_user_model
 from django.core.mail import send_mass_mail
 from django.utils import dateformat, timezone
+from django.utils.text import Truncator
 
 from .filters import NYC_TIMEZONE
 from .models import ContactRequest, Notification
 
 # Edits to these fields send interested users an automatic notice.
 NOTIFIED_CHANGES = ("start_time", "end_time", "location")
+# Event titles can be longer than a notification subject allows.
+SUBJECT_MAX_LENGTH = Notification._meta.get_field("subject").max_length
 
 
 def interested_recipients(event):
@@ -32,6 +35,7 @@ def notify_interested(event, subject, body, event_url):
         int: how many people were notified.
     """
     recipients = list(interested_recipients(event))
+    subject = Truncator(subject).chars(SUBJECT_MAX_LENGTH)
     Notification.objects.bulk_create(
         Notification(recipient=user, event=event, subject=subject, body=body)
         for user in recipients
@@ -97,3 +101,23 @@ def change_notice(event, previous, changed_fields):
     host = event.host.get_display_name()
     body = f"{host} changed the details of {event.title}:\n\n" + "\n".join(lines)
     return f"Update: {event.title} has changed", body
+
+
+def cancel_notice(event, message=""):
+    """Return the subject and body announcing that a host cancelled an event.
+
+    Args:
+        event: the cancelled event.
+        message: the host's optional note to attendees.
+    """
+    host = event.host.get_display_name()
+    lines = [
+        f"{host} cancelled {event.title}.",
+        "",
+        f"It was planned for: {describe_when(event.start_time, event.end_time)}",
+    ]
+    if event.location:
+        lines.append(f"Where: {event.location}")
+    if message:
+        lines += ["", f"Message from {host}:", message]
+    return f"Cancelled: {event.title}", "\n".join(lines)

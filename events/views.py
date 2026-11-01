@@ -6,12 +6,13 @@ from uuid import uuid4
 from django.contrib import messages
 from django.contrib.auth.decorators import login_required
 from django.contrib.auth.mixins import LoginRequiredMixin
+from django.db import transaction
 from django.db.models import Case, F, Value, When
 from django.http import Http404, QueryDict
-from django.shortcuts import get_object_or_404, redirect
+from django.shortcuts import get_object_or_404, redirect, render
 from django.urls import reverse
 from django.utils import timezone
-from django.views.decorators.http import require_POST
+from django.views.decorators.http import require_http_methods, require_POST
 from django.views.generic import (
     CreateView,
     DetailView,
@@ -21,9 +22,14 @@ from django.views.generic import (
 )
 
 from .filters import EventFilterForm, filter_events, filter_params
-from .forms import EventListingForm, NotifyAttendeesForm
+from .forms import CancelEventForm, EventListingForm, NotifyAttendeesForm
 from .models import ContactRequest, Event, EventInterest, EventPost, Notification
-from .notifications import change_notice, interested_recipients, notify_interested
+from .notifications import (
+    cancel_notice,
+    change_notice,
+    interested_recipients,
+    notify_interested,
+)
 from .search import search_events
 
 UPCOMING_EVENT_LIMIT = 20
@@ -52,14 +58,14 @@ class EventCreateView(LoginRequiredMixin, CreateView):
 
 
 def get_hosted_upcoming_event(user, pk):
-    """Return an event the user hosts that has not ended yet.
+    """Return an event the user hosts that has not ended or been cancelled.
 
     Other users' events, NYC Parks feed events, and events that have ended
-    are reported as not found.
+    or been cancelled are reported as not found.
     """
     event = get_object_or_404(Event, pk=pk, host=user)
-    if event.has_ended:
-        raise Http404("This event has ended.")
+    if not event.is_open:
+        raise Http404("This event has ended or was cancelled.")
     return event
 
 
@@ -120,6 +126,67 @@ def notify_attendees(request, pk):
     else:
         messages.info(request, "Nobody is interested in this event yet.")
     return redirect(detail_url)
+
+
+@login_required
+@require_http_methods(["GET", "POST"])
+def cancel_event(request, pk):
+    """Confirm, then cancel a host's event and tell everyone interested."""
+    event = get_hosted_upcoming_event(request.user, pk)
+    form = CancelEventForm(request.POST if request.method == "POST" else None)
+    if form.is_bound and form.is_valid():
+        detail_url = reverse("event_detail", args=[event.pk])
+        with transaction.atomic():
+            # Only one of two simultaneous submissions can make the change,
+            # so attendees are never told twice.
+            cancelled = Event.objects.filter(
+                pk=event.pk, status=Event.Status.UPCOMING
+            ).update(status=Event.Status.CANCELLED, updated_at=timezone.now())
+            if not cancelled:
+                raise Http404("This event was already cancelled.")
+            event.status = Event.Status.CANCELLED
+            count = notify_interested(
+                event,
+                *cancel_notice(event, form.cleaned_data["message"]),
+                event_url=request.build_absolute_uri(detail_url),
+            )
+        confirmation = "Event cancelled."
+        if count:
+            confirmation += f" We let {people(count)} know."
+        messages.success(request, confirmation)
+        return redirect(detail_url)
+    return render(
+        request,
+        "events/event_cancel.html",
+        {
+            "event": event,
+            "form": form,
+            "recipient_count": interested_recipients(event).count(),
+        },
+    )
+
+
+class MyEventsView(LoginRequiredMixin, TemplateView):
+    """List the events a user posted: upcoming ones, then archived ones."""
+
+    template_name = "events/my_events.html"
+
+    def get_context_data(self, **kwargs):
+        """Split hosted events into upcoming (soonest first) and archived.
+
+        Archived events are cancelled or over, most recent first.
+        """
+        context = super().get_context_data(**kwargs)
+        events = list(
+            self.request.user.hosted_events.order_by(
+                F("start_time").asc(nulls_last=True), "end_time", "title", "pk"
+            )
+        )
+        context["upcoming_events"] = [event for event in events if event.is_open]
+        context["archived_events"] = [
+            event for event in reversed(events) if not event.is_open
+        ]
+        return context
 
 
 class NotificationListView(LoginRequiredMixin, ListView):
@@ -202,8 +269,9 @@ class EventDetailView(DetailView):
             is_authenticated and event.status == Event.Status.UPCOMING
         )
         context["can_manage"] = (
-            is_authenticated and event.host_id == user.pk and not event.has_ended
+            is_authenticated and event.host_id == user.pk and event.is_open
         )
+        context["host_cancelled"] = event.status == Event.Status.CANCELLED
 
         if context["can_manage"]:
             context["recipient_count"] = interested_recipients(event).count()

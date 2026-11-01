@@ -128,3 +128,15 @@
     font-weight: 600;
     cursor: pointer;
 }
+
+.form-actions .btn-danger {
+    background: var(--error);
+}
+
+.form-actions .btn-danger:hover {
+    background: #8f1c13;
+}
+
+.cancel-recipients {
+    margin: 0;
+}

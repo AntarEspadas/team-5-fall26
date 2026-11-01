@@ -1,0 +1,57 @@
+{% load static tz %}<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>My events | NYC Parks Events</title>
+    <link rel="stylesheet" href="{% static 'events/search.css' %}">
+    <link rel="stylesheet" href="{% static 'events/home.css' %}">
+    <link rel="stylesheet" href="{% static 'events/my_events.css' %}">
+</head>
+<body>
+    <main class="my-events-page">
+        <a class="search-back" href="{% url 'landing' %}">Back to home</a>
+        <h1>My events</h1>
+        <p class="my-events-intro">
+            Events you posted. <a href="{% url 'event_create' %}">Post a new event</a>
+        </p>
+
+        <section aria-labelledby="upcoming-heading">
+            <h2 id="upcoming-heading">Upcoming</h2>
+            {% if upcoming_events %}
+            <ul class="hosted-list">
+                {% for event in upcoming_events %}
+                <li class="hosted-event">
+                    {% include "events/_hosted_event_summary.html" %}
+                    <p class="hosted-actions">
+                        <a href="{% url 'event_edit' event.pk %}">Edit</a>
+                        <a class="hosted-cancel" href="{% url 'event_cancel' event.pk %}">Cancel</a>
+                    </p>
+                </li>
+                {% endfor %}
+            </ul>
+            {% else %}
+            <p class="empty-state">You have no upcoming events.</p>
+            {% endif %}
+        </section>
+
+        <section aria-labelledby="archived-heading">
+            <h2 id="archived-heading">Archived</h2>
+            {% if archived_events %}
+            <ul class="hosted-list">
+                {% for event in archived_events %}
+                <li class="hosted-event is-archived">
+                    {% include "events/_hosted_event_summary.html" %}
+                    <p class="hosted-label">
+                        {% if event.status == "cancelled" %}Cancelled{% else %}Ended{% endif %}
+                    </p>
+                </li>
+                {% endfor %}
+            </ul>
+            {% else %}
+            <p class="empty-state">Cancelled and past events will show up here.</p>
+            {% endif %}
+        </section>
+    </main>
+</body>
+</html>
