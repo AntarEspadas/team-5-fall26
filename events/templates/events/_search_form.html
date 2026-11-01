@@ -1,4 +1,6 @@
-<form class="event-search" role="search" method="get" action="{% url 'search' %}">
+<form class="event-search" role="search" method="get"
+      action="{% if search_action %}{{ search_action }}
+      {% else %}{% url 'search' %}{% endif %}">
     <label class="search-label" for="event-search">Search events</label>
     <div class="search-controls">
         <span class="search-icon" aria-hidden="true">

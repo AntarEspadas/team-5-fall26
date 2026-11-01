@@ -35,6 +35,8 @@ from .search import search_events
 UPCOMING_EVENT_LIMIT = 20
 SEARCH_PAGE_SIZE = 20
 NOTIFICATION_PAGE_SIZE = 20
+ARCHIVED_EVENT_PREVIEW_LIMIT = 3
+ARCHIVED_EVENT_PAGE_SIZE = 20
 
 
 class EventCreateView(LoginRequiredMixin, CreateView):
@@ -350,25 +352,106 @@ class EventDetailView(DetailView):
 
 
 class LandingView(TemplateView):
-    """Render the landing page with upcoming events for signed-in visitors.
+    """Render the landing page with upcoming and archived events for signed-in visitors.
 
     Anonymous visitors see the same page with the login prompt, matching the
-    behaviour the accounts tests expect, but no event list.
+    behaviour the accounts tests expect, but no event lists.
     """
 
     template_name = "events/home.html"
 
     def get_context_data(self, **kwargs):
-        """Add upcoming events, soonest first, and an empty filter bar."""
+        """Add upcoming events, archived events, and an empty filter bar."""
         context = super().get_context_data(**kwargs)
         context["filter_form"] = EventFilterForm()
         context["events"] = []
+        context["archived_events"] = []
         if self.request.user.is_authenticated:
+            # Upcoming events, soonest first.
             context["events"] = Event.objects.filter(
                 status=Event.Status.UPCOMING
-            ).order_by(F("start_time").asc(nulls_last=True), "end_time", "title")[
+            ).order_by(
+                F("start_time").asc(nulls_last=True),
+                "end_time",
+                "title",
+            )[
                 :UPCOMING_EVENT_LIMIT
             ]
+
+            # Recently completed events, newest first.
+            context["archived_events"] = Event.objects.filter(
+                status=Event.Status.DONE
+            ).order_by(
+                F("start_time").desc(nulls_last=True),
+                "-end_time",
+                "-title",
+            )[
+                :ARCHIVED_EVENT_PREVIEW_LIMIT
+            ]
+
+        return context
+
+
+class ArchivedEventsView(LoginRequiredMixin, ListView):
+    """Display and search completed events in the public archive."""
+
+    model = Event
+    template_name = "events/archived_events.html"
+    context_object_name = "events"
+    paginate_by = ARCHIVED_EVENT_PAGE_SIZE
+
+    def get_queryset(self):
+        self.query = self.request.GET.get("q", "").strip()
+
+        form = EventFilterForm(self.request.GET)
+        is_valid = form.is_valid()
+        filters = form.cleaned_data
+
+        self.filter_params = filter_params(filters)
+
+        if is_valid:
+            self.filter_form = EventFilterForm(QueryDict(urlencode(self.filter_params)))
+        else:
+            self.filter_form = form
+
+        # Always search within completed events only.
+        events = filter_events(
+            Event.objects.filter(status=Event.Status.DONE),
+            filters,
+        )
+
+        if self.query:
+            return search_events(events, self.query)
+
+        return events.order_by(
+            F("start_time").desc(nulls_last=True),
+            "-end_time",
+            "-title",
+            "-pk",
+        )
+
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+
+        search_params = [("q", self.query)] if self.query else []
+
+        context["query"] = self.query
+        context["filter_form"] = self.filter_form
+        context["has_filters"] = bool(self.filter_params)
+        context["page_query"] = urlencode(
+            search_params + self.filter_params,
+            quote_via=quote,
+        )
+        context["search_action"] = reverse("archived_events")
+
+        if self.query:
+            context["clear_filters_url"] = "?" + urlencode(
+                search_params,
+                quote_via=quote,
+            )
+        else:
+            context["clear_filters_url"] = reverse("archived_events")
+
         return context
 
 

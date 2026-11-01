@@ -60,7 +60,10 @@
     text-transform: uppercase;
     white-space: nowrap;
 }
-
+.archived-tag {
+    background: #e8eee9;
+    color: var(--muted);
+}
 .event-when {
     display: flex;
     flex-wrap: wrap;

@@ -9,6 +9,7 @@ from .views import (
     MyEventsView,
     cancel_event,
     notify_attendees,
+    ArchivedEventsView,
 )
 
 urlpatterns = [
@@ -17,6 +18,7 @@ urlpatterns = [
     path("<int:pk>/edit/", EventUpdateView.as_view(), name="event_edit"),
     path("<int:pk>/notify/", notify_attendees, name="event_notify"),
     path("<int:pk>/cancel/", cancel_event, name="event_cancel"),
+    path("archived/", ArchivedEventsView.as_view(), name="archived_events"),
     path(
         "<int:event_id>/interest/",
         community_views.toggle_event_interest,

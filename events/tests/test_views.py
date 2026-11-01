@@ -8,7 +8,10 @@ from django.test import TestCase
 from django.urls import reverse
 
 from events.models import Event
-from events.views import UPCOMING_EVENT_LIMIT
+from events.views import (
+    ARCHIVED_EVENT_PAGE_SIZE,
+    UPCOMING_EVENT_LIMIT,
+)
 
 NYC = ZoneInfo("America/New_York")
 
@@ -48,7 +51,7 @@ class LandingViewTests(TestCase):
             end_time=datetime(2099, 1, 16, 12, 0, tzinfo=NYC),
             park_names="Central Park",
         )
-        make_event(
+        self.past_event = make_event(
             "c3",
             "Hidden Past Event",
             start_time=datetime(2099, 1, 14, 9, 0, tzinfo=NYC),
@@ -65,7 +68,8 @@ class LandingViewTests(TestCase):
         self.assertEqual(list(response.context["events"]), [])
 
     def test_signed_in_visitors_see_upcoming_events_in_order(self):
-        """Upcoming events are listed soonest first; done events stay hidden."""
+        """Upcoming events are listed soonest first;
+        done events appear in the archive."""
         make_event(
             "d4",
             "Undated Event",
@@ -76,14 +80,14 @@ class LandingViewTests(TestCase):
 
         response = self.client.get(reverse("landing"))
 
-        self.assertContains(response, "Alpha Yoga")
-        self.assertContains(response, "Beta Birdwatching")
-        self.assertContains(response, "Undated Event")
-        self.assertNotContains(response, "Hidden Past Event")
+        self.assertEqual(response.status_code, 200)
         self.assertEqual(
             [event.title for event in response.context["events"]],
             ["Alpha Yoga", "Beta Birdwatching", "Undated Event"],
         )
+        self.assertNotIn(self.past_event, response.context["events"])
+        self.assertIn(self.past_event, response.context["archived_events"])
+        self.assertContains(response, "Hidden Past Event")
 
     def test_event_card_shows_details(self):
         """Cards render the time in NYC local time, place, and useful links."""
@@ -154,6 +158,282 @@ class LandingViewTests(TestCase):
         response = self.client.get(reverse("landing"))
 
         self.assertEqual(len(response.context["events"]), UPCOMING_EVENT_LIMIT)
+
+    def test_archived_events_are_shown_on_landing_page(self):
+        """The landing page displays completed events in its archive section."""
+        self.client.login(username="alice", password="pass12345")
+
+        response = self.client.get(reverse("landing"))
+
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, "Archived events")
+        self.assertContains(response, "Hidden Past Event")
+        self.assertIn(self.past_event, response.context["archived_events"])
+
+
+class ArchivedEventsViewTests(TestCase):
+    """Tests for the archived events page."""
+
+    def setUp(self):
+        self.user = get_user_model().objects.create_user(
+            username="archive_user",
+            email="archive@example.com",
+            password="pass12345",
+        )
+
+        self.old_event = make_event(
+            "archive-1",
+            "Older Completed Event",
+            start_time=datetime(2099, 1, 10, 9, 0, tzinfo=NYC),
+            status=Event.Status.DONE,
+        )
+
+        self.new_event = make_event(
+            "archive-2",
+            "Newer Completed Event",
+            start_time=datetime(2099, 1, 20, 9, 0, tzinfo=NYC),
+            status=Event.Status.DONE,
+        )
+
+        self.upcoming_event = make_event(
+            "archive-3",
+            "Upcoming Event",
+            start_time=datetime(2099, 2, 10, 9, 0, tzinfo=NYC),
+            status=Event.Status.UPCOMING,
+        )
+
+        self.cancelled_event = make_event(
+            "archive-4",
+            "Cancelled Event",
+            start_time=datetime(2099, 1, 15, 9, 0, tzinfo=NYC),
+            status=Event.Status.CANCELLED,
+        )
+
+    def test_anonymous_users_are_redirected_to_login(self):
+        """Anonymous visitors must log in to access the archive."""
+        response = self.client.get(reverse("archived_events"))
+
+        self.assertEqual(response.status_code, 302)
+        self.assertIn("/accounts/login/", response.url)
+
+    def test_archived_page_shows_only_completed_events(self):
+        """The archive contains completed events, not upcoming or cancelled ones."""
+        self.client.login(username="archive_user", password="pass12345")
+
+        response = self.client.get(reverse("archived_events"))
+
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, "Older Completed Event")
+        self.assertContains(response, "Newer Completed Event")
+        self.assertNotContains(response, "Upcoming Event")
+        self.assertNotContains(response, "Cancelled Event")
+
+    def test_archived_events_are_sorted_newest_first(self):
+        """More recently completed events appear before older events."""
+        self.client.login(username="archive_user", password="pass12345")
+
+        response = self.client.get(reverse("archived_events"))
+
+        self.assertEqual(
+            [event.title for event in response.context["events"]],
+            ["Newer Completed Event", "Older Completed Event"],
+        )
+
+        def test_archived_events_can_be_searched_by_keyword(self):
+            """Keyword search returns matching completed events only."""
+            matching_event = make_event(
+                "archive-yoga",
+                "Community Yoga",
+                status=Event.Status.DONE,
+            )
+            make_event(
+                "archive-upcoming-yoga",
+                "Upcoming Yoga",
+                status=Event.Status.UPCOMING,
+            )
+
+            self.client.login(username="archive_user", password="pass12345")
+
+            response = self.client.get(
+                reverse("archived_events"),
+                {"q": "Yoga"},
+            )
+
+            self.assertEqual(response.status_code, 200)
+            self.assertEqual(
+                list(response.context["events"]),
+                [matching_event],
+            )
+            self.assertContains(response, "Community Yoga")
+            self.assertNotContains(response, "Upcoming Yoga")
+            self.assertEqual(response.context["query"], "Yoga")
+
+    def test_archived_events_can_be_filtered_by_date(self):
+        """Date filters narrow the completed events."""
+        self.client.login(username="archive_user", password="pass12345")
+
+        response = self.client.get(
+            reverse("archived_events"),
+            {
+                "date_from": "2099-01-19",
+                "date_to": "2099-01-21",
+            },
+        )
+
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(
+            list(response.context["events"]),
+            [self.new_event],
+        )
+        self.assertTrue(response.context["has_filters"])
+
+    def test_archived_events_can_be_filtered_by_category(self):
+        """Category filters return matching completed events."""
+        yoga_event = make_event(
+            "archive-category-yoga",
+            "Yoga Session",
+            categories="Yoga & Pilates",
+            status=Event.Status.DONE,
+        )
+
+        make_event(
+            "archive-category-art",
+            "Art Workshop",
+            categories="Arts & Crafts",
+            status=Event.Status.DONE,
+        )
+
+        self.client.login(username="archive_user", password="pass12345")
+
+        response = self.client.get(
+            reverse("archived_events"),
+            {"category": "yoga"},
+        )
+
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(
+            list(response.context["events"]),
+            [yoga_event],
+        )
+
+    def test_archived_events_can_be_filtered_by_borough(self):
+        """Borough filters return matching completed events."""
+        brooklyn_event = make_event(
+            "archive-brooklyn",
+            "Brooklyn Park Event",
+            borough="brooklyn",
+            status=Event.Status.DONE,
+        )
+
+        make_event(
+            "archive-queens",
+            "Queens Park Event",
+            borough="queens",
+            status=Event.Status.DONE,
+        )
+
+        self.client.login(username="archive_user", password="pass12345")
+
+        response = self.client.get(
+            reverse("archived_events"),
+            {"borough": "brooklyn"},
+        )
+
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(
+            list(response.context["events"]),
+            [brooklyn_event],
+        )
+
+    def test_archived_events_can_combine_search_and_filters(self):
+        """Keyword search and category filters work together."""
+        matching_event = make_event(
+            "archive-combined-yoga",
+            "Community Yoga",
+            categories="Yoga & Pilates",
+            status=Event.Status.DONE,
+        )
+
+        make_event(
+            "archive-combined-art",
+            "Community Art",
+            categories="Arts & Crafts",
+            status=Event.Status.DONE,
+        )
+
+        self.client.login(username="archive_user", password="pass12345")
+
+        response = self.client.get(
+            reverse("archived_events"),
+            {
+                "q": "Community",
+                "category": "yoga",
+            },
+        )
+
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(
+            list(response.context["events"]),
+            [matching_event],
+        )
+        self.assertEqual(response.context["query"], "Community")
+
+    def test_archived_events_pagination_preserves_search_parameters(self):
+        """Pagination links retain the active search and filters."""
+        for index in range(ARCHIVED_EVENT_PAGE_SIZE + 1):
+            make_event(
+                f"archive-page-{index}",
+                f"Community Event {index}",
+                categories="Yoga & Pilates",
+                status=Event.Status.DONE,
+            )
+
+        self.client.login(username="archive_user", password="pass12345")
+
+        response = self.client.get(
+            reverse("archived_events"),
+            {
+                "q": "Community",
+                "category": "yoga",
+            },
+        )
+
+        self.assertEqual(response.status_code, 200)
+        self.assertTrue(response.context["is_paginated"])
+        self.assertEqual(
+            response.context["paginator"].count,
+            ARCHIVED_EVENT_PAGE_SIZE + 1,
+        )
+
+        self.assertContains(
+            response,
+            "q=Community&amp;category=yoga&amp;page=2",
+        )
+
+    def test_archived_events_show_empty_state_for_no_matches(self):
+        """The archive explains when a search has no matching events."""
+        self.client.login(username="archive_user", password="pass12345")
+
+        response = self.client.get(
+            reverse("archived_events"),
+            {"q": "NonexistentActivity"},
+        )
+
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(len(response.context["events"]), 0)
+        self.assertContains(response, "No archived events match your search.")
+
+    def test_archived_events_handle_invalid_date_filter(self):
+        """Invalid filter input keeps the form errors visible."""
+        self.client.login(username="archive_user", password="pass12345")
+
+        response = self.client.get(
+            reverse("archived_events"),
+            {"date_from": "not-a-date"},
+        )
+
+        self.assertEqual(response.status_code, 200)
+        self.assertTrue(response.context["filter_form"].errors)
 
 
 class EventDetailViewTests(TestCase):

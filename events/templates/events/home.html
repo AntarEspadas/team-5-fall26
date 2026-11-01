@@ -19,21 +19,6 @@
             font-weight: 800;
             position: relative;
         }
-
-        .topbar .nav-link.active::after {
-            content: "";
-            position: absolute;
-            left: 12px;
-            right: 12px;
-            bottom: -8px;
-            height: 3px;
-            border-radius: 3px;
-            background: #237b53;
-        }
-
-        .topbar .brand.active span {
-            color: #237b53;
-        }
     </style>
 </head>
 
@@ -134,6 +119,40 @@
             <p class="plans-card">
                 Plan placeholder: Gym every Monday &amp; Wednesday
             </p>
+        </section>
+
+        <!-- Archived Events -->
+        <section class="archived-section" aria-labelledby="archived-heading">
+            <div class="section-head">
+                <h2 id="archived-heading">Archived events</h2>
+                <a class="section-link" href="{% url 'archived_events' %}">
+                    View all →
+                </a>
+            </div>
+
+            <p class="archived-description">
+                Explore past community events in NYC parks.
+            </p>
+
+            {% if archived_events %}
+            <ul class="event-grid">
+                {% for event in archived_events %}
+                <li class="event">
+                    {% include 'events/_event_card_content.html' with link_to_source=True %}
+                </li>
+                {% endfor %}
+            </ul>
+
+            <p class="archived-footer">
+                <a class="section-link" href="{% url 'archived_events' %}">
+                    View all archived events →
+                </a>
+            </p>
+            {% else %}
+            <p class="empty-state">
+                No archived events yet. Check back after upcoming events have taken place.
+            </p>
+            {% endif %}
         </section>
         {% else %}
         <p class="empty-state">
