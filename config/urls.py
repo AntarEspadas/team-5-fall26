@@ -66,4 +66,6 @@ urlpatterns = [
     ),
     path("admin/", admin.site.urls),
     path("accounts/", include("accounts.urls")),
+    # Google social authentication; existing accounts routes take precedence.
+    path("accounts/", include("allauth.urls")),
 ]

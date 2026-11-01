@@ -212,3 +212,43 @@ and its database. If instances report degraded health because there is no
 default VPC, create one in the AWS VPC console (Actions → Create default VPC).
 Uploaded profile photos are stored on the instance and are lost when it is
 replaced.
+
+## Google sign-in (issue #29)
+
+Google sign-in is available alongside the existing username/email + password
+login and registration. It uses django-allauth's Google OAuth 2.0 integration
+with PKCE, state validation, and verified Google email addresses. First-time
+Google users get a local account automatically; returning users can sign in
+again with Google. A verified Google email matching an existing local account
+signs in to and connects that account. Unverified addresses cannot be used
+for this linking. Google tokens are not stored in the app database.
+
+### Set up Google OAuth
+
+1. In [Google Cloud Console](https://console.cloud.google.com/apis/credentials),
+   configure the OAuth consent screen and create an **OAuth client ID** of
+   type **Web application**. For external/testing apps, add the Google accounts
+   you use as test users on the consent screen.
+2. Add these exact **Authorized redirect URIs**:
+   - `http://127.0.0.1:8000/accounts/google/login/callback/` (local)
+   - `https://team5-develop.eba-e8eb3pzq.us-east-1.elasticbeanstalk.com/accounts/google/login/callback/` (deployed site)
+   If you run locally with `localhost` instead, authorize its callback too.
+3. Set `GOOGLE_OAUTH_CLIENT_ID` and `GOOGLE_OAUTH_CLIENT_SECRET` in
+   your local `.env` (never commit this file). For Elastic Beanstalk, set
+   these as environment properties in the EB console for `team5-develop`.
+   Do not put credentials into `.ebextensions`, README, Git, or a PR.
+4. Run `python manage.py migrate` locally. The deployment configuration
+   already runs migrations on Elastic Beanstalk. Restart/redeploy the app
+   after changing environment variables.
+
+The Google buttons appear on both `/accounts/login/` and
+`/accounts/register/` only when **both** credentials are configured.
+Password-based registration and login still work without Google credentials.
+
+For a deployed OAuth request, Google should see the HTTPS callback listed
+above (Elastic Beanstalk supplies `X-Forwarded-Proto`). On the login page,
+the Google button is a CSRF-protected POST; OAuth authorization is completed
+through Google's hosted consent page, not by collecting Google passwords.
+
+Local and CI tests don't need real Google credentials. Run
+`python manage.py test accounts.tests.test_google_sso` for the focused tests.

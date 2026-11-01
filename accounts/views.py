@@ -142,6 +142,7 @@ class RegisterView(SuccessMessageMixin, CreateView):
         """
         context = super().get_context_data(**kwargs)
         context["login_url"] = resolve_url(settings.LOGIN_URL)
+        context["google_oauth_enabled"] = settings.GOOGLE_OAUTH_ENABLED
         return context
 
     def get_success_url(self):
@@ -230,6 +231,7 @@ class CustomLoginView(LoginView):
         template context for frontend countdown.
         """
         context = super().get_context_data(**kwargs)
+        context["google_oauth_enabled"] = settings.GOOGLE_OAUTH_ENABLED
         context["lock_expiry"] = self.lock_expiry_timestamp
         context["locked_identifier"] = self.locked_identifier
         return context

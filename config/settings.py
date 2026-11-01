@@ -53,6 +53,10 @@ INSTALLED_APPS = [
     "django.contrib.messages",
     "django.contrib.staticfiles",
     "django.contrib.postgres",
+    "allauth",
+    "allauth.account",
+    "allauth.socialaccount",
+    "allauth.socialaccount.providers.google",
     "accounts",
     "events",
 ]
@@ -63,6 +67,7 @@ MIDDLEWARE = [
     "django.middleware.common.CommonMiddleware",
     "django.middleware.csrf.CsrfViewMiddleware",
     "django.contrib.auth.middleware.AuthenticationMiddleware",
+    "allauth.account.middleware.AccountMiddleware",
     # Our custom sliding session middleware: refresh 48h timer on every user activity
     "accounts.middleware.SlidingSessionMiddleware",
     "django.contrib.messages.middleware.MessageMiddleware",
@@ -182,4 +187,39 @@ DEFAULT_FROM_EMAIL = "Team 5 <noreply@team5.local>"
 AUTHENTICATION_BACKENDS = [
     "accounts.backends.EmailOrUsernameBackend",
     "django.contrib.auth.backends.ModelBackend",
+    "allauth.account.auth_backends.AuthenticationBackend",
 ]
+
+# Google OAuth2 credentials are supplied through the environment, never Git.
+GOOGLE_OAUTH_CLIENT_ID = os.environ.get("GOOGLE_OAUTH_CLIENT_ID", "").strip()
+GOOGLE_OAUTH_CLIENT_SECRET = os.environ.get("GOOGLE_OAUTH_CLIENT_SECRET", "").strip()
+GOOGLE_OAUTH_ENABLED = bool(GOOGLE_OAUTH_CLIENT_ID and GOOGLE_OAUTH_CLIENT_SECRET)
+
+# Keep the built-in registration/login views. allauth handles Google OAuth only.
+# Google must confirm the email before it can authenticate an existing local
+# account. A linked social account is identified by Google's stable provider ID.
+SOCIALACCOUNT_LOGIN_ON_GET = False
+SOCIALACCOUNT_STORE_TOKENS = False
+SOCIALACCOUNT_EMAIL_REQUIRED = True
+SOCIALACCOUNT_EMAIL_VERIFICATION = "mandatory"
+SOCIALACCOUNT_PROVIDERS = {
+    "google": {
+        "SCOPE": ["profile", "email"],
+        "AUTH_PARAMS": {"access_type": "online"},
+        "OAUTH_PKCE_ENABLED": True,
+        "EMAIL_AUTHENTICATION": True,
+        "EMAIL_AUTHENTICATION_AUTO_CONNECT": True,
+    }
+}
+if GOOGLE_OAUTH_ENABLED:
+    SOCIALACCOUNT_PROVIDERS["google"]["APP"] = {
+        "client_id": GOOGLE_OAUTH_CLIENT_ID,
+        "secret": GOOGLE_OAUTH_CLIENT_SECRET,
+        "key": "",
+    }
+
+# Elastic Beanstalk terminates HTTPS at its reverse proxy. Trust the forwarded
+# scheme only in production (where requests arrive through that proxy), so
+# Google receives an HTTPS redirect_uri instead of the internal HTTP URL.
+if not DEBUG:
+    SECURE_PROXY_SSL_HEADER = ("HTTP_X_FORWARDED_PROTO", "https")
