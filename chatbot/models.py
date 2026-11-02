@@ -77,3 +77,74 @@ class Inquiry(models.Model):
     def answer_for_asker(self):
         """Return the answer in the asker's language when it was translated."""
         return self.answer_translated or self.answer
+
+
+class FAQ(models.Model):
+    """A question and answer the assistant uses for support topics.
+
+    Staff edit these in the Django admin, so policies such as refunds can be
+    updated without a code change. Every active entry is given to the
+    assistant with each conversation.
+    """
+
+    class Topic(models.TextChoices):
+        BOOKING = "booking", "Booking & attending"
+        CANCELLATIONS = "cancellations", "Cancellations & refunds"
+        PAYMENTS = "payments", "Payments & prices"
+        ACCOUNT = "account", "Account & login"
+        EVENTS = "events", "Events & venues"
+        GENERAL = "general", "General"
+
+    topic = models.CharField(
+        "topic", max_length=20, choices=Topic.choices, default=Topic.GENERAL
+    )
+    question = models.CharField("question", max_length=300)
+    answer = models.TextField("answer", max_length=2000)
+    is_active = models.BooleanField(
+        "active", default=True, help_text="Only active entries reach the assistant."
+    )
+    position = models.PositiveIntegerField(
+        "position", default=0, help_text="Lower numbers come first."
+    )
+    updated_at = models.DateTimeField("updated at", auto_now=True)
+
+    class Meta:
+        ordering = ["topic", "position", "pk"]
+        verbose_name = "FAQ entry"
+        verbose_name_plural = "FAQ entries"
+
+    def __str__(self):
+        return self.question
+
+
+class ChatLog(models.Model):
+    """An anonymous record of one exchange, used to improve the FAQ.
+
+    Logs never store who asked. Email addresses and long numbers such as
+    phone or card numbers are masked before saving.
+    """
+
+    class Outcome(models.TextChoices):
+        ANSWERED = "answered", "Answered"
+        ESCALATED = "escalated", "Sent to event manager"
+        DECLINED = "declined", "Declined (safety)"
+        ERROR = "error", "Gemini unavailable"
+
+    created_at = models.DateTimeField("time", auto_now_add=True, db_index=True)
+    signed_in = models.BooleanField("signed in", default=False)
+    via_voice = models.BooleanField("voice", default=False)
+    page = models.CharField("page", max_length=200, blank=True)
+    message = models.TextField("message")
+    reply = models.TextField("reply", blank=True)
+    outcome = models.CharField(
+        "outcome", max_length=10, choices=Outcome.choices, db_index=True
+    )
+    response_ms = models.PositiveIntegerField("response time (ms)", default=0)
+
+    class Meta:
+        ordering = ["-created_at", "-pk"]
+        verbose_name = "chat log"
+        verbose_name_plural = "chat logs"
+
+    def __str__(self):
+        return self.message[:80]

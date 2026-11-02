@@ -1,5 +1,6 @@
 """Run one turn of the conversation between a visitor and the assistant."""
 
+from django.conf import settings
 from django.urls import Resolver404, resolve
 
 from events.models import Event
@@ -15,11 +16,24 @@ HISTORY_LIMIT = 20
 # Rounds of tool calls allowed before the assistant must answer.
 MAX_TOOL_ROUNDS = 5
 
-BLOCKED_REPLY = "Sorry, I can't help with that request."
-ESCALATED_REPLY = (
-    "I don't have that information right now, so I've passed your question "
-    "to the event manager. I'll let you know here as soon as they reply."
+BLOCKED_REPLY = (
+    "Sorry, I can't help with that request. I'm happy to help with events, "
+    "bookings, or your account."
 )
+ESCALATED_REPLY = (
+    "I'm not sure about that, so I've passed your question to the event "
+    "manager. I'll let you know here as soon as they reply."
+)
+
+
+def escalated_reply():
+    """Return the fallback reply, offering the support email when set."""
+    if settings.CHATBOT_SUPPORT_EMAIL:
+        return (
+            f"{ESCALATED_REPLY} You can also email "
+            f"{settings.CHATBOT_SUPPORT_EMAIL}."
+        )
+    return ESCALATED_REPLY
 
 
 def event_on_page(path):
@@ -48,7 +62,8 @@ def reply(request, message, page=""):
     """Answer a visitor's message, using tools to look things up.
 
     Returns:
-        dict: ``reply`` text and whether the question was ``escalated``.
+        dict: ``reply`` text, whether the question was ``escalated`` to the
+        event manager, and whether Gemini ``declined`` it for safety.
 
     Raises:
         gemini.GeminiError: when Gemini cannot be reached.
@@ -71,10 +86,12 @@ def reply(request, message, page=""):
     }
 
     text = ""
+    declined = False
     for _ in range(MAX_TOOL_ROUNDS):
         content = gemini.first_content(gemini.generate_content(payload))
         if content is None:
             text = BLOCKED_REPLY
+            declined = True
             break
         calls = [
             part["functionCall"]
@@ -112,7 +129,7 @@ def reply(request, message, page=""):
         toolbox.escalate_to_event_manager(
             question=message, event_id=current_event.pk if current_event else None
         )
-        text = ESCALATED_REPLY
+        text = escalated_reply()
 
     session[INQUIRIES_KEY] = toolbox.inquiry_ids[-HISTORY_LIMIT:]
     append_history(
@@ -120,4 +137,4 @@ def reply(request, message, page=""):
         {"role": "user", "text": message},
         {"role": "model", "text": text},
     )
-    return {"reply": text, "escalated": toolbox.escalated}
+    return {"reply": text, "escalated": toolbox.escalated, "declined": declined}

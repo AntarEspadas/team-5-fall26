@@ -2,6 +2,7 @@
 
 import json
 import logging
+import time
 from functools import wraps
 
 from django.conf import settings
@@ -22,7 +23,8 @@ from .assistant import (
 )
 from .forms import AnswerInquiryForm
 from .inquiries import answer_inquiry, inquiries_managed_by, undelivered_answers
-from .models import Inquiry
+from .logs import record_chat
+from .models import ChatLog, Inquiry
 
 logger = logging.getLogger(__name__)
 
@@ -47,6 +49,8 @@ RATE_WINDOW_SECONDS = 60
 ANSWERED_SHOWN = 20
 
 UNAVAILABLE = "The assistant is unavailable right now. Please try again in a moment."
+BUSY = "The assistant is very busy right now. Please try again in a minute."
+TOO_FAST = "You're sending messages too quickly. Please wait a moment."
 
 
 def error(message, status):
@@ -92,26 +96,56 @@ def assistant_endpoint(view):
         if not settings.CHATBOT_ENABLED:
             raise Http404("The assistant is not enabled.")
         if request.method == "POST" and is_rate_limited(request):
-            return error(
-                "You're sending messages too quickly. Please wait a moment.", 429
-            )
+            return error(TOO_FAST, 429)
         return view(request, *args, **kwargs)
 
     return wrapper
 
 
-def run_assistant(request, message, page):
-    """Run the assistant, returning None when Gemini is unavailable."""
+def failure_message(exc):
+    """Explain a Gemini failure to the visitor."""
+    return BUSY if exc.rate_limited else UNAVAILABLE
+
+
+def outcome_of(result):
+    """Classify a reply for the conversation log."""
+    if result["declined"]:
+        return ChatLog.Outcome.DECLINED
+    if result["escalated"]:
+        return ChatLog.Outcome.ESCALATED
+    return ChatLog.Outcome.ANSWERED
+
+
+def run_assistant(request, message, page, voice=False):
+    """Answer a message and log the exchange.
+
+    Returns:
+        dict | JsonResponse: the reply data, or an error response.
+    """
+    started = time.monotonic()
     try:
-        return reply(request, message, page)
-    except gemini.GeminiError:
-        return None
+        result = reply(request, message, page)
+    except gemini.GeminiError as exc:
+        elapsed = (time.monotonic() - started) * 1000
+        record_chat(request, message, "", ChatLog.Outcome.ERROR, elapsed, page, voice)
+        return error(failure_message(exc), 503)
+    elapsed = (time.monotonic() - started) * 1000
+    logger.info("Assistant replied in %.0f ms", elapsed)
+    record_chat(
+        request, message, result["reply"], outcome_of(result), elapsed, page, voice
+    )
+    return result
 
 
 @require_POST
 @assistant_endpoint
 def chat_message(request):
-    """Answer a typed message sent as JSON ``{"message", "page"}``."""
+    """Answer a typed message: ``POST /api/chat`` with JSON ``{"message"}``.
+
+    The optional ``page`` is the path the visitor is on. The reply is JSON
+    ``{"reply", "escalated", "declined"}``, or ``{"error"}`` with a 4xx/5xx
+    status the widget shows as a friendly message.
+    """
     try:
         data = json.loads(request.body or b"{}")
     except ValueError:
@@ -126,8 +160,8 @@ def chat_message(request):
             f"Please keep messages under {MAX_MESSAGE_LENGTH} characters.", 400
         )
     result = run_assistant(request, message, data.get("page", ""))
-    if result is None:
-        return error(UNAVAILABLE, 503)
+    if isinstance(result, JsonResponse):
+        return result
     return JsonResponse(result)
 
 
@@ -145,14 +179,16 @@ def chat_voice(request):
         return error("That audio format isn't supported.", 400)
     try:
         transcript, language = gemini.transcribe(audio.read(), mime_type)
-    except gemini.GeminiError:
-        return error(UNAVAILABLE, 503)
+    except gemini.GeminiError as exc:
+        return error(failure_message(exc), 503)
     if not transcript:
         return error("Sorry, I couldn't hear that. Please try again.", 422)
     transcript = transcript[:MAX_MESSAGE_LENGTH]
-    result = run_assistant(request, transcript, request.POST.get("page", ""))
-    if result is None:
-        return error(UNAVAILABLE, 503)
+    result = run_assistant(
+        request, transcript, request.POST.get("page", ""), voice=True
+    )
+    if isinstance(result, JsonResponse):
+        return result
     return JsonResponse(dict(result, transcript=transcript, language=language))
 
 

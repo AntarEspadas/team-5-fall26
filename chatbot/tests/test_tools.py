@@ -113,6 +113,10 @@ class EventDetailsToolTests(TestCase):
 class MyActivityToolTests(TestCase):
     """Visitors only ever see their own activity."""
 
+    def test_no_next_event(self):
+        result = Toolbox(make_user("idle")).get_my_activity()
+        self.assertIsNone(result["next_event"])
+
     def test_anonymous_visitors_are_asked_to_sign_in(self):
         result = Toolbox(AnonymousUser()).get_my_activity()
         self.assertEqual(result["sign_in_page"], "/accounts/login/")
@@ -143,6 +147,7 @@ class MyActivityToolTests(TestCase):
             [e["title"] for e in result["planned_events"]], ["Planned Walk"]
         )
         self.assertEqual(result["planned_events"][0]["attendance"], "Interested")
+        self.assertEqual(result["next_event"]["title"], "Planned Walk")
         self.assertEqual(
             [e["title"] for e in result["hosted_upcoming_events"]], ["My Hosted Hike"]
         )

@@ -245,3 +245,15 @@ MANAGERS = [
     for email in os.environ.get("CHATBOT_MANAGER_EMAILS", "").split(",")
     if email.strip()
 ]
+
+# Shown by the assistant as a fallback when it can't answer confidently.
+# Defaults to the first manager's address.
+CHATBOT_SUPPORT_EMAIL = os.environ.get("CHATBOT_SUPPORT_EMAIL", "").strip() or (
+    MANAGERS[0][1] if MANAGERS else ""
+)
+
+# Keep anonymous logs of assistant conversations (emails and long numbers are
+# masked; no user is recorded) so staff can see which questions need FAQs.
+CHATBOT_LOG_CONVERSATIONS = os.environ.get(
+    "CHATBOT_LOG_CONVERSATIONS", "True"
+).lower() in ("1", "true", "yes")

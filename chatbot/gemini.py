@@ -14,7 +14,28 @@ from django.conf import settings
 
 logger = logging.getLogger(__name__)
 
-REQUEST_TIMEOUT_SECONDS = 45
+# Chat replies should arrive within a few seconds; give up well before the
+# browser or load balancer would.
+REQUEST_TIMEOUT_SECONDS = 20
+
+# Block harmful content in both directions (on top of the system prompt).
+SAFETY_SETTINGS = [
+    {"category": category, "threshold": "BLOCK_MEDIUM_AND_ABOVE"}
+    for category in (
+        "HARM_CATEGORY_HARASSMENT",
+        "HARM_CATEGORY_HATE_SPEECH",
+        "HARM_CATEGORY_SEXUALLY_EXPLICIT",
+        "HARM_CATEGORY_DANGEROUS_CONTENT",
+    )
+]
+# Finish reasons that mean Gemini refused to answer for safety or policy.
+BLOCKED_FINISH_REASONS = {
+    "SAFETY",
+    "PROHIBITED_CONTENT",
+    "BLOCKLIST",
+    "SPII",
+    "RECITATION",
+}
 
 TRANSCRIBE_PROMPT = (
     "Transcribe this voice message exactly as spoken, in its original "
@@ -25,7 +46,14 @@ TRANSCRIBE_PROMPT = (
 
 
 class GeminiError(Exception):
-    """Raised when Gemini cannot be reached or returns an unusable reply."""
+    """Raised when Gemini cannot be reached or returns an unusable reply.
+
+    ``rate_limited`` is true when Gemini refused because of quota (HTTP 429).
+    """
+
+    def __init__(self, message="", rate_limited=False):
+        super().__init__(message)
+        self.rate_limited = rate_limited
 
 
 def generate_content(payload):
@@ -36,7 +64,7 @@ def generate_content(payload):
     )
     request = Request(
         url,
-        data=json.dumps(payload).encode("utf-8"),
+        data=json.dumps(dict(payload, safetySettings=SAFETY_SETTINGS)).encode("utf-8"),
         headers={
             "Content-Type": "application/json",
             "x-goog-api-key": settings.GEMINI_API_KEY,
@@ -49,16 +77,22 @@ def generate_content(payload):
     except HTTPError as error:
         detail = error.read().decode("utf-8", "replace")[:500]
         logger.warning("Gemini returned HTTP %s: %s", error.code, detail)
-        raise GeminiError(f"Gemini returned HTTP {error.code}") from error
+        raise GeminiError(
+            f"Gemini returned HTTP {error.code}", rate_limited=error.code == 429
+        ) from error
     except (URLError, TimeoutError, OSError, ValueError) as error:
         logger.warning("Gemini request failed: %s", error)
         raise GeminiError("Gemini could not be reached") from error
 
 
 def first_content(response):
-    """Return the first candidate's content, or None when Gemini blocked it."""
+    """Return the first candidate's content, or None when Gemini blocked it.
+
+    A prompt can be blocked outright (no candidates), or the reply can stop
+    for a safety reason with little or no text.
+    """
     candidates = response.get("candidates") or []
-    if not candidates:
+    if not candidates or candidates[0].get("finishReason") in BLOCKED_FINISH_REASONS:
         return None
     return candidates[0].get("content") or {"role": "model", "parts": []}
 

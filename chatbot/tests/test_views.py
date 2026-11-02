@@ -10,10 +10,10 @@ from django.core.files.uploadedfile import SimpleUploadedFile
 from django.test import RequestFactory, TestCase, override_settings
 from django.urls import reverse
 
-from chatbot import assistant, gemini
-from chatbot.admin import InquiryAdmin
+from chatbot import assistant, gemini, views
+from chatbot.admin import ChatLogAdmin, InquiryAdmin
 from chatbot.inquiries import answer_inquiry, create_inquiry
-from chatbot.models import Inquiry
+from chatbot.models import FAQ, ChatLog, Inquiry
 from chatbot.tests.helpers import call_response, make_event, make_user, text_response
 from events.models import Notification
 
@@ -57,7 +57,11 @@ class ChatMessageTests(ChatTestCase):
         self.assertEqual(response.status_code, 200)
         self.assertEqual(
             response.json(),
-            {"reply": "**Sunrise Yoga** is on — see /events/1/", "escalated": False},
+            {
+                "reply": "**Sunrise Yoga** is on — see /events/1/",
+                "escalated": False,
+                "declined": False,
+            },
         )
         second = generate.call_args_list[1].args[0]
         self.assertIn("Sunrise Yoga", second["systemInstruction"]["parts"][0]["text"])
@@ -115,7 +119,7 @@ class ChatMessageTests(ChatTestCase):
         event = make_event("e1", "Swim")
         with mock.patch(GENERATE, return_value=text_response("")):
             response = self.post_message("Pool depth?", page=f"/events/{event.pk}/")
-        self.assertEqual(response.json()["reply"], assistant.ESCALATED_REPLY)
+        self.assertEqual(response.json()["reply"], assistant.escalated_reply())
         self.assertEqual(Inquiry.objects.get().event, event)
 
     def test_endless_tool_calls_escalate(self):
@@ -219,6 +223,7 @@ class ChatVoiceTests(ChatTestCase):
             {
                 "reply": "Hoy hay yoga.",
                 "escalated": False,
+                "declined": False,
                 "transcript": "¿Qué hay hoy?",
                 "language": "es-ES",
             },
@@ -396,3 +401,149 @@ class EventOnPageTests(TestCase):
         self.assertIsNone(assistant.event_on_page("/search"))
         self.assertIsNone(assistant.event_on_page("/nowhere/"))
         self.assertIsNone(assistant.event_on_page(None))
+
+
+@ENABLED
+class ChatApiEndpointTests(ChatTestCase):
+    """The user story's /api/chat contract: success, API failure, empty input."""
+
+    URL = "/api/chat"
+
+    def post(self, body):
+        return self.client.post(self.URL, body, content_type="application/json")
+
+    def test_url(self):
+        self.assertEqual(reverse("chatbot:message"), self.URL)
+
+    def test_success(self):
+        with mock.patch(GENERATE, return_value=text_response("Hello!")):
+            response = self.post({"message": "Hi"})
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.json()["reply"], "Hello!")
+
+    def test_api_failure_returns_a_friendly_error(self):
+        with mock.patch(GENERATE, side_effect=gemini.GeminiError("down")):
+            response = self.post({"message": "Hi"})
+        self.assertEqual(response.status_code, 503)
+        self.assertEqual(response.json(), {"error": views.UNAVAILABLE})
+
+    def test_gemini_rate_limit_returns_a_friendly_error(self):
+        error = gemini.GeminiError("quota", rate_limited=True)
+        with mock.patch(GENERATE, side_effect=error):
+            response = self.post({"message": "Hi"})
+        self.assertEqual(response.status_code, 503)
+        self.assertEqual(response.json(), {"error": views.BUSY})
+        with mock.patch(TRANSCRIBE, side_effect=error):
+            response = self.client.post(
+                reverse("chatbot:voice"), {"audio": wav(), "page": "/"}
+            )
+        self.assertEqual(response.json(), {"error": views.BUSY})
+
+    def test_empty_input(self):
+        for body in ({"message": ""}, {"message": "   "}, {}):
+            response = self.post(body)
+            self.assertEqual(response.status_code, 400)
+            self.assertEqual(response.json(), {"error": "Type a message first."})
+
+    def test_api_key_never_reaches_the_page(self):
+        response = self.client.get(reverse("login"))
+        self.assertContains(response, 'data-message-url="/api/chat"')
+        self.assertNotContains(response, "test-key")
+
+
+@ENABLED
+class SafetyAndFallbackTests(ChatTestCase):
+    """Unsafe requests are declined; unknown answers offer human support."""
+
+    def test_safety_blocked_replies_are_declined_not_escalated(self):
+        blocked = {"candidates": [{"finishReason": "SAFETY", "content": {}}]}
+        with mock.patch(GENERATE, return_value=blocked):
+            response = self.post_message("Something inappropriate")
+        self.assertEqual(response.json()["reply"], assistant.BLOCKED_REPLY)
+        self.assertTrue(response.json()["declined"])
+        self.assertFalse(Inquiry.objects.exists())
+        self.assertEqual(ChatLog.objects.get().outcome, ChatLog.Outcome.DECLINED)
+
+    @override_settings(CHATBOT_SUPPORT_EMAIL="help@example.com")
+    def test_fallback_offers_the_support_email(self):
+        with mock.patch(GENERATE, return_value=text_response("")):
+            reply = self.post_message("Is there a coat check?").json()["reply"]
+        self.assertIn("event manager", reply)
+        self.assertIn("help@example.com", reply)
+        page = self.client.get(reverse("login"))
+        self.assertContains(page, "mailto:help@example.com")
+
+    def test_prompt_includes_active_faqs_only(self):
+        FAQ.objects.create(question="Hidden?", answer="Nope.", is_active=False)
+        with mock.patch(GENERATE, return_value=text_response("Hi")) as generate:
+            self.post_message("Can I get a refund?")
+        prompt = generate.call_args.args[0]["systemInstruction"]["parts"][0]["text"]
+        self.assertIn("Can I get a refund?", prompt)
+        self.assertIn("[Cancellations & refunds]", prompt)
+        self.assertNotIn("Hidden?", prompt)
+        self.assertIn("Support email: none", prompt)
+
+    def test_safety_settings_are_sent(self):
+        with mock.patch("chatbot.gemini.urlopen") as urlopen:
+            urlopen.side_effect = OSError("offline")
+            self.post_message("Hi")
+        sent = json.loads(urlopen.call_args.args[0].data)
+        self.assertEqual(
+            {s["category"] for s in sent["safetySettings"]},
+            {
+                "HARM_CATEGORY_HARASSMENT",
+                "HARM_CATEGORY_HATE_SPEECH",
+                "HARM_CATEGORY_SEXUALLY_EXPLICIT",
+                "HARM_CATEGORY_DANGEROUS_CONTENT",
+            },
+        )
+
+
+@ENABLED
+class ChatLogTests(ChatTestCase):
+    """Conversations are logged anonymously, with personal details masked."""
+
+    def test_logs_mask_emails_and_long_numbers(self):
+        self.client.force_login(make_user("logger"))
+        message = "Email me at jo@example.com or call (212) 555-0199 about 2026-11-07"
+        with mock.patch(GENERATE, return_value=text_response("Sure!")):
+            self.post_message(message, page="/search")
+        log = ChatLog.objects.get()
+        self.assertEqual(
+            log.message, "Email me at [email] or call [number] about 2026-11-07"
+        )
+        self.assertEqual(
+            (log.reply, log.outcome, log.page), ("Sure!", "answered", "/search")
+        )
+        self.assertTrue(log.signed_in)
+        self.assertFalse(log.via_voice)
+        self.assertEqual(str(log), log.message)
+        self.assertNotIn("logger", str(vars(log)))
+
+    def test_escalations_errors_and_voice_are_logged(self):
+        with mock.patch(GENERATE, return_value=text_response("")):
+            self.post_message("Unknown?")
+        with mock.patch(GENERATE, side_effect=gemini.GeminiError("x")):
+            self.post_message("Down?")
+        with mock.patch(TRANSCRIBE, return_value=("Hola", "es")):
+            with mock.patch(GENERATE, return_value=text_response("¡Hola!")):
+                self.client.post(reverse("chatbot:voice"), {"audio": wav()})
+        outcomes = list(
+            ChatLog.objects.order_by("pk").values_list("outcome", "via_voice")
+        )
+        self.assertEqual(
+            outcomes, [("escalated", False), ("error", False), ("answered", True)]
+        )
+
+    @override_settings(CHATBOT_LOG_CONVERSATIONS=False)
+    def test_logging_can_be_turned_off(self):
+        with mock.patch(GENERATE, return_value=text_response("Hi")):
+            self.post_message("Hello")
+        self.assertFalse(ChatLog.objects.exists())
+
+    def test_logs_are_read_only_in_the_admin(self):
+        admin = ChatLogAdmin(ChatLog, AdminSite())
+        request = RequestFactory().get("/")
+        self.assertFalse(admin.has_add_permission(request))
+        self.assertFalse(admin.has_change_permission(request))
+        self.assertEqual(str(FAQ(question="Q?")), "Q?")

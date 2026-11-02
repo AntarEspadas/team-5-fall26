@@ -8,6 +8,7 @@ counts (never attendee identities), and the signed-in user's own activity.
 import logging
 from datetime import date
 
+from django.conf import settings
 from django.db.models import F, Q
 from django.urls import reverse
 from django.utils.text import Truncator
@@ -82,8 +83,9 @@ DECLARATIONS = [
     {
         "name": "get_my_activity",
         "description": (
-            "Get the signed-in visitor's own activity: events they are "
-            "interested in or want to attend, events they host, unread "
+            "Get the signed-in visitor's own activity and bookings: their "
+            "next event, events they are interested in or want to attend "
+            "(their bookings), events they host, unread "
             "notifications and messages, pending contact requests, and their "
             "privacy settings."
         ),
@@ -296,14 +298,16 @@ class Toolbox:
             .exclude(sender=user)
             .count()
         )
+        planned = [
+            dict(event_summary(i.event), attendance=i.get_status_display())
+            for i in interests[:MAX_SEARCH_RESULTS]
+            if i.event.is_open
+        ]
         return {
             "name": user.get_display_name(),
             "username": user.username,
-            "planned_events": [
-                dict(event_summary(i.event), attendance=i.get_status_display())
-                for i in interests[:MAX_SEARCH_RESULTS]
-                if i.event.is_open
-            ],
+            "next_event": planned[0] if planned else None,
+            "planned_events": planned,
             "hosted_upcoming_events": [
                 event_summary(event)
                 for event in hosted.filter(status=Event.Status.UPCOMING)[
@@ -354,4 +358,8 @@ class Toolbox:
         how = "in this chat window"
         if user:
             how += ", by email" + (" and in their notifications" if event else "")
-        return {"status": "forwarded", "visitor_will_be_told": how}
+        return {
+            "status": "forwarded",
+            "visitor_will_be_told": how,
+            "support_email": settings.CHATBOT_SUPPORT_EMAIL,
+        }

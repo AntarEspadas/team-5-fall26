@@ -37,7 +37,10 @@ class GenerateContentTests(SimpleTestCase):
             "https://gemini.test/v1beta/models/test-model:generateContent",
         )
         self.assertEqual(request.get_header("X-goog-api-key"), "test-key")
-        self.assertEqual(json.loads(request.data), {"contents": []})
+        self.assertEqual(
+            json.loads(request.data),
+            {"contents": [], "safetySettings": gemini.SAFETY_SETTINGS},
+        )
         self.assertEqual(result, text_response("Hi"))
 
     def test_http_errors_raise_gemini_error(self):
