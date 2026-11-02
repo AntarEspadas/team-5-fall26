@@ -149,6 +149,48 @@ and private messages do not send email.
 In development, event-update emails are printed to the `runserver` console
 instead of being sent.
 
+## Parks Assistant (chatbot)
+
+A chat widget in the bottom-right corner of every page answers questions about
+events, how the site works, and the signed-in visitor's own plans. It is
+powered by Google Gemini and only appears when `GEMINI_API_KEY` is set.
+
+- **Grounded in the database.** The assistant uses Gemini function calling to
+  run read-only lookups: event search (the same full-text search and filters
+  as the search page), event details, and the visitor's own activity (planned
+  and hosted events, unread notifications and messages). It never reveals
+  other members' details. On an event page it knows which event "this event"
+  means.
+- **Any language.** It replies in the language of each message. Search terms
+  are translated to English behind the scenes.
+- **Voice.** Tap the mic, speak in any language, and tap again to send (up to
+  one minute). The browser records 16 kHz WAV audio; Gemini transcribes it,
+  and the reply is read aloud in the same language. Every reply also has a
+  **Listen** button. Voice input needs HTTPS (or `localhost`).
+- **Unanswered questions go to the event manager.** When the answer isn't in
+  the site data, the assistant says it will check with the event manager and
+  saves the question. The host of a posted event gets a notification and
+  email; questions about NYC Parks feed events (or no event) go to staff, who
+  are emailed when `CHATBOT_MANAGER_EMAILS` is set. Managers answer on the
+  **Questions** page at `/assistant/inquiries/` (linked from **My events**) or
+  in the Django admin. The answer is translated into the asker's language and
+  shown in their chat window; signed-in askers also get an email, plus a
+  notification for event questions.
+- The conversation (last 20 messages) is kept in the visitor's session and
+  follows them between pages. Each visitor can send 15 messages a minute.
+
+### Set up Gemini
+
+1. Create an API key in [Google AI Studio](https://aistudio.google.com/apikey).
+2. Set `GEMINI_API_KEY` in your local `.env`, or as an environment property in
+   the Elastic Beanstalk console. Never commit the key.
+3. Optionally set `GEMINI_MODEL` (default `gemini-flash-latest`, Google's alias
+   for the newest Flash model) and `CHATBOT_MANAGER_EMAILS` (comma-separated).
+4. Run `python manage.py migrate` to create the questions table.
+
+Tests mock Gemini, so CI needs no key. Run
+`python manage.py test chatbot` for the focused tests.
+
 ## Cron job (hourly sync)
 
 The sync is **not automatic yet** — register it once per machine:

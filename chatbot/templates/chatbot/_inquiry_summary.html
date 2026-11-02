@@ -1,0 +1,9 @@
+{% load tz %}<p class="inquiry-meta">
+    {% timezone "America/New_York" %}{{ inquiry.created_at|date:"M j, Y, g:i A" }}{% endtimezone %}
+    &middot; {% if inquiry.user %}{{ inquiry.user.get_display_name }}{% else %}A visitor{% endif %}
+    {% if inquiry.event %}&middot; <a href="{% url 'event_detail' inquiry.event.pk %}">{{ inquiry.event.title }}</a>{% endif %}
+</p>
+<p class="inquiry-question">{{ inquiry.display_question }}</p>
+{% if not inquiry.is_english and inquiry.question_english %}
+<p class="inquiry-original">Asked in {{ inquiry.language }}: “{{ inquiry.question }}”</p>
+{% endif %}

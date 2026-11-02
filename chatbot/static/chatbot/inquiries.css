@@ -1,0 +1,142 @@
+/* Questions page where event managers answer what the assistant couldn't. */
+
+.inquiries-page {
+    max-width: 760px;
+    margin: 0 auto;
+    padding: 32px 24px 96px;
+}
+
+.inquiries-page h1 {
+    margin: 8px 0 4px;
+    font-size: clamp(1.75rem, 3vw, 2.4rem);
+    letter-spacing: -0.02em;
+}
+
+.inquiries-page h2 {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    margin: 32px 0 12px;
+    font-size: 1.25rem;
+}
+
+.inquiries-intro {
+    margin: 0 0 16px;
+    color: var(--muted);
+}
+
+.inquiries-status {
+    margin: 0 0 12px;
+    padding: 12px 16px;
+    border-radius: 12px;
+    background: #dff3e6;
+    color: var(--leaf-dark);
+    font-weight: 600;
+}
+
+.inquiries-status.is-error {
+    background: #fdecea;
+    color: var(--error);
+}
+
+.inquiries-status.is-info {
+    background: var(--chip);
+    color: var(--ink);
+}
+
+.inquiry-list {
+    display: grid;
+    gap: 12px;
+    margin: 0;
+    padding: 0;
+    list-style: none;
+}
+
+.inquiry {
+    padding: 18px 20px;
+    border: 1px solid var(--line);
+    border-radius: var(--radius-card);
+    background: var(--surface);
+}
+
+.inquiry.is-answered {
+    background: transparent;
+}
+
+.inquiry-meta {
+    margin: 0 0 6px;
+    color: var(--muted);
+    font-size: 0.875rem;
+}
+
+.inquiry-meta a {
+    color: var(--leaf);
+    font-weight: 600;
+}
+
+.inquiry-question {
+    margin: 0;
+    font-size: 1.05rem;
+    font-weight: 600;
+    overflow-wrap: anywhere;
+    white-space: pre-wrap;
+}
+
+.inquiry-original {
+    margin: 6px 0 0;
+    color: var(--muted);
+    font-style: italic;
+    overflow-wrap: anywhere;
+}
+
+.inquiry-answer {
+    display: grid;
+    gap: 8px;
+    margin-top: 14px;
+}
+
+.inquiry-answer label {
+    font-weight: 600;
+}
+
+.inquiry-answer textarea {
+    width: 100%;
+    padding: 10px 12px;
+    border: 1px solid var(--line);
+    border-radius: 12px;
+    font: inherit;
+    resize: vertical;
+}
+
+.inquiry-answer textarea:focus {
+    border-color: var(--leaf);
+    outline: 3px solid var(--focus);
+    outline-offset: 1px;
+}
+
+.inquiry-answer button {
+    justify-self: start;
+    min-height: var(--touch);
+    padding: 0 20px;
+    border: 0;
+    border-radius: var(--radius-pill);
+    background: var(--leaf);
+    color: #fff;
+    font: inherit;
+    font-weight: 700;
+    cursor: pointer;
+}
+
+.inquiry-answer button:hover {
+    background: var(--leaf-dark);
+}
+
+.inquiry-answer-text {
+    margin: 10px 0 0;
+    overflow-wrap: anywhere;
+    white-space: pre-wrap;
+}
+
+.inquiries-page .search-back + .search-back {
+    margin-left: 16px;
+}

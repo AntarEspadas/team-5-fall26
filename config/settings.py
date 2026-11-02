@@ -59,6 +59,7 @@ INSTALLED_APPS = [
     "allauth.socialaccount.providers.google",
     "accounts",
     "events",
+    "chatbot",
 ]
 
 MIDDLEWARE = [
@@ -92,6 +93,7 @@ TEMPLATES = [
                 "django.contrib.auth.context_processors.auth",
                 "django.contrib.messages.context_processors.messages",
                 "events.context_processors.notifications",
+                "chatbot.context_processors.chatbot",
             ],
         },
     },
@@ -223,3 +225,23 @@ if GOOGLE_OAUTH_ENABLED:
 # Google receives an HTTPS redirect_uri instead of the internal HTTP URL.
 if not DEBUG:
     SECURE_PROXY_SSL_HEADER = ("HTTP_X_FORWARDED_PROTO", "https")
+
+# ===== Website assistant (Gemini) =====
+# The chat widget only appears when GEMINI_API_KEY is set. GEMINI_MODEL
+# defaults to Google's always-current Flash alias; pin a specific model name
+# in production if you need fully repeatable answers.
+GEMINI_API_KEY = os.environ.get("GEMINI_API_KEY", "").strip()
+GEMINI_MODEL = os.environ.get("GEMINI_MODEL", "").strip() or "gemini-flash-latest"
+GEMINI_API_BASE_URL = (
+    os.environ.get("GEMINI_API_BASE_URL", "").strip()
+    or "https://generativelanguage.googleapis.com/v1beta"
+)
+CHATBOT_ENABLED = bool(GEMINI_API_KEY)
+
+# Staff who receive questions the assistant could not answer about NYC Parks
+# feed events (hosted events go to their host). Comma-separated emails.
+MANAGERS = [
+    (email.strip(), email.strip())
+    for email in os.environ.get("CHATBOT_MANAGER_EMAILS", "").split(",")
+    if email.strip()
+]
