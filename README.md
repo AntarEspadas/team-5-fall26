@@ -107,6 +107,21 @@ closed. Everyone who selected Interested or Want to Attend gets an email and
 a notification. **My events** (`/events/mine/`), linked in the header, lists a
 host's upcoming events and archives the cancelled and ended ones.
 
+## Reporting events
+
+Every event page has a **Report event** button. Signed-in users can report
+hosted or imported events, including ended and cancelled events, without
+being signed up to attend. Choose a reason and optionally add up to 5,000
+characters of details, then submit to return to the event with a confirmation.
+
+Each user can have one unresolved report per event. Submitting again keeps
+the original report; after an admin resolves it, a new report can be submitted.
+Reports retain their reason, details, timestamp, and the event title at the
+time of submission even if the event or reporting account is deleted.
+Reporting does not change the event or notify its host. The resolution
+interface, admin report feed, and reporting of users and comments are future
+features.
+
 ## Notifications
 
 While an event is upcoming, its host can message everyone who selected

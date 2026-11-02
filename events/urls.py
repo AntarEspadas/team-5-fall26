@@ -2,6 +2,8 @@
 
 from django.urls import path
 
+from reports.views import report_event
+
 from . import community_views
 from .views import (
     EventCreateView,
@@ -17,6 +19,7 @@ urlpatterns = [
     path("<int:pk>/edit/", EventUpdateView.as_view(), name="event_edit"),
     path("<int:pk>/notify/", notify_attendees, name="event_notify"),
     path("<int:pk>/cancel/", cancel_event, name="event_cancel"),
+    path("<int:pk>/report/", report_event, name="event_report"),
     path(
         "<int:event_id>/interest/",
         community_views.toggle_event_interest,
