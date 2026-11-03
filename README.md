@@ -203,8 +203,9 @@ instead of being sent.
 A chat widget (floating button, bottom-right of every page) answers questions
 about events, bookings, support topics, and the signed-in visitor's own
 account. It is powered by Google Gemini and only appears when
-`GEMINI_API_KEY` is set. The key stays on the server; the browser only talks
-to this site's own endpoints.
+`GEMINI_API_KEY` is set. The key stays on the server: typed chat goes
+through this site's own endpoints, and voice calls use a short-lived token
+the server creates (see below).
 
 **How it answers**
 
@@ -237,12 +238,24 @@ to this site's own endpoints.
 - **Off-topic or inappropriate requests** are declined by the system prompt
   and by Gemini's safety settings (harassment, hate speech, sexual, and
   dangerous content blocked at medium and above).
-- **Any language, and voice.** Replies use the language of each message. Tap
-  the mic, speak in any language, and tap again to send (up to a minute);
-  Gemini transcribes the recording and the reply is read aloud. Voice needs
-  HTTPS (or `localhost`).
+- **Any language.** Replies use the language of each message.
+- **Voice conversations.** Tap the mic to start a live call with the
+  assistant, a female US-English voice (Gemini Live API). She waits for you to
+  speak first. Talk naturally: she replies out loud, can be interrupted, and both sides are transcribed
+  into the chat as they speak. Typing during a call adds to it. Tap **End
+  call** to hang up. How it works: `POST /api/chat/live` creates a
+  single-use Gemini token locked to the assistant's voice, instructions
+  (including recent chat history), and tools, and the browser streams audio
+  to Gemini over a WebSocket with it. Tool calls run on the server
+  (`POST /api/chat/live/tool`), and each finished exchange is saved to the
+  conversation and the chat log (`POST /api/chat/live/turn`). A call lasts
+  up to 30 minutes. Voice needs HTTPS (or `localhost`) and a current
+  browser. Settings: `GEMINI_LIVE_MODEL` (default `gemini-3.8-live`),
+  `GEMINI_LIVE_VOICE` (default `Achernar`, a soft voice; `Vindemiatrix`,
+  `Sulafat`, `Aoede`, and `Kore` are other female voices), and `GEMINI_LIVE_LANGUAGE` (default `en-US`).
 - **Limits and errors.** Each account or browser session can send 15
-  messages a minute (60 per network address). Gemini outages or quota errors
+  messages or start 15 calls a minute (60 per network address); tool calls
+  and saved turns during a call allow 60 a minute (240 per address). Gemini outages or quota errors
   show a friendly message instead of breaking the widget. Requests to Gemini
   time out after 20 seconds; replies normally take a few seconds.
 - **Conversation logs.** Each exchange is logged anonymously (no user is

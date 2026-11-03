@@ -377,29 +377,91 @@
     }
 }
 
-/* Recording strip and composer */
+/* Live transcript: words still arriving while someone talks */
 
-.pa-recording {
+.pa-message.is-live .pa-bubble::after {
+    content: "";
+    display: inline-block;
+    width: 6px;
+    height: 6px;
+    margin-left: 6px;
+    border-radius: 50%;
+    background: currentColor;
+    vertical-align: middle;
+    opacity: 0.5;
+    animation: pa-pulse 1s infinite;
+}
+
+.pa-message.is-live .pa-bubble:empty::after {
+    margin-left: 0;
+}
+
+/* Voice call strip and composer */
+
+.pa-call {
+    --pa-level: 0;
     display: flex;
     align-items: center;
-    gap: 10px;
-    padding: 10px 16px;
+    gap: 12px;
+    padding: 10px 12px 10px 16px;
     border-top: 1px solid var(--pa-line);
-    background: #fff4f2;
-    color: var(--pa-error);
+    background: #eef6f0;
+    color: var(--pa-leaf-dark);
     font-weight: 600;
 }
 
-.pa-recording[hidden] {
+.pa-call[hidden] {
     display: none;
 }
 
-.pa-recording-dot {
-    width: 10px;
-    height: 10px;
+.pa-call-orb {
+    flex: none;
+    width: 14px;
+    height: 14px;
     border-radius: 50%;
-    background: var(--pa-error);
+    background: var(--pa-leaf);
+    box-shadow: 0 0 0 calc(2px + var(--pa-level) * 10px) rgba(31, 107, 69, 0.18);
+    transition: box-shadow 90ms linear;
+}
+
+.pa-call[data-state="connecting"] .pa-call-orb,
+.pa-call[data-state="thinking"] .pa-call-orb {
+    background: var(--pa-muted);
     animation: pa-pulse 1s infinite;
+}
+
+.pa-call[data-state="speaking"] .pa-call-orb {
+    background: var(--pa-focus);
+    box-shadow: 0 0 0 calc(2px + var(--pa-level) * 10px) rgba(242, 182, 50, 0.3);
+}
+
+.pa-call-status {
+    display: flex;
+    flex: 1;
+    gap: 8px;
+    align-items: baseline;
+    min-width: 0;
+}
+
+.pa-call-time {
+    color: var(--pa-muted);
+    font-size: 0.8rem;
+    font-variant-numeric: tabular-nums;
+}
+
+.pa-end-call {
+    flex: none;
+    padding: 6px 14px;
+    border: 0;
+    border-radius: 999px;
+    background: var(--pa-error);
+    color: #fff;
+    font-weight: 600;
+    cursor: pointer;
+}
+
+.pa-end-call:hover {
+    background: #8f1c13;
 }
 
 @keyframes pa-pulse {
@@ -408,20 +470,12 @@
     }
 }
 
-.pa-link-button {
-    margin-left: auto !important;
-    padding: 4px 8px;
-    border: 0;
-    border-radius: 6px;
-    background: transparent;
-    color: var(--pa-muted);
-    font-weight: 600;
-    cursor: pointer;
-}
-
-.pa-link-button:hover {
-    color: var(--pa-ink);
-    text-decoration: underline;
+@media (prefers-reduced-motion: reduce) {
+    .pa-call-orb,
+    .pa-message.is-live .pa-bubble::after {
+        animation: none;
+        transition: none;
+    }
 }
 
 .pa-composer {
@@ -487,7 +541,8 @@
     display: none;
 }
 
-.pa-mic[aria-pressed="true"] {
+.pa-mic[aria-pressed="true"],
+.pa-mic[aria-pressed="true"]:hover:not(:disabled) {
     background: var(--pa-error);
     color: #fff;
 }

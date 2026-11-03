@@ -7,16 +7,21 @@ adds no dependencies. Every failure surfaces as ``GeminiError``.
 import base64
 import json
 import logging
+from datetime import timedelta
 from urllib.error import HTTPError, URLError
 from urllib.request import Request, urlopen
 
 from django.conf import settings
+from django.utils import timezone
 
 logger = logging.getLogger(__name__)
 
 # Chat replies should arrive within a few seconds; give up well before the
 # browser or load balancer would.
 REQUEST_TIMEOUT_SECONDS = 20
+# How long a voice conversation can last, and how soon it must start.
+LIVE_SESSION_LENGTH = timedelta(minutes=30)
+LIVE_START_WINDOW = timedelta(minutes=1)
 
 # Block harmful content in both directions (on top of the system prompt).
 SAFETY_SETTINGS = [
@@ -94,9 +99,40 @@ def generate_content(payload, models=None):
 def request_model(payload, model):
     """Send one ``generateContent`` request to ``model``."""
     url = f"{settings.GEMINI_API_BASE_URL}/models/{model}:generateContent"
+    return post_json(url, dict(payload, safetySettings=SAFETY_SETTINGS))
+
+
+def create_live_token(setup):
+    """Create a single-use token for one Live API voice conversation.
+
+    The token is locked to ``setup`` (model, voice, instructions, and tools),
+    so the browser that holds it cannot change them. It must be used to open
+    a session within a minute, and that session can last up to half an hour.
+
+    Returns:
+        str: the token, which the browser passes as ``access_token``.
+    """
+    now = timezone.now()
+    response = post_json(
+        settings.GEMINI_LIVE_TOKEN_URL,
+        {
+            "uses": 1,
+            "expireTime": (now + LIVE_SESSION_LENGTH).isoformat(),
+            "newSessionExpireTime": (now + LIVE_START_WINDOW).isoformat(),
+            "bidiGenerateContentSetup": setup,
+        },
+    )
+    token = response.get("name") if isinstance(response, dict) else None
+    if not token:
+        raise GeminiError("Gemini did not return a Live API token")
+    return token
+
+
+def post_json(url, body):
+    """POST ``body`` as JSON with the API key and return the decoded reply."""
     request = Request(
         url,
-        data=json.dumps(dict(payload, safetySettings=SAFETY_SETTINGS)).encode("utf-8"),
+        data=json.dumps(body).encode("utf-8"),
         headers={
             "Content-Type": "application/json",
             "x-goog-api-key": settings.GEMINI_API_KEY,

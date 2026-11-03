@@ -26,6 +26,31 @@ ESCALATED_REPLY = (
 )
 
 
+VOICE_INSTRUCTIONS = """
+YOU ARE ON A LIVE VOICE CALL
+The visitor is talking to you out loud, and everything you say is spoken.
+- Speak like a warm, friendly American woman chatting naturally with a
+  friend: relaxed, conversational American English, with contractions.
+  React naturally ("Oh, nice!", "Sure thing", "Hmm, let me check").
+- Keep your voice soft, gentle, and calm, at an easy, unhurried pace.
+  Never sound loud, sharp, or overly excited.
+- The visitor speaks first. When they greet you, greet them back briefly
+  and ask how you can help.
+- Reply in the visitor's language. When it is English, use an American
+  accent and American wording.
+- Keep each turn short: one to three sentences. Offer to tell more rather
+  than reading long lists; mention two or three events at most at a time.
+- Never use Markdown, bullets, emoji, or read out links, URLs, or event ids.
+  Name the page instead, e.g. "the event's page" or "Account settings".
+- Say dates and times naturally, e.g. "this Saturday at ten in the morning".
+- Before looking something up, you may say a quick "Let me check."
+- If the visitor interrupts, stop and answer what they just said.
+"""
+# Earlier text-chat messages repeated in a voice call's instructions.
+VOICE_HISTORY_LIMIT = 10
+VOICE_HISTORY_CHARS = 600
+
+
 def escalated_reply():
     """Return the fallback reply, offering the support email when set."""
     if settings.CHATBOT_SUPPORT_EMAIL:
@@ -141,3 +166,72 @@ def reply(request, message, page=""):
         {"role": "model", "text": text},
     )
     return {"reply": text, "escalated": toolbox.escalated, "declined": declined}
+
+
+def earlier_conversation(session):
+    """Return recent chat messages as text a voice call can pick up from."""
+    lines = []
+    for item in get_history(session)[-VOICE_HISTORY_LIMIT:]:
+        if item.get("role") in ("user", "model") and item.get("text"):
+            who = "Visitor" if item["role"] == "user" else "You"
+            lines.append(f"{who}: {item['text'][:VOICE_HISTORY_CHARS]}")
+    if not lines:
+        return ""
+    return (
+        "\nEARLIER IN THIS CONVERSATION (continue from it; don't repeat it)\n"
+        + "\n".join(lines)
+        + "\n"
+    )
+
+
+def live_setup(request, page=""):
+    """Build the Live API setup for a voice call with this visitor.
+
+    It carries the same instructions and tools as typed chat, plus guidance
+    for speaking, and asks Gemini to transcribe both sides as they talk.
+    """
+    instructions = (
+        system_prompt(request.user, event_on_page(page))
+        + VOICE_INSTRUCTIONS
+        + earlier_conversation(request.session)
+    )
+    return {
+        "model": f"models/{settings.GEMINI_LIVE_MODEL}",
+        "generationConfig": {
+            "responseModalities": ["AUDIO"],
+            "speechConfig": {
+                "languageCode": settings.GEMINI_LIVE_LANGUAGE,
+                "voiceConfig": {
+                    "prebuiltVoiceConfig": {"voiceName": settings.GEMINI_LIVE_VOICE}
+                },
+            },
+        },
+        "systemInstruction": {"parts": [{"text": instructions}]},
+        "tools": [{"functionDeclarations": Toolbox.declarations}],
+        "inputAudioTranscription": {},
+        "outputAudioTranscription": {},
+    }
+
+
+def run_live_tool(request, name, args):
+    """Run one tool the voice assistant asked for, as this visitor.
+
+    Returns:
+        tuple: the tool's result and whether it escalated the question.
+    """
+    session = request.session
+    toolbox = Toolbox(request.user, list(session.get(INQUIRIES_KEY, [])))
+    result = toolbox.call(name, args)
+    if toolbox.escalated:
+        session[INQUIRIES_KEY] = toolbox.inquiry_ids[-HISTORY_LIMIT:]
+    return result, toolbox.escalated
+
+
+def save_voice_turn(session, message, text):
+    """Keep a spoken exchange in the history so typed chat can continue it."""
+    turn = []
+    if message:
+        turn.append({"role": "user", "text": message})
+    if text:
+        turn.append({"role": "model", "text": text})
+    append_history(session, *turn)
