@@ -119,8 +119,31 @@ the original report; after an admin resolves it, a new report can be submitted.
 Reports retain their reason, details, timestamp, and the event title at the
 time of submission even if the event or reporting account is deleted.
 Reporting does not change the event or notify its host. The resolution
-interface, admin report feed, and reporting of users and comments are future
-features.
+interface and admin report feed are future features.
+
+Public comments and replies have a three-dot menu with **Report**. The report
+form identifies the comment and its author, uses the same reasons and optional
+details as event reporting, and returns to the event after submission. Users
+cannot report their own comments. Reporting remains available on ended and
+cancelled events. Each comment or reply can have one unresolved report per
+reporter, independently of event reports or reports about its author.
+
+The three-dot menu in a private conversation includes **Report user**. Only
+participants with an accepted contact request can use it. A report targets the
+other participant and stores references to the conversation and the latest
+message at the time the report is submitted. The latest message can be from
+either participant; an empty conversation has no message anchor. One unresolved
+user report per reporter and reported user is allowed, even if newer messages
+arrive afterward. Resolving it allows a new report with fresh context.
+
+All report types share `reports.Report` and its `kind` field. Comment reports
+link through `reported_post` or `reported_reply`, `reported_user`, and the
+parent `event`. Chat reports use `reported_user`, `conversation`, and
+`context_message`; they do not copy chat content or identity snapshots.
+Source deletion clears the corresponding foreign keys and retains the report's
+reason, details, and timestamps, so deleted chat history will not be available
+for review. Admin viewing and navigation to the saved message are deferred to
+the admin-reporting feature.
 
 ## Notifications
 

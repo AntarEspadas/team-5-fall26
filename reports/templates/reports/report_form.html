@@ -3,16 +3,17 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Report {{ event.title }} | NYC Parks Events</title>
+    <title>Report {{ target_label }} | NYC Parks Events</title>
     <link rel="stylesheet" href="{% static 'events/search.css' %}">
     <link rel="stylesheet" href="{% static 'events/home.css' %}">
     <link rel="stylesheet" href="{% static 'events/event_form.css' %}">
 </head>
 <body>
     <main class="event-form-page">
-        <a class="search-back" href="{% url 'event_detail' event.pk %}">Back to event</a>
-        <h1>Report event</h1>
-        <p class="event-form-intro">Tell us why you are reporting <strong>{{ event.title }}</strong>.</p>
+        <a class="search-back" href="{{ back_url }}">Back to {{ back_label }}</a>
+        <h1>Report {{ target_label }}</h1>
+        <p class="event-form-intro">Tell us why you are reporting <strong>{{ subject }}</strong>.</p>
+        {% if comment %}<blockquote>{{ comment.body|linebreaksbr }}</blockquote>{% endif %}
 
         <form class="event-form" method="post">
             {% csrf_token %}
@@ -27,7 +28,7 @@
             {% endfor %}
             <div class="form-actions">
                 <button type="submit" class="btn-primary">Submit report</button>
-                <a href="{% url 'event_detail' event.pk %}">Cancel</a>
+                <a href="{{ back_url }}">Cancel</a>
             </div>
         </form>
     </main>

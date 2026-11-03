@@ -2,7 +2,7 @@
 
 from django.urls import path
 
-from reports.views import report_event
+from reports.views import report_event, report_post, report_reply
 
 from . import community_views
 from .views import (
@@ -20,6 +20,8 @@ urlpatterns = [
     path("<int:pk>/notify/", notify_attendees, name="event_notify"),
     path("<int:pk>/cancel/", cancel_event, name="event_cancel"),
     path("<int:pk>/report/", report_event, name="event_report"),
+    path("posts/<int:post_id>/report/", report_post, name="event_post_report"),
+    path("replies/<int:reply_id>/report/", report_reply, name="event_reply_report"),
     path(
         "<int:event_id>/interest/",
         community_views.toggle_event_interest,

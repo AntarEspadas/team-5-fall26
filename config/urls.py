@@ -18,6 +18,8 @@ from django.contrib import admin
 from django.urls import include, path
 from django.views.generic import TemplateView
 
+from reports.views import report_conversation_user
+
 from events.views import (
     EventDetailView,
     LandingView,
@@ -53,6 +55,11 @@ urlpatterns = [
         "messages/conversations/<int:conversation_id>/",
         conversation,
         name="conversation",
+    ),
+    path(
+        "messages/conversations/<int:conversation_id>/report/",
+        report_conversation_user,
+        name="conversation_report",
     ),
     path(
         "messages/conversations/<int:conversation_id>/updates/",

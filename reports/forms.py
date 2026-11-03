@@ -5,7 +5,7 @@ from django import forms
 from .models import Report
 
 
-class EventReportForm(forms.ModelForm):
+class ReportForm(forms.ModelForm):
     """Accept a reason and optional context, never the reporter or target."""
 
     class Meta:
@@ -21,3 +21,7 @@ class EventReportForm(forms.ModelForm):
         self.fields["reason"].choices = [("", "Select a reason")] + list(
             Report.Reason.choices
         )
+
+
+# Preserve the existing import while all targets share the same form.
+EventReportForm = ReportForm

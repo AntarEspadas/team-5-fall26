@@ -68,7 +68,7 @@ class EventReportingTests(ReportTestData, TestCase):
 
     def test_form_has_unselected_reasons_optional_details_and_cancel_link(self):
         response = self.client.get(self.report_url)
-        self.assertTemplateUsed(response, "reports/report_event.html")
+        self.assertTemplateUsed(response, "reports/report_form.html")
         self.assertContains(response, self.event.title)
         self.assertContains(
             response, '<option value="" selected>Select a reason</option>'
