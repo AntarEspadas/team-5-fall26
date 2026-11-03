@@ -107,6 +107,55 @@ closed. Everyone who selected Interested or Want to Attend gets an email and
 a notification. **My events** (`/events/mine/`), linked in the header, lists a
 host's upcoming events and archives the cancelled and ended ones.
 
+## Reporting events
+
+Every event page has a **Report event** button. Signed-in users can report
+hosted or imported events, including ended and cancelled events, without
+being signed up to attend. Choose a reason and optionally add up to 5,000
+characters of details, then submit to return to the event with a confirmation.
+
+Each user can have one unresolved report per event. Submitting again keeps
+the original report; after an admin resolves it, a new report can be submitted.
+Reports retain their reason, details, timestamp, and the event title at the
+time of submission even if the event or reporting account is deleted.
+Reporting does not change the event or notify its host. The resolution
+interface and admin report feed are future features.
+
+Public comments and replies have a three-dot menu with **Report**. The report
+form identifies the comment and its author, uses the same reasons and optional
+details as event reporting, and returns to the event after submission. Users
+cannot report their own comments. Reporting remains available on ended and
+cancelled events. Each comment or reply can have one unresolved report per
+reporter, independently of event reports or reports about its author.
+
+The three-dot menu in a private conversation includes **Report user**. Only
+participants with an accepted contact request can use it. A report targets the
+other participant and stores references to the conversation and the latest
+message at the time the report is submitted. The latest message can be from
+either participant; an empty conversation has no message anchor. One unresolved
+user report per reporter and reported user is allowed, even if newer messages
+arrive afterward. Resolving it allows a new report with fresh context.
+
+Shared community profiles have a three-dot menu with **Report profile** for
+concerns about their photo, bio, or other public content. Any signed-in viewer
+can report another member's shared profile, without a shared event or accepted
+contact. Hidden profiles and your own profile cannot be reported this way.
+The form uses the same reasons and optional details and returns to the profile
+with confirmation. Each reporter can have one unresolved profile report per
+member, independently of chat-user reports about that member.
+
+All report types share `reports.Report` and its `kind` field. Comment reports
+link through `reported_post` or `reported_reply`, `reported_user`, and the
+parent `event`. Chat reports use `reported_user`, `conversation`, and
+`context_message`; they do not copy chat content or identity snapshots.
+Profile reports use `kind="profile"` and `reported_user`, leaving conversation,
+message, event, and comment references empty. They link to the current profile
+without copying its text or photo, so later edits change what an admin sees.
+Source deletion clears the corresponding foreign keys and retains the report's
+reason, details, and timestamps, so deleted chat history will not be available
+for review. Admin viewing and navigation to the saved message are deferred to
+the admin-reporting feature.
+
 ## Notifications
 
 While an event is upcoming, its host can message everyone who selected
