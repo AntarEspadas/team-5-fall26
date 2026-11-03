@@ -11,6 +11,8 @@
     <link rel="stylesheet" href="{% static 'events/filters.css' %}">
     <link rel="stylesheet" href="{% static 'events/cards.css' %}">
     <link rel="stylesheet" href="{% static 'events/home.css' %}">
+    <link rel="stylesheet" href="{% static 'reports/menus.css' %}">
+    <script src="{% static 'reports/menus.js' %}" defer></script>
 
     <style>
         * {
@@ -53,10 +55,33 @@
 
         .profile-page-heading {
             display: flex;
+            flex-wrap: wrap;
             align-items: center;
             justify-content: space-between;
             gap: 20px;
             margin-bottom: 26px;
+        }
+
+        .profile-page-heading > div:first-child {
+            flex: 1 1 260px;
+            min-width: 0;
+        }
+
+        .profile-actions {
+            display: flex;
+            flex-wrap: wrap;
+            align-items: center;
+            gap: 12px;
+            margin-left: auto;
+        }
+
+        .profile-alerts {
+            margin: 0 0 20px;
+            padding: 12px 16px;
+            border: 1px solid #c9e1d1;
+            border-radius: 8px;
+            background: #edf6ef;
+            list-style: none;
         }
 
         .profile-page-heading h1 {
@@ -331,6 +356,12 @@
             color: #718076;
             font-size: 13px;
         }
+
+        @media (max-width: 640px) {
+            .profile-content {
+                grid-template-columns: minmax(0, 1fr);
+            }
+        }
     </style>
 </head>
 
@@ -390,21 +421,29 @@
     </header>
 
     <main class="public-profile">
+        {% if messages %}
+        <ul class="profile-alerts" role="status">
+            {% for alert in messages %}<li>{{ alert }}</li>{% endfor %}
+        </ul>
+        {% endif %}
+
         <div class="profile-page-heading">
             <div>
                 <h1>Community Profile</h1>
                 <p>Get to know the people who share your interest in NYC parks.</p>
             </div>
 
-            {% if request.user.is_authenticated and request.user.pk == profile_user.pk %}
-            <a class="profile-button" href="{% url 'account_settings' %}">
-                Edit profile
-            </a>
-            {% elif can_message %}
-            <a class="profile-button" href="{% url 'message_user' profile_user.pk %}">
-                Send Message
-            </a>
-            {% endif %}
+            <div class="profile-actions">
+                {% if request.user.is_authenticated and request.user.pk == profile_user.pk %}
+                    <a class="profile-button" href="{% url 'account_settings' %}">Edit profile</a>
+                {% elif request.user.is_authenticated %}
+                    {% if can_message %}
+                        <a class="profile-button" href="{% url 'message_user' profile_user.pk %}">Send Message</a>
+                    {% endif %}
+                    {% url 'profile_report' profile_user.username as report_url %}
+                    {% include 'reports/_report_menu.html' with report_url=report_url menu_label="Profile actions" report_label="Report profile" only %}
+                {% endif %}
+            </div>
         </div>
 
         <section class="profile-summary" aria-label="Profile information">

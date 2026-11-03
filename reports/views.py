@@ -1,6 +1,7 @@
-"""Shared submission flow for events, public comments, and chat users."""
+"""Shared submission flow for events, public comments, chat users, and profiles."""
 
 from django.contrib import messages
+from django.contrib.auth import get_user_model
 from django.contrib.auth.decorators import login_required
 from django.http import Http404
 from django.shortcuts import get_object_or_404, redirect, render
@@ -19,6 +20,7 @@ TARGET_LABELS = {
     Report.Kind.POST: "comment",
     Report.Kind.REPLY: "reply",
     Report.Kind.USER: "user",
+    Report.Kind.PROFILE: "profile",
 }
 
 
@@ -85,6 +87,26 @@ def report_conversation_user(request, conversation_id):
         back_url=reverse("conversation", args=[thread.pk]),
         back_label="conversation",
         conversation=thread,
+    )
+
+
+@login_required
+@require_http_methods(["GET", "POST"])
+def report_profile(request, username):
+    """Report another member's shared profile, independently of chat reports."""
+    profile_user = get_object_or_404(
+        get_user_model()
+        .objects.filter(share_profile_with_attendees=True)
+        .exclude(pk=request.user.pk),
+        username=username,
+    )
+    return _report(
+        request,
+        kind=Report.Kind.PROFILE,
+        target=profile_user,
+        subject=f"{profile_user.get_display_name()} (@{profile_user.username})",
+        back_url=reverse("public_profile", args=[profile_user.username]),
+        back_label="profile",
     )
 
 

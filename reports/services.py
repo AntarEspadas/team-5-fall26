@@ -9,6 +9,7 @@ TARGET_FIELDS = {
     Report.Kind.POST: "reported_post",
     Report.Kind.REPLY: "reported_reply",
     Report.Kind.USER: "reported_user",
+    Report.Kind.PROFILE: "reported_user",
 }
 
 
@@ -34,7 +35,7 @@ def record_report(reporter, kind, target, cleaned_data, *, conversation=None):
         defaults["context_message"] = conversation.messages.order_by(
             "-created_at", "-pk"
         ).first()
-    else:
+    elif kind != Report.Kind.PROFILE:
         if kind == Report.Kind.EVENT:
             event = target
         else:

@@ -16,6 +16,7 @@ class Report(models.Model):
         POST = "post", "Comment"
         REPLY = "reply", "Reply"
         USER = "user", "User"
+        PROFILE = "profile", "Profile"
 
     class Reason(models.TextChoices):
         SPAM_SCAM = "spam_scam", "Spam or scam"
@@ -105,6 +106,11 @@ class Report(models.Model):
                 fields=["reporter", "reported_user"],
                 condition=models.Q(kind="user", resolved_at__isnull=True),
                 name="unique_unresolved_user_report",
+            ),
+            models.UniqueConstraint(
+                fields=["reporter", "reported_user"],
+                condition=models.Q(kind="profile", resolved_at__isnull=True),
+                name="unique_unresolved_profile_report",
             ),
         ]
 
