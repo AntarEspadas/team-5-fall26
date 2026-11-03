@@ -22,6 +22,7 @@ def fake_urlopen(payload):
 @override_settings(
     GEMINI_API_KEY="test-key",
     GEMINI_MODEL="test-model",
+    GEMINI_FALLBACK_MODEL="test-fallback",
     GEMINI_API_BASE_URL="https://gemini.test/v1beta",
 )
 class GenerateContentTests(SimpleTestCase):
@@ -53,6 +54,45 @@ class GenerateContentTests(SimpleTestCase):
         with mock.patch("chatbot.gemini.urlopen", side_effect=URLError("down")):
             with self.assertRaises(gemini.GeminiError):
                 gemini.generate_content({})
+
+    def test_overloaded_model_falls_back(self):
+        overloaded = HTTPError("url", 503, "Unavailable", {}, io.BytesIO(b"busy"))
+        answer = fake_urlopen(text_response("Hi")).return_value
+        with mock.patch(
+            "chatbot.gemini.urlopen", side_effect=[overloaded, answer]
+        ) as urlopen:
+            models = gemini.model_chain()
+            result = gemini.generate_content({}, models)
+        self.assertEqual(result, text_response("Hi"))
+        self.assertEqual(
+            [call.args[0].full_url.split("/")[-1] for call in urlopen.call_args_list],
+            ["test-model:generateContent", "test-fallback:generateContent"],
+        )
+        # Later rounds of the same turn go straight to the fallback.
+        self.assertEqual(models, ["test-fallback"])
+
+    def test_timeouts_fall_back(self):
+        answer = fake_urlopen(text_response("Hi")).return_value
+        with mock.patch("chatbot.gemini.urlopen", side_effect=[TimeoutError(), answer]):
+            self.assertEqual(gemini.generate_content({}), text_response("Hi"))
+
+    def test_client_errors_do_not_fall_back(self):
+        error = HTTPError("url", 400, "Bad Request", {}, io.BytesIO(b"bad"))
+        with mock.patch("chatbot.gemini.urlopen", side_effect=error) as urlopen:
+            with self.assertRaises(gemini.GeminiError):
+                gemini.generate_content({})
+        self.assertEqual(urlopen.call_count, 1)
+
+    def test_fallback_failure_raises(self):
+        error = HTTPError("url", 503, "Unavailable", {}, io.BytesIO(b"busy"))
+        with mock.patch("chatbot.gemini.urlopen", side_effect=error) as urlopen:
+            with self.assertRaises(gemini.GeminiError):
+                gemini.generate_content({})
+        self.assertEqual(urlopen.call_count, 2)
+
+    @override_settings(GEMINI_FALLBACK_MODEL="test-model")
+    def test_same_fallback_is_tried_once(self):
+        self.assertEqual(gemini.model_chain(), ["test-model"])
 
 
 class ResponseParsingTests(SimpleTestCase):
