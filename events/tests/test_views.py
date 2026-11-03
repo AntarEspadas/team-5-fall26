@@ -239,34 +239,31 @@ class ArchivedEventsViewTests(TestCase):
             ["Newer Completed Event", "Older Completed Event"],
         )
 
-        def test_archived_events_can_be_searched_by_keyword(self):
-            """Keyword search returns matching completed events only."""
-            matching_event = make_event(
-                "archive-yoga",
-                "Community Yoga",
-                status=Event.Status.DONE,
-            )
-            make_event(
-                "archive-upcoming-yoga",
-                "Upcoming Yoga",
-                status=Event.Status.UPCOMING,
-            )
-
-            self.client.login(username="archive_user", password="pass12345")
-
-            response = self.client.get(
-                reverse("archived_events"),
-                {"q": "Yoga"},
-            )
-
-            self.assertEqual(response.status_code, 200)
-            self.assertEqual(
-                list(response.context["events"]),
-                [matching_event],
-            )
-            self.assertContains(response, "Community Yoga")
-            self.assertNotContains(response, "Upcoming Yoga")
-            self.assertEqual(response.context["query"], "Yoga")
+    def test_archived_events_can_be_searched_by_keyword(self):
+        """Keyword search returns matching completed events only."""
+        matching_event = make_event(
+            "archive-yoga",
+            "Community Yoga",
+            status=Event.Status.DONE,
+        )
+        make_event(
+            "archive-upcoming-yoga",
+            "Upcoming Yoga",
+            status=Event.Status.UPCOMING,
+        )
+        self.client.login(username="archive_user", password="pass12345")
+        response = self.client.get(
+            reverse("archived_events"),
+            {"q": "Yoga"},
+        )
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(
+            list(response.context["events"]),
+            [matching_event],
+        )
+        self.assertContains(response, "Community Yoga")
+        self.assertNotContains(response, "Upcoming Yoga")
+        self.assertEqual(response.context["query"], "Yoga")
 
     def test_archived_events_can_be_filtered_by_date(self):
         """Date filters narrow the completed events."""

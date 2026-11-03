@@ -343,6 +343,9 @@
 
             {% if user.is_authenticated %}
             <nav class="topbar-nav" aria-label="Account">
+                <a class="nav-link" href="{% url 'landing' %}">
+                    Home
+                </a>
                 <a class="nav-link" href="{% url 'event_create' %}">
                     Post an event
                 </a>
@@ -383,6 +386,7 @@
             </nav>
             {% else %}
             <nav class="topbar-nav" aria-label="Account">
+                <a class="nav-link" href="{% url 'landing' %}">Home</a>
                 <a class="nav-link" href="{% url 'login' %}">Log in</a>
             </nav>
             {% endif %}
