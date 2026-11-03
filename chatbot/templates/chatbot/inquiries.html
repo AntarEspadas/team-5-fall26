@@ -1,0 +1,64 @@
+{% load static tz %}<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Questions | NYC Parks Events</title>
+    <link rel="stylesheet" href="{% static 'events/search.css' %}">
+    <link rel="stylesheet" href="{% static 'events/home.css' %}">
+    <link rel="stylesheet" href="{% static 'chatbot/inquiries.css' %}">
+</head>
+<body>
+    <main class="inquiries-page">
+        <a class="search-back" href="{% url 'landing' %}">Back to home</a>
+        <a class="search-back" href="{% url 'my_events' %}">My events</a>
+        <h1>Questions</h1>
+        <p class="inquiries-intro">
+            Questions the Parks Assistant couldn't answer{% if not user.is_staff %} about your events{% endif %}.
+            Your answer is sent back to the person who asked, translated into their language.
+        </p>
+
+        {% for message in messages %}
+        <p class="inquiries-status{% if message.tags %} is-{{ message.tags }}{% endif %}" role="status">{{ message }}</p>
+        {% endfor %}
+
+        <section aria-labelledby="open-heading">
+            <h2 id="open-heading">Waiting for an answer{% if open_inquiries %} <span class="count-pill">{{ open_inquiries|length }}</span>{% endif %}</h2>
+            {% if open_inquiries %}
+            <ul class="inquiry-list">
+                {% for inquiry in open_inquiries %}
+                <li class="inquiry">
+                    {% include "chatbot/_inquiry_summary.html" %}
+                    <form method="post" action="{% url 'chatbot:answer_inquiry' inquiry.pk %}" class="inquiry-answer">
+                        {% csrf_token %}
+                        <label for="answer-{{ inquiry.pk }}">Your answer</label>
+                        <textarea id="answer-{{ inquiry.pk }}" name="answer" rows="3" maxlength="{{ form.fields.answer.max_length }}" required></textarea>
+                        <button type="submit">Send answer</button>
+                    </form>
+                </li>
+                {% endfor %}
+            </ul>
+            {% else %}
+            <p class="empty-state">No open questions. New ones will appear here and in your notifications.</p>
+            {% endif %}
+        </section>
+
+        <section aria-labelledby="answered-heading">
+            <h2 id="answered-heading">Recently answered</h2>
+            {% if answered_inquiries %}
+            <ul class="inquiry-list">
+                {% for inquiry in answered_inquiries %}
+                <li class="inquiry is-answered">
+                    {% include "chatbot/_inquiry_summary.html" %}
+                    <p class="inquiry-answer-text"><strong>Answer{% if inquiry.answered_by %} from {{ inquiry.answered_by.get_display_name }}{% endif %}:</strong> {{ inquiry.answer }}</p>
+                </li>
+                {% endfor %}
+            </ul>
+            {% else %}
+            <p class="empty-state">Answered questions will show up here.</p>
+            {% endif %}
+        </section>
+    </main>
+    {% include "chatbot/widget.html" %}
+</body>
+</html>
