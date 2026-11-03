@@ -71,6 +71,7 @@ urlpatterns = [
     path(
         "home/", TemplateView.as_view(template_name="accounts/home.html"), name="home"
     ),
+    path("", include("chatbot.urls")),
     path("admin/", admin.site.urls),
     path("accounts/", include("accounts.urls")),
     # Google social authentication; existing accounts routes take precedence.
