@@ -121,15 +121,29 @@
     align-items: center;
     gap: 10px;
     flex: 1;
+    min-width: 0;
     color: inherit;
     font-weight: 700;
     text-decoration: none;
+}
+
+.chat-person-name {
+    overflow-wrap: anywhere;
+}
+
+.chat-shell > .message-alerts {
+    flex-shrink: 0;
+    margin: 0;
+    padding: 12px 18px;
+    border-bottom: 1px solid #e4e9e5;
+    background: #e4f0e8;
 }
 
 .chat-avatar {
     display: grid;
     width: 40px;
     height: 40px;
+    flex-shrink: 0;
     place-items: center;
     border-radius: 50%;
     background: #e4f0e8;

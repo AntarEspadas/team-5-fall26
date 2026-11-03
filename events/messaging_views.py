@@ -15,6 +15,7 @@ from django.views.generic import ListView
 from accounts.models import User
 
 from .contact_services import create_contact_request
+from .conversation_services import get_accessible_conversation, has_accepted_contact
 from .forms import ContactStartForm, DirectMessageForm
 from .models import (
     ContactRequest,
@@ -37,18 +38,6 @@ def _shared_events(first_user, second_user):
 def _shared_upcoming_events(first_user, second_user):
     """Return shared events that still accept new contact requests."""
     return _shared_events(first_user, second_user).filter(status=Event.Status.UPCOMING)
-
-
-def _has_accepted_contact(first_user, second_user):
-    """Return whether either direction has an accepted contact request."""
-    return (
-        ContactRequest.objects.filter(status=ContactRequest.Status.ACCEPTED)
-        .filter(
-            Q(sender=first_user, recipient=second_user)
-            | Q(sender=second_user, recipient=first_user)
-        )
-        .exists()
-    )
 
 
 def _message_data(message):
@@ -108,7 +97,7 @@ def message_user(request, user_id):
     if recipient.pk == request.user.pk:
         raise Http404("Conversation not found.")
 
-    if _has_accepted_contact(request.user, recipient):
+    if has_accepted_contact(request.user, recipient):
         conversation, _ = Conversation.get_or_create_for_users(request.user, recipient)
         return redirect("conversation", conversation_id=conversation.pk)
     if not recipient.share_profile_with_attendees:
@@ -179,16 +168,8 @@ def message_user(request, user_id):
 @login_required
 def conversation(request, conversation_id):
     """Display a conversation and accept replies from either participant."""
-    participant_filter = Q(user_one=request.user) | Q(user_two=request.user)
-    thread = get_object_or_404(
-        Conversation.objects.select_related("user_one", "user_two").filter(
-            participant_filter
-        ),
-        pk=conversation_id,
-    )
+    thread = get_accessible_conversation(request.user, conversation_id)
     other_user = thread.other_participant(request.user)
-    if other_user is None or not _has_accepted_contact(request.user, other_user):
-        raise Http404("Conversation not found.")
 
     if request.method == "POST":
         form = DirectMessageForm(request.POST)
@@ -241,16 +222,7 @@ def conversation(request, conversation_id):
 @require_GET
 def conversation_updates(request, conversation_id):
     """Return new messages for one of the signed-in user's conversations."""
-    participant_filter = Q(user_one=request.user) | Q(user_two=request.user)
-    thread = get_object_or_404(
-        Conversation.objects.select_related("user_one", "user_two").filter(
-            participant_filter
-        ),
-        pk=conversation_id,
-    )
-    other_user = thread.other_participant(request.user)
-    if other_user is None or not _has_accepted_contact(request.user, other_user):
-        raise Http404("Conversation not found.")
+    thread = get_accessible_conversation(request.user, conversation_id)
 
     try:
         after_id = int(request.GET.get("after", "0"))

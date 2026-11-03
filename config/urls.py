@@ -18,6 +18,8 @@ from django.contrib import admin
 from django.urls import include, path
 from django.views.generic import TemplateView
 
+from reports.views import report_conversation_user
+
 from events.views import (
     EventDetailView,
     LandingView,
@@ -55,6 +57,11 @@ urlpatterns = [
         name="conversation",
     ),
     path(
+        "messages/conversations/<int:conversation_id>/report/",
+        report_conversation_user,
+        name="conversation_report",
+    ),
+    path(
         "messages/conversations/<int:conversation_id>/updates/",
         conversation_updates,
         name="conversation_updates",
@@ -64,6 +71,7 @@ urlpatterns = [
     path(
         "home/", TemplateView.as_view(template_name="accounts/home.html"), name="home"
     ),
+    path("", include("chatbot.urls")),
     path("admin/", admin.site.urls),
     path("accounts/", include("accounts.urls")),
     # Google social authentication; existing accounts routes take precedence.

@@ -107,6 +107,55 @@ closed. Everyone who selected Interested or Want to Attend gets an email and
 a notification. **My events** (`/events/mine/`), linked in the header, lists a
 host's upcoming events and archives the cancelled and ended ones.
 
+## Reporting events
+
+Every event page has a **Report event** button. Signed-in users can report
+hosted or imported events, including ended and cancelled events, without
+being signed up to attend. Choose a reason and optionally add up to 5,000
+characters of details, then submit to return to the event with a confirmation.
+
+Each user can have one unresolved report per event. Submitting again keeps
+the original report; after an admin resolves it, a new report can be submitted.
+Reports retain their reason, details, timestamp, and the event title at the
+time of submission even if the event or reporting account is deleted.
+Reporting does not change the event or notify its host. The resolution
+interface and admin report feed are future features.
+
+Public comments and replies have a three-dot menu with **Report**. The report
+form identifies the comment and its author, uses the same reasons and optional
+details as event reporting, and returns to the event after submission. Users
+cannot report their own comments. Reporting remains available on ended and
+cancelled events. Each comment or reply can have one unresolved report per
+reporter, independently of event reports or reports about its author.
+
+The three-dot menu in a private conversation includes **Report user**. Only
+participants with an accepted contact request can use it. A report targets the
+other participant and stores references to the conversation and the latest
+message at the time the report is submitted. The latest message can be from
+either participant; an empty conversation has no message anchor. One unresolved
+user report per reporter and reported user is allowed, even if newer messages
+arrive afterward. Resolving it allows a new report with fresh context.
+
+Shared community profiles have a three-dot menu with **Report profile** for
+concerns about their photo, bio, or other public content. Any signed-in viewer
+can report another member's shared profile, without a shared event or accepted
+contact. Hidden profiles and your own profile cannot be reported this way.
+The form uses the same reasons and optional details and returns to the profile
+with confirmation. Each reporter can have one unresolved profile report per
+member, independently of chat-user reports about that member.
+
+All report types share `reports.Report` and its `kind` field. Comment reports
+link through `reported_post` or `reported_reply`, `reported_user`, and the
+parent `event`. Chat reports use `reported_user`, `conversation`, and
+`context_message`; they do not copy chat content or identity snapshots.
+Profile reports use `kind="profile"` and `reported_user`, leaving conversation,
+message, event, and comment references empty. They link to the current profile
+without copying its text or photo, so later edits change what an admin sees.
+Source deletion clears the corresponding foreign keys and retains the report's
+reason, details, and timestamps, so deleted chat history will not be available
+for review. Admin viewing and navigation to the saved message are deferred to
+the admin-reporting feature.
+
 ## Notifications
 
 While an event is upcoming, its host can message everyone who selected
@@ -148,6 +197,82 @@ and private messages do not send email.
 
 In development, event-update emails are printed to the `runserver` console
 instead of being sent.
+
+## Parks Assistant (chatbot)
+
+A chat widget (floating button, bottom-right of every page) answers questions
+about events, bookings, support topics, and the signed-in visitor's own
+account. It is powered by Google Gemini and only appears when
+`GEMINI_API_KEY` is set. The key stays on the server; the browser only talks
+to this site's own endpoints.
+
+**How it answers**
+
+- **`POST /api/chat`** takes JSON `{"message": "...", "page": "/events/12/"}`
+  and returns `{"reply", "escalated", "declined"}`, or `{"error"}` with a 4xx
+  or 5xx status that the widget shows as a friendly message. The server
+  builds the Gemini request from the system instructions, the FAQ, the site
+  guide, the last 20 messages of the session's conversation, and the
+  visitor's message.
+- **Event data** comes from read-only database tools that Gemini calls as
+  needed: event search (the same full-text search and filters as the search
+  page), event details (date, time, venue, status, registration link,
+  attendance counts), and the signed-in visitor's own activity. "Bookings"
+  are the events a visitor chose **Want to Attend** or **Interested** on, so
+  "When is my next event?" works. Tools only ever return the current
+  visitor's own data. The site stores no prices or capacities, so the
+  assistant only quotes a price when the event description gives one.
+- **FAQ content** (booking, cancellations and refunds, payments, account and
+  login help, events and venues) lives in the **FAQ entries** table. Edit,
+  add, or deactivate entries in the Django admin; changes apply to the next
+  message without a deploy. The first migration seeds 16 entries.
+- **When it isn't sure** it says so, forwards the question to the event
+  manager, and offers the support email (`CHATBOT_SUPPORT_EMAIL`). The host
+  of a posted event gets a notification and email; other questions go to
+  staff (emailed when `CHATBOT_MANAGER_EMAILS` is set). Managers answer on
+  the **Questions** page (`/assistant/inquiries/`, linked from **My events**)
+  or in the admin. The answer is translated into the asker's language and
+  appears in their chat; signed-in askers also get an email, plus a
+  notification for event questions.
+- **Off-topic or inappropriate requests** are declined by the system prompt
+  and by Gemini's safety settings (harassment, hate speech, sexual, and
+  dangerous content blocked at medium and above).
+- **Any language, and voice.** Replies use the language of each message. Tap
+  the mic, speak in any language, and tap again to send (up to a minute);
+  Gemini transcribes the recording and the reply is read aloud. Voice needs
+  HTTPS (or `localhost`).
+- **Limits and errors.** Each account or browser session can send 15
+  messages a minute (60 per network address). Gemini outages or quota errors
+  show a friendly message instead of breaking the widget. Requests to Gemini
+  time out after 20 seconds; replies normally take a few seconds.
+- **Conversation logs.** Each exchange is logged anonymously (no user is
+  stored; email addresses and phone or card numbers are masked) under **Chat
+  logs** in the admin, with its outcome and response time, so staff can see
+  which questions need new FAQ entries. Set
+  `CHATBOT_LOG_CONVERSATIONS=False` to turn logging off.
+
+### Set up the Gemini API key
+
+1. Create an API key in [Google AI Studio](https://aistudio.google.com/apikey).
+2. Locally, set `GEMINI_API_KEY` in `.env`. Never commit the key.
+3. On Elastic Beanstalk, open the `team5-develop` environment, go to
+   **Configuration → Updates, monitoring, and logging → Environment
+   properties**, add `GEMINI_API_KEY`, and apply. The app restarts with the
+   widget enabled.
+4. Optional settings (same places):
+   - `GEMINI_MODEL`: defaults to `gemini-flash-latest`, Google's alias for
+     its newest Flash model. Pin a specific model for fully repeatable
+     behaviour.
+   - `CHATBOT_SUPPORT_EMAIL`: support address offered as a fallback
+     (defaults to the first manager email).
+   - `CHATBOT_MANAGER_EMAILS`: comma-separated staff emails told about
+     forwarded questions.
+   - `CHATBOT_LOG_CONVERSATIONS`: `False` to disable conversation logs.
+5. Run `python manage.py migrate` (Elastic Beanstalk runs it on deploy) to
+   create the FAQ, log, and questions tables.
+
+Tests mock Gemini, so CI needs no key. Run `python manage.py test chatbot`
+for the focused tests.
 
 ## Cron job (hourly sync)
 

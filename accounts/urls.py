@@ -9,6 +9,8 @@ from django.contrib.auth.views import (
     PasswordResetCompleteView,
 )
 
+from reports.views import report_profile
+
 from . import views
 from .views import RegisterView, CustomLoginView
 
@@ -19,6 +21,7 @@ urlpatterns = [
         views.PublicProfileView.as_view(),
         name="public_profile",
     ),
+    path("profile/<str:username>/report/", report_profile, name="profile_report"),
     path("register/", RegisterView.as_view(), name="register"),
     path("login/", CustomLoginView.as_view(), name="login"),
     path("logout/", LogoutView.as_view(next_page="landing"), name="logout"),

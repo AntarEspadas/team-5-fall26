@@ -166,5 +166,6 @@
     {% if user.is_authenticated %}
     <script src="{% static 'events/message-count.js' %}" defer></script>
     {% endif %}
+    {% include "chatbot/widget.html" %}
 </body>
 </html>

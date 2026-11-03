@@ -5,6 +5,8 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Conversation with {{ other_user.get_display_name }} | NYC Parks Events</title>
     <link rel="stylesheet" href="{% static 'events/messages.css' %}">
+    <link rel="stylesheet" href="{% static 'reports/menus.css' %}">
+    <script src="{% static 'reports/menus.js' %}" defer></script>
 </head>
 <body class="chat-page">
     <main class="chat-shell">
@@ -15,7 +17,15 @@
                 <span class="chat-person-name">{{ other_user.get_display_name }}</span>
             </a>
             <a class="chat-profile-link" href="{% url 'public_profile' username=other_user.username %}">Profile</a>
+            {% url 'conversation_report' conversation.pk as report_url %}
+            {% include 'reports/_report_menu.html' with report_url=report_url menu_label="Conversation actions" report_label="Report user" only %}
         </header>
+
+        {% if messages %}
+        <ul class="message-alerts" role="status">
+            {% for alert in messages %}<li>{{ alert }}</li>{% endfor %}
+        </ul>
+        {% endif %}
 
         <section
             class="chat-history"
@@ -174,5 +184,6 @@
             if (!document.hidden) pollMessages();
         });
     </script>
+    {% include "chatbot/widget.html" %}
 </body>
 </html>

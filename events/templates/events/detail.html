@@ -8,6 +8,8 @@
     <title>{{ event.title }} | NYC Parks Events</title>
     <link rel="stylesheet" href="{% static 'events/cards.css' %}">
     <link rel="stylesheet" href="{% static 'events/search.css' %}">
+    <link rel="stylesheet" href="{% static 'reports/menus.css' %}">
+    <script src="{% static 'reports/menus.js' %}" defer></script>
 
 
 <style>
@@ -613,6 +615,9 @@
                     Official Event Page
                 </a>
             {% endif %}
+            <a class="detail-button secondary-button" href="{% url 'event_report' event.pk %}">
+                Report event
+            </a>
         </div>
     </main>
 
@@ -917,7 +922,13 @@
         <div class="discussion-list">
             {% for post in posts %}
                 <article class="discussion-post">
-                    <h3>{{ post.author.get_display_name }}</h3>
+                    <div class="reportable-heading">
+                        <h3>{{ post.author.get_display_name }}</h3>
+                        {% if post.author_id != user.pk %}
+                            {% url 'event_post_report' post.pk as report_url %}
+                            {% include 'reports/_report_menu.html' with report_url=report_url menu_label="Comment actions" only %}
+                        {% endif %}
+                    </div>
 
                     <p class="muted">
                         Posted {{ post.created_at|date:"M j, Y, g:i A" }}
@@ -932,7 +943,13 @@
 
                     {% for reply in post.replies.all %}
                         <div class="reply">
-                            <strong>{{ reply.author.get_display_name }}</strong>
+                            <div class="reportable-heading">
+                                <strong>{{ reply.author.get_display_name }}</strong>
+                                {% if reply.author_id != user.pk %}
+                                    {% url 'event_reply_report' reply.pk as report_url %}
+                                    {% include 'reports/_report_menu.html' with report_url=report_url menu_label="Reply actions" only %}
+                                {% endif %}
+                            </div>
 
                             <p class="muted">
                                 {{ reply.created_at|date:"M j, Y, g:i A" }}
@@ -1007,5 +1024,6 @@
             }
         });
     </script>
+    {% include "chatbot/widget.html" %}
 </body>
 </html>

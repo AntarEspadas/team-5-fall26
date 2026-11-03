@@ -14,6 +14,7 @@
         <h1>My events</h1>
         <p class="my-events-intro">
             Events you posted. <a href="{% url 'event_create' %}">Post a new event</a>
+            &middot; <a href="{% url 'chatbot:inquiries' %}">Answer attendee questions</a>
         </p>
 
         <section aria-labelledby="upcoming-heading">
@@ -53,5 +54,6 @@
             {% endif %}
         </section>
     </main>
+    {% include "chatbot/widget.html" %}
 </body>
 </html>
