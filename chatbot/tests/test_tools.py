@@ -2,10 +2,10 @@
 
 from django.contrib.auth.models import AnonymousUser
 from django.core import mail
-from django.test import TestCase, override_settings
+from django.test import SimpleTestCase, TestCase, override_settings
 
 from chatbot.models import Inquiry
-from chatbot.tools import Toolbox, borough_label, event_status
+from chatbot.tools import DECLARATIONS, Toolbox, borough_label, event_status
 from chatbot.tests.helpers import make_event, make_user
 from events.models import (
     ContactRequest,
@@ -239,3 +239,26 @@ class ToolDispatchTests(TestCase):
         event = Event(title="Swim", status=Event.Status.DONE, park_ids="x123")
         self.assertEqual(event_status(event), "ended")
         self.assertEqual(borough_label(event), "The Bronx")
+
+
+class DeclarationSchemaTests(SimpleTestCase):
+    """Tool declarations must pass Gemini's schema validation."""
+
+    def check(self, schema, path):
+        if schema.get("type") == "OBJECT":
+            self.assertTrue(
+                schema.get("properties"),
+                f"{path}: Gemini rejects an OBJECT without properties",
+            )
+            for name in schema.get("required", []):
+                self.assertIn(name, schema["properties"], path)
+        for name, child in schema.get("properties", {}).items():
+            self.check(child, f"{path}.{name}")
+        if "items" in schema:
+            self.check(schema["items"], f"{path}[]")
+
+    def test_every_declaration_is_valid(self):
+        for declaration in DECLARATIONS:
+            self.assertTrue(declaration["name"] and declaration["description"])
+            if "parameters" in declaration:
+                self.check(declaration["parameters"], declaration["name"])
