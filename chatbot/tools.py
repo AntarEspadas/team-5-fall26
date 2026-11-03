@@ -89,7 +89,7 @@ DECLARATIONS = [
             "notifications and messages, pending contact requests, and their "
             "privacy settings."
         ),
-        "parameters": {"type": "OBJECT", "properties": {}},
+        # No "parameters": Gemini rejects an OBJECT with no properties.
     },
     {
         "name": "escalate_to_event_manager",
