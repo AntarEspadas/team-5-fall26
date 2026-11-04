@@ -49,19 +49,51 @@ class GeminiError(Exception):
     """Raised when Gemini cannot be reached or returns an unusable reply.
 
     ``rate_limited`` is true when Gemini refused because of quota (HTTP 429).
+    ``transient`` is true when the model was overloaded or timed out, so
+    another model may still answer.
     """
 
-    def __init__(self, message="", rate_limited=False):
+    def __init__(self, message="", rate_limited=False, transient=False):
         super().__init__(message)
         self.rate_limited = rate_limited
+        self.transient = transient
 
 
-def generate_content(payload):
-    """Send one ``generateContent`` request and return the decoded response."""
-    url = (
-        f"{settings.GEMINI_API_BASE_URL}/models/{settings.GEMINI_MODEL}"
-        ":generateContent"
-    )
+# Gemini answers these when a model is overloaded ("high demand").
+TRANSIENT_HTTP_CODES = {500, 502, 503, 504}
+
+
+def model_chain():
+    """Return the models to try in order: the configured one, then the fallback."""
+    models = (settings.GEMINI_MODEL, settings.GEMINI_FALLBACK_MODEL)
+    return list(dict.fromkeys(model for model in models if model))
+
+
+def generate_content(payload, models=None):
+    """Send a ``generateContent`` request and return the decoded response.
+
+    Tries each model in ``models`` (default: ``model_chain()``) until one
+    answers, moving past models that are overloaded or time out. A list passed
+    in is trimmed in place to start at the model that answered, so later
+    requests in the same conversation turn stay on that model.
+    """
+    if models is None:
+        models = model_chain()
+    while True:
+        try:
+            return request_model(payload, models[0])
+        except GeminiError as error:
+            if not error.transient or len(models) < 2:
+                raise
+            logger.warning(
+                "Gemini model %s unavailable; trying %s", models[0], models[1]
+            )
+            del models[0]
+
+
+def request_model(payload, model):
+    """Send one ``generateContent`` request to ``model``."""
+    url = f"{settings.GEMINI_API_BASE_URL}/models/{model}:generateContent"
     request = Request(
         url,
         data=json.dumps(dict(payload, safetySettings=SAFETY_SETTINGS)).encode("utf-8"),
@@ -78,11 +110,16 @@ def generate_content(payload):
         detail = error.read().decode("utf-8", "replace")[:500]
         logger.warning("Gemini returned HTTP %s: %s", error.code, detail)
         raise GeminiError(
-            f"Gemini returned HTTP {error.code}", rate_limited=error.code == 429
+            f"Gemini returned HTTP {error.code}",
+            rate_limited=error.code == 429,
+            transient=error.code in TRANSIENT_HTTP_CODES,
         ) from error
-    except (URLError, TimeoutError, OSError, ValueError) as error:
+    except (URLError, TimeoutError, OSError) as error:
         logger.warning("Gemini request failed: %s", error)
-        raise GeminiError("Gemini could not be reached") from error
+        raise GeminiError("Gemini could not be reached", transient=True) from error
+    except ValueError as error:
+        logger.warning("Gemini returned an unreadable response: %s", error)
+        raise GeminiError("Gemini returned an unreadable response") from error
 
 
 def first_content(response):

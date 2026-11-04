@@ -233,6 +233,11 @@ if not DEBUG:
 # in production if you need fully repeatable answers.
 GEMINI_API_KEY = os.environ.get("GEMINI_API_KEY", "").strip()
 GEMINI_MODEL = os.environ.get("GEMINI_MODEL", "").strip() or "gemini-flash-latest"
+# Used when GEMINI_MODEL is overloaded or times out; set it equal to
+# GEMINI_MODEL to disable the fallback.
+GEMINI_FALLBACK_MODEL = (
+    os.environ.get("GEMINI_FALLBACK_MODEL", "").strip() or "gemini-flash-lite-latest"
+)
 GEMINI_API_BASE_URL = (
     os.environ.get("GEMINI_API_BASE_URL", "").strip()
     or "https://generativelanguage.googleapis.com/v1beta"

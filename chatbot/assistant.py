@@ -87,8 +87,11 @@ def reply(request, message, page=""):
 
     text = ""
     declined = False
+    # Shared across rounds so a turn that falls back stays on one model, whose
+    # thought signatures it sends back.
+    models = gemini.model_chain()
     for _ in range(MAX_TOOL_ROUNDS):
-        content = gemini.first_content(gemini.generate_content(payload))
+        content = gemini.first_content(gemini.generate_content(payload, models))
         if content is None:
             text = BLOCKED_REPLY
             declined = True
