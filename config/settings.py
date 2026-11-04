@@ -243,6 +243,19 @@ GEMINI_API_BASE_URL = (
     or "https://generativelanguage.googleapis.com/v1beta"
 )
 CHATBOT_ENABLED = bool(GEMINI_API_KEY)
+# Voice conversations use Gemini's Live API: the browser streams audio to it
+# directly with a short-lived token that this server creates, so the API key
+# never leaves the server. GEMINI_LIVE_VOICE is a prebuilt Gemini voice
+# (Achernar is soft; Vindemiatrix, Sulafat, Aoede, and Kore are other
+# female voices).
+GEMINI_LIVE_MODEL = os.environ.get("GEMINI_LIVE_MODEL", "").strip() or "gemini-3.8-live"
+GEMINI_LIVE_VOICE = os.environ.get("GEMINI_LIVE_VOICE", "").strip() or "Achernar"
+GEMINI_LIVE_LANGUAGE = os.environ.get("GEMINI_LIVE_LANGUAGE", "").strip() or "en-US"
+GEMINI_LIVE_TOKEN_URL = "https://generativelanguage.googleapis.com/v1alpha/auth_tokens"
+GEMINI_LIVE_SOCKET_URL = (
+    "wss://generativelanguage.googleapis.com/ws/google.ai.generativelanguage."
+    "v1alpha.GenerativeService.BidiGenerateContentConstrained"
+)
 
 # Staff who receive questions the assistant could not answer about NYC Parks
 # feed events (hosted events go to their host). Comma-separated emails.

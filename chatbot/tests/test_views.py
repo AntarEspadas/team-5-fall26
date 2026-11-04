@@ -59,8 +59,8 @@ class ChatMessageTests(ChatTestCase):
             response.json(),
             {
                 "reply": "**Sunrise Yoga** is on — see /events/1/",
-                "escalated": False,
                 "declined": False,
+                "unanswered": False,
             },
         )
         second = generate.call_args_list[1].args[0]
@@ -99,33 +99,23 @@ class ChatMessageTests(ChatTestCase):
         with mock.patch(GENERATE, return_value=text_response("Hi")):
             self.assertEqual(self.post_message("Hello").status_code, 200)
 
-    def test_escalation_is_reported(self):
-        responses = [
-            call_response(
-                "escalate_to_event_manager",
-                question="Is it free?",
-                question_english="Is it free?",
-                language="English",
-            ),
-            text_response("I'll check with the event manager and let you know."),
-        ]
-        with mock.patch(GENERATE, side_effect=responses):
-            response = self.post_message("Is it free?")
-        self.assertTrue(response.json()["escalated"])
-        inquiry = Inquiry.objects.get()
-        self.assertEqual(self.client.session[assistant.INQUIRIES_KEY], [inquiry.pk])
-
-    def test_silent_model_escalates_automatically(self):
+    def test_unknown_event_answers_point_to_the_event_comments(self):
         event = make_event("e1", "Swim")
         with mock.patch(GENERATE, return_value=text_response("")):
             response = self.post_message("Pool depth?", page=f"/events/{event.pk}/")
-        self.assertEqual(response.json()["reply"], assistant.escalated_reply())
-        self.assertEqual(Inquiry.objects.get().event, event)
+        reply = response.json()["reply"]
+        self.assertTrue(response.json()["unanswered"])
+        self.assertEqual(reply, assistant.unsure_reply(event))
+        self.assertIn(f"comments on the event's page (/events/{event.pk}/)", reply)
+        self.assertNotIn("manager", reply)
+        self.assertFalse(Inquiry.objects.exists())
 
-    def test_endless_tool_calls_escalate(self):
+    def test_other_unknown_answers_point_to_the_admin(self):
         with mock.patch(GENERATE, return_value=call_response("get_my_activity")):
             response = self.post_message("Loop")
-        self.assertTrue(response.json()["escalated"])
+        self.assertTrue(response.json()["unanswered"])
+        self.assertIn("contact the site admin", response.json()["reply"])
+        self.assertFalse(Inquiry.objects.exists())
 
     def test_blocked_prompts_get_a_polite_refusal(self):
         with mock.patch(GENERATE, return_value={"promptFeedback": {}}):
@@ -222,8 +212,8 @@ class ChatVoiceTests(ChatTestCase):
             response.json(),
             {
                 "reply": "Hoy hay yoga.",
-                "escalated": False,
                 "declined": False,
+                "unanswered": False,
                 "transcript": "¿Qué hay hoy?",
                 "language": "es-ES",
             },
@@ -452,10 +442,118 @@ class ChatApiEndpointTests(ChatTestCase):
 
 
 @ENABLED
-class SafetyAndFallbackTests(ChatTestCase):
-    """Unsafe requests are declined; unknown answers offer human support."""
+class VoiceCallTests(ChatTestCase):
+    """Voice calls get a locked token, run tools here, and save each turn."""
 
-    def test_safety_blocked_replies_are_declined_not_escalated(self):
+    def post_json(self, name, body):
+        return self.client.post(
+            reverse(name), json.dumps(body), content_type="application/json"
+        )
+
+    def test_session_returns_a_token_for_the_voice_setup(self):
+        make_event("live-1", "Jazz Night")
+        self.post_json("chatbot:live_turn", {"message": "Hi", "reply": "Hello!"})
+        with mock.patch(
+            "chatbot.gemini.create_live_token", return_value="auth_tokens/t"
+        ) as create:
+            response = self.post_json("chatbot:live", {"page": "/"})
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.json()["token"], "auth_tokens/t")
+        self.assertTrue(response.json()["url"].startswith("wss://"))
+        setup = create.call_args.args[0]
+        voice = setup["generationConfig"]["speechConfig"]
+        self.assertEqual(voice["languageCode"], "en-US")
+        self.assertEqual(
+            voice["voiceConfig"]["prebuiltVoiceConfig"]["voiceName"], "Achernar"
+        )
+        self.assertIn("inputAudioTranscription", setup)
+        self.assertIn("outputAudioTranscription", setup)
+        prompt = setup["systemInstruction"]["parts"][0]["text"]
+        self.assertIn("LIVE VOICE CALL", prompt)
+        self.assertIn("Visitor: Hi", prompt)
+        self.assertNotContains(response, "test-key")
+
+    def test_session_failure_is_friendly(self):
+        with mock.patch(
+            "chatbot.gemini.create_live_token", side_effect=gemini.GeminiError("x")
+        ):
+            response = self.post_json("chatbot:live", {})
+        self.assertEqual(response.status_code, 503)
+        self.assertEqual(response.json(), {"error": views.UNAVAILABLE})
+
+    def test_tools_run_for_the_visitor(self):
+        make_event("live-2", "Sunrise Yoga")
+        response = self.post_json(
+            "chatbot:live_tool", {"name": "search_events", "args": {"query": "yoga"}}
+        )
+        self.assertEqual(response.status_code, 200)
+        self.assertIn("Sunrise Yoga", json.dumps(response.json()["result"]))
+
+    def test_calls_cannot_forward_questions(self):
+        response = self.post_json(
+            "chatbot:live_tool",
+            {"name": "escalate_to_event_manager", "args": {"question": "Dogs?"}},
+        )
+        self.assertIn("error", response.json()["result"])
+        self.assertFalse(Inquiry.objects.exists())
+
+    def test_bad_tool_requests(self):
+        self.assertEqual(
+            self.client.post(
+                reverse("chatbot:live_tool"), "nope", content_type="application/json"
+            ).status_code,
+            400,
+        )
+        response = self.post_json("chatbot:live_tool", {"name": "drop_tables"})
+        self.assertIn("error", response.json()["result"])
+
+    def test_turns_are_saved_to_history_and_log(self):
+        response = self.post_json(
+            "chatbot:live_turn",
+            {"message": "Any jazz?", "reply": "Yes, Friday!", "page": "/"},
+        )
+        self.assertEqual(response.status_code, 200)
+        history = self.client.get(reverse("chatbot:history")).json()["messages"]
+        self.assertEqual(
+            history,
+            [
+                {"role": "user", "text": "Any jazz?"},
+                {"role": "model", "text": "Yes, Friday!"},
+            ],
+        )
+        log = ChatLog.objects.get()
+        self.assertTrue(log.via_voice)
+        self.assertEqual(log.outcome, ChatLog.Outcome.ANSWERED)
+
+    def test_greeting_turns_have_no_visitor_message(self):
+        self.post_json("chatbot:live_turn", {"reply": "Hi! How can I help?"})
+        history = self.client.get(reverse("chatbot:history")).json()["messages"]
+        self.assertEqual(history, [{"role": "model", "text": "Hi! How can I help?"}])
+
+    def test_empty_turns_are_rejected(self):
+        self.assertEqual(self.post_json("chatbot:live_turn", {}).status_code, 400)
+
+    def test_call_traffic_has_its_own_rate_limit(self):
+        for _ in range(views.RATE_LIMIT + 1):
+            self.post_json("chatbot:live_turn", {"reply": "ok"})
+        # Typed chat still works after a busy call.
+        with mock.patch(GENERATE, return_value=text_response("Hello!")):
+            self.assertEqual(self.post_message("Hi").status_code, 200)
+        for _ in range(views.VOICE_CALL_RATE_LIMIT):
+            self.post_json("chatbot:live_turn", {"reply": "ok"})
+        response = self.post_json("chatbot:live_turn", {"reply": "ok"})
+        self.assertEqual(response.status_code, 429)
+
+    def test_widget_links_the_call_endpoints(self):
+        response = self.client.get(reverse("login"))
+        self.assertContains(response, 'data-live-url="/api/chat/live"')
+
+
+@ENABLED
+class SafetyAndFallbackTests(ChatTestCase):
+    """Unsafe requests are declined; unknown answers say where to ask."""
+
+    def test_safety_blocked_replies_are_declined(self):
         blocked = {"candidates": [{"finishReason": "SAFETY", "content": {}}]}
         with mock.patch(GENERATE, return_value=blocked):
             response = self.post_message("Something inappropriate")
@@ -465,13 +563,29 @@ class SafetyAndFallbackTests(ChatTestCase):
         self.assertEqual(ChatLog.objects.get().outcome, ChatLog.Outcome.DECLINED)
 
     @override_settings(CHATBOT_SUPPORT_EMAIL="help@example.com")
-    def test_fallback_offers_the_support_email(self):
-        with mock.patch(GENERATE, return_value=text_response("")):
+    def test_fallback_offers_the_admin_email(self):
+        with mock.patch(GENERATE, return_value=text_response("")) as generate:
             reply = self.post_message("Is there a coat check?").json()["reply"]
-        self.assertIn("event manager", reply)
-        self.assertIn("help@example.com", reply)
+        self.assertEqual(
+            reply,
+            "Sorry, I'm not sure about that. Please contact the site admin at "
+            "help@example.com.",
+        )
+        prompt = generate.call_args.args[0]["systemInstruction"]["parts"][0]["text"]
+        self.assertIn("Admin email: help@example.com", prompt)
         page = self.client.get(reverse("login"))
+        self.assertContains(page, "email the site admin at")
         self.assertContains(page, "mailto:help@example.com")
+
+    def test_prompt_never_promises_a_person_will_follow_up(self):
+        with mock.patch(GENERATE, return_value=text_response("Hi")) as generate:
+            self.post_message("Hi")
+        prompt = generate.call_args.args[0]["systemInstruction"]["parts"][0]["text"]
+        self.assertIn("comments", prompt)
+        self.assertIn("contact the site admin", prompt)
+        self.assertNotIn("escalate_to_event_manager", prompt)
+        tools = generate.call_args.args[0]["tools"][0]["functionDeclarations"]
+        self.assertNotIn("escalate_to_event_manager", [t["name"] for t in tools])
 
     def test_prompt_includes_active_faqs_only(self):
         FAQ.objects.create(question="Hidden?", answer="Nope.", is_active=False)
@@ -481,7 +595,7 @@ class SafetyAndFallbackTests(ChatTestCase):
         self.assertIn("Can I get a refund?", prompt)
         self.assertIn("[Cancellations & refunds]", prompt)
         self.assertNotIn("Hidden?", prompt)
-        self.assertIn("Support email: none", prompt)
+        self.assertIn("Admin email: none", prompt)
 
     def test_safety_settings_are_sent(self):
         with mock.patch("chatbot.gemini.urlopen") as urlopen:
@@ -520,7 +634,7 @@ class ChatLogTests(ChatTestCase):
         self.assertEqual(str(log), log.message)
         self.assertNotIn("logger", str(vars(log)))
 
-    def test_escalations_errors_and_voice_are_logged(self):
+    def test_unanswered_errors_and_voice_are_logged(self):
         with mock.patch(GENERATE, return_value=text_response("")):
             self.post_message("Unknown?")
         with mock.patch(GENERATE, side_effect=gemini.GeminiError("x")):
@@ -532,7 +646,7 @@ class ChatLogTests(ChatTestCase):
             ChatLog.objects.order_by("pk").values_list("outcome", "via_voice")
         )
         self.assertEqual(
-            outcomes, [("escalated", False), ("error", False), ("answered", True)]
+            outcomes, [("unanswered", False), ("error", False), ("answered", True)]
         )
 
     @override_settings(CHATBOT_LOG_CONVERSATIONS=False)

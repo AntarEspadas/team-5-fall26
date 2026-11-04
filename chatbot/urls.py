@@ -10,6 +10,9 @@ urlpatterns = [
     # Chat API used by the widget.
     path("api/chat", views.chat_message, name="message"),
     path("api/chat/voice", views.chat_voice, name="voice"),
+    path("api/chat/live", views.live_session, name="live"),
+    path("api/chat/live/tool", views.live_tool, name="live_tool"),
+    path("api/chat/live/turn", views.live_turn, name="live_turn"),
     path("api/chat/history", views.chat_history, name="history"),
     path("api/chat/reset", views.chat_reset, name="reset"),
     # Page where event managers answer forwarded questions.

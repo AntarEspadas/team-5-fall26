@@ -156,3 +156,28 @@ class StructuredHelpersTests(SimpleTestCase):
         with mock.patch("chatbot.gemini.generate_content", return_value=reply):
             with self.assertRaises(gemini.GeminiError):
                 gemini.translate("Yes", "Spanish")
+
+
+@override_settings(
+    GEMINI_API_KEY="test-key", GEMINI_LIVE_TOKEN_URL="https://gemini.test/tokens"
+)
+class LiveTokenTests(SimpleTestCase):
+    """Voice-call tokens are single use and locked to the server's setup."""
+
+    def test_creates_a_locked_single_use_token(self):
+        urlopen = fake_urlopen({"name": "auth_tokens/abc"})
+        setup = {"model": "models/live"}
+        with mock.patch("chatbot.gemini.urlopen", urlopen):
+            self.assertEqual(gemini.create_live_token(setup), "auth_tokens/abc")
+        request = urlopen.call_args.args[0]
+        body = json.loads(request.data)
+        self.assertEqual(request.full_url, "https://gemini.test/tokens")
+        self.assertEqual(request.get_header("X-goog-api-key"), "test-key")
+        self.assertEqual(body["uses"], 1)
+        self.assertEqual(body["bidiGenerateContentSetup"], setup)
+        self.assertLess(body["newSessionExpireTime"], body["expireTime"])
+
+    def test_missing_token_raises(self):
+        with mock.patch("chatbot.gemini.urlopen", fake_urlopen({})):
+            with self.assertRaises(gemini.GeminiError):
+                gemini.create_live_token({})
