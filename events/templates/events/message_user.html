@@ -1,0 +1,54 @@
+{% load static %}
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Message {{ recipient.get_display_name }} | NYC Parks Events</title>
+    <link rel="stylesheet" href="{% static 'events/search.css' %}">
+    <link rel="stylesheet" href="{% static 'events/notifications.css' %}">
+    <link rel="stylesheet" href="{% static 'events/messages.css' %}">
+</head>
+<body>
+    <main class="messages-page">
+        <a class="search-back" href="{% url 'public_profile' username=recipient.username %}">Back to profile</a>
+        <h1>Message {{ recipient.get_display_name }}</h1>
+
+        {% if messages %}
+        <ul class="message-alerts">
+            {% for alert in messages %}<li>{{ alert }}</li>{% endfor %}
+        </ul>
+        {% endif %}
+
+        {% if pending_request %}
+        <section class="contact-pending">
+            {% if pending_request.sender_id == request.user.pk %}
+            <p>Your contact request for <strong>{{ pending_request.event.title }}</strong> is awaiting a response. You can message {{ recipient.get_display_name }} after they accept.</p>
+            {% else %}
+            <p>{{ recipient.get_display_name }} sent you a contact request about <strong>{{ pending_request.event.title }}</strong>. Accept or decline it from your <a href="{% url 'notifications' %}">notifications</a>.</p>
+            {% endif %}
+        </section>
+        {% elif has_shared_events %}
+        <p>Send a contact request to start a conversation. You can reply after the recipient accepts.</p>
+        <form class="message-form" method="post">
+            {% csrf_token %}
+            {{ form.non_field_errors }}
+            <div class="message-field">
+                {{ form.event.label_tag }}
+                {{ form.event }}
+                {{ form.event.errors }}
+            </div>
+            <div class="message-field">
+                {{ form.message.label_tag }}
+                {{ form.message }}
+                {{ form.message.errors }}
+            </div>
+            <button type="submit">Send Contact Request</button>
+        </form>
+        {% else %}
+        <p class="empty-state">You need to share an upcoming event with {{ recipient.get_display_name }} before requesting to connect.</p>
+        {% endif %}
+    </main>
+    {% include "chatbot/widget.html" %}
+</body>
+</html>

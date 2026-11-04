@@ -1,0 +1,70 @@
+{% load static tz %}<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Notifications | NYC Parks Events</title>
+    <link rel="stylesheet" href="{% static 'events/search.css' %}">
+    <link rel="stylesheet" href="{% static 'events/home.css' %}">
+    <link rel="stylesheet" href="{% static 'events/notifications.css' %}">
+</head>
+<body>
+    <main class="notifications-page">
+        <a class="search-back" href="{% url 'landing' %}">Back to home</a>
+        <a class="search-back" href="{% url 'inbox' %}">Messages</a>
+        <h1>Notifications</h1>
+
+        {% if notifications %}
+        <ul class="notification-list">
+            {% for notification in notifications %}
+            <li class="notification{% if not notification.read_at %} is-new{% endif %}">
+                <p class="notification-meta">
+                    {% if not notification.read_at %}<span class="count-pill">New</span>{% endif %}
+                    {% timezone "America/New_York" %}{{ notification.created_at|date:"M j, Y, g:i A" }}{% endtimezone %} &middot;
+                    <a href="{% url 'event_detail' notification.event.pk %}">{{ notification.event.title }}</a>
+                </p>
+                <h2>{{ notification.subject }}</h2>
+                {% if notification.contact_request_id %}
+                {% with contact_request=notification.contact_request %}
+                <p>From <a href="{% url 'public_profile' username=contact_request.sender.username %}">{{ contact_request.sender.get_display_name }}</a></p>
+                <p class="notification-body">{{ notification.body }}</p>
+                <p class="notification-status">Status: {{ contact_request.get_status_display }}</p>
+                {% if contact_request.status == "pending" %}
+                <div class="notification-actions">
+                    <form method="post" action="{% url 'respond_to_contact_request' contact_request.pk 'accept' %}">
+                        {% csrf_token %}
+                        <input type="hidden" name="return_to" value="notifications">
+                        <button type="submit">Accept</button>
+                    </form>
+                    <form method="post" action="{% url 'respond_to_contact_request' contact_request.pk 'decline' %}">
+                        {% csrf_token %}
+                        <input type="hidden" name="return_to" value="notifications">
+                        <button class="notification-decline" type="submit">Decline</button>
+                    </form>
+                </div>
+                {% elif contact_request.status == "accepted" %}
+                <div class="notification-actions">
+                    <a class="notification-message" href="{% url 'message_user' contact_request.sender.pk %}" aria-label="Message {{ contact_request.sender.get_display_name }}">Message</a>
+                </div>
+                {% endif %}
+                {% endwith %}
+                {% else %}
+                <p class="notification-body">{{ notification.body }}</p>
+                {% endif %}
+            </li>
+            {% endfor %}
+        </ul>
+        {% if is_paginated %}
+        <nav class="pagination" aria-label="Notification pages">
+            {% if page_obj.has_previous %}<a href="?page={{ page_obj.previous_page_number }}">Newer</a>{% endif %}
+            <span aria-current="page">Page {{ page_obj.number }} of {{ paginator.num_pages }}</span>
+            {% if page_obj.has_next %}<a href="?page={{ page_obj.next_page_number }}">Older</a>{% endif %}
+        </nav>
+        {% endif %}
+        {% else %}
+        <p class="empty-state">No notifications yet. Contact requests and updates from events you're interested in will show up here.</p>
+        {% endif %}
+    </main>
+    {% include "chatbot/widget.html" %}
+</body>
+</html>

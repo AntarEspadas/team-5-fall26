@@ -1,0 +1,188 @@
+{% extends "accounts/base.html" %}
+{% load socialaccount %}
+
+{% block title %}Log In{% endblock %}
+
+{% block content %}
+<h1>Log In to Your Account</h1>
+
+<!-- Unified error / warning area between heading and the first input -->
+<div id="loginAlert" style="color:#a40e26; font-weight:bold; margin:1rem 0;">
+
+    {% if lock_expiry %}
+        <div id="countdown"></div>
+    {% elif remaining_attempts is not None %}
+        <div>
+            Invalid credentials.
+            You have {{ remaining_attempts }} attempt(s) left before being locked for 10 minutes.
+        </div>
+    {% endif %}
+
+    {% if form.errors and not lock_expiry and remaining_attempts is none %}
+        <div>
+            Please enter a correct email or username and password.
+            Note that the password is case-sensitive.
+        </div>
+    {% endif %}
+</div>
+
+<form method="POST" id="loginForm">
+    {% csrf_token %}
+
+    <div>
+        <label for="id_username">Email or username:</label>
+        <input type="text" name="username" id="id_username"
+               value="{{ form.username.value|default:'' }}" maxlength="254" required>
+    </div>
+
+    <div>
+        <label for="id_password">Password:</label>
+        <input type="password" name="password" id="id_password" required>
+    </div>
+
+    <input type="hidden" name="next" value="{{ next }}">
+
+    <button type="submit" id="submitBtn" class="button primary">Log In</button>
+
+    <div class="loading" style="display:none; margin-top:0.6rem; color:#444; align-items:center; gap:0.5rem;">
+        <span class="spinner"></span>
+        <span>Logging in...</span>
+    </div>
+</form>
+
+{% if google_oauth_enabled %}
+<div style="margin-top:1.2rem;">
+    <p>Or sign in without a password:</p>
+    <form method="post" action="{% provider_login_url 'google' %}">
+        {% csrf_token %}
+        <input type="hidden" name="next" value="{{ next }}">
+        <button type="submit" class="button">Continue with Google</button>
+    </form>
+</div>
+{% endif %}
+
+<div class="actions" style="margin-top:1.8rem; flex-direction:column; gap:0.8rem;">
+    <a class="button" href="{% url 'password_reset' %}">Forgot password?</a>
+    <a class="button" href="{% url 'register' %}">Create New Account</a>
+</div>
+
+<style>
+    #submitBtn:disabled{
+        opacity:0.6;
+        cursor:not-allowed;
+        animation: shakeLock 1.2s infinite alternate;
+    }
+    @keyframes shakeLock{
+        from{ transform: translateX(0px); }
+        to{ transform: translateX(-2px); }
+    }
+
+    .loading {
+        display: none;
+        align-items: center;
+        gap: 0.5rem;
+    }
+
+    #loginForm.loading-state .loading {
+        display: flex;
+    }
+
+    .spinner {
+        width: 16px;
+        height: 16px;
+        border: 2px solid #ddd;
+        border-top: 2px solid #333;
+        border-radius: 50%;
+        animation: spin 0.8s linear infinite;
+    }
+
+    @keyframes spin {
+        0% { transform: rotate(0deg); }
+        100% { transform: rotate(360deg); }
+    }
+</style>
+
+<script>
+const lockExpiry = {{ lock_expiry|default:"null" }};
+// Pass the locked login identifier from backend to frontend
+const lockedIdentifier = "{{ locked_identifier|default:'' }}";
+
+const countdownElement = document.getElementById("countdown");
+const loginForm = document.getElementById("loginForm");
+const submitButton = document.getElementById("submitBtn");
+const usernameInput = document.getElementById("id_username");
+
+/**
+ * Format raw remaining seconds into MM:SS string
+ * @param {number} seconds - remaining time in seconds
+ * @returns {string} formatted time like "09:59"
+ */
+function formatTime(seconds) {
+    const mins = Math.floor(seconds / 60);
+    const secs = Math.floor(seconds % 60);
+    const mStr = String(mins).padStart(2, '0');
+    const sStr = String(secs).padStart(2, '0');
+    return `${mStr}:${sStr}`;
+}
+
+/**
+ * Calculate remaining time and update countdown UI and button state
+ */
+function tick() {
+    // If there is no locked identifier, clear message and enable button
+    if (!lockExpiry || !lockedIdentifier || !countdownElement) {
+        countdownElement.textContent = "";
+        submitButton.disabled = false;
+        return;
+    }
+
+    const now = Date.now() / 1000;
+    const remaining = lockExpiry - now;
+    const currentInputValue = usernameInput.value.trim();
+
+    // Case 1: input matches locked account and still within lock time
+    if (remaining > 0 && currentInputValue === lockedIdentifier) {
+        submitButton.disabled = true;
+        countdownElement.textContent =
+            `Too many failed attempts. Please wait ${formatTime(remaining)} before retrying.`;
+    }
+    // Case 2: user changed to a different account OR lock time expired
+    else {
+        countdownElement.textContent = "";
+        submitButton.disabled = false;
+    }
+}
+
+/**
+ * Start recurring countdown timer
+ */
+function startCountdown() {
+    if (!lockExpiry || !lockedIdentifier) return;
+    tick();
+    setInterval(tick, 1000);
+}
+
+/**
+ * Listen for tab visibility change.
+ * When user switches back to this tab, re-calculate countdown to fix sleep pause drift.
+ */
+document.addEventListener("visibilitychange", () => {
+    if (!document.hidden) {
+        tick();
+    }
+});
+
+// Listen to username input change: update UI immediately when user types another account
+usernameInput.addEventListener("input", () => {
+    tick();
+});
+
+loginForm.addEventListener("submit", () => {
+    loginForm.classList.add("loading-state");
+});
+
+window.onload = startCountdown;
+</script>
+
+
+{% endblock %}

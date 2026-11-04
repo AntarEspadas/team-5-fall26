@@ -1,0 +1,98 @@
+/* In-app notifications page. */
+
+.notifications-page {
+    max-width: 720px;
+    margin: 0 auto;
+    padding: 32px 24px 64px;
+}
+
+.notifications-page h1 {
+    margin: 8px 0 20px;
+    font-size: clamp(1.75rem, 3vw, 2.4rem);
+    letter-spacing: -0.02em;
+}
+
+.notification-list {
+    display: grid;
+    gap: 12px;
+    margin: 0;
+    padding: 0;
+    list-style: none;
+}
+
+.notification {
+    padding: 16px 20px;
+    border: 1px solid var(--line);
+    border-radius: var(--radius-card);
+    background: var(--surface);
+}
+
+.notification.is-new {
+    border-color: var(--leaf);
+}
+
+.notification-meta {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 8px;
+    margin: 0;
+    color: var(--muted);
+    font-size: 0.9rem;
+}
+
+.notification h2 {
+    margin: 6px 0 4px;
+    font-size: 1.1rem;
+}
+
+.notification-body {
+    margin: 0;
+    white-space: pre-line;
+    overflow-wrap: anywhere;
+}
+
+.notifications-page .pagination {
+    display: flex;
+    justify-content: center;
+    gap: 16px;
+    margin-top: 24px;
+}
+
+.notification-status {
+    margin: 12px 0;
+    font-weight: 600;
+}
+
+.notification-actions {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 12px;
+}
+
+.notification-actions button,
+.notification-actions a {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    padding: 8px 16px;
+    border: 1px solid var(--leaf);
+    border-radius: var(--radius-card);
+    background: var(--leaf);
+    color: white;
+    font: inherit;
+    text-decoration: none;
+    cursor: pointer;
+}
+
+.notification-actions .notification-decline {
+    background: var(--surface);
+    color: var(--muted);
+    border-color: var(--line);
+}
+
+.notification-actions button:focus-visible,
+.notification-actions a:focus-visible {
+    outline: 2px solid var(--leaf);
+    outline-offset: 3px;
+}

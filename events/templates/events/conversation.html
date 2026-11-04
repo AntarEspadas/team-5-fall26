@@ -1,0 +1,189 @@
+{% load static tz %}<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Conversation with {{ other_user.get_display_name }} | NYC Parks Events</title>
+    <link rel="stylesheet" href="{% static 'events/messages.css' %}">
+    <link rel="stylesheet" href="{% static 'reports/menus.css' %}">
+    <script src="{% static 'reports/menus.js' %}" defer></script>
+</head>
+<body class="chat-page">
+    <main class="chat-shell">
+        <header class="chat-header">
+            <a class="chat-back" href="{% url 'inbox' %}" aria-label="Back to messages">&larr;</a>
+            <a class="chat-person" href="{% url 'public_profile' username=other_user.username %}">
+                <span class="chat-avatar" aria-hidden="true">{{ other_user.get_display_name|slice:":1"|upper }}</span>
+                <span class="chat-person-name">{{ other_user.get_display_name }}</span>
+            </a>
+            <a class="chat-profile-link" href="{% url 'public_profile' username=other_user.username %}">Profile</a>
+            {% url 'conversation_report' conversation.pk as report_url %}
+            {% include 'reports/_report_menu.html' with report_url=report_url menu_label="Conversation actions" report_label="Report user" only %}
+        </header>
+
+        {% if messages %}
+        <ul class="message-alerts" role="status">
+            {% for alert in messages %}<li>{{ alert }}</li>{% endfor %}
+        </ul>
+        {% endif %}
+
+        <section
+            class="chat-history"
+            aria-label="Messages"
+            aria-live="polite"
+            aria-relevant="additions"
+            data-latest-message-id="{{ latest_message_id }}"
+            data-updates-url="{{ updates_url }}"
+        >
+            {% if thread_messages %}
+            <ol class="message-list">
+                {% for message in thread_messages %}
+                <li
+                    class="message-row{% if message.sender_id == request.user.pk %} is-own-message{% endif %}"
+                    data-message-id="{{ message.pk }}"
+                >
+                    <div class="message-bubble">
+                        {% if message.sender_id != request.user.pk %}
+                        <span class="message-sender">{{ message.sender.get_display_name }}</span>
+                        {% endif %}
+                        <p class="message-body">{{ message.body|linebreaksbr }}</p>
+                        <time class="message-time" datetime="{{ message.created_at|date:'c' }}">
+                            {% timezone "America/New_York" %}{{ message.created_at|date:"g:i A" }}{% endtimezone %}
+                        </time>
+                    </div>
+                </li>
+                {% endfor %}
+            </ol>
+            {% else %}
+            <p class="chat-empty">No messages yet. Say hello to start the conversation.</p>
+            {% endif %}
+        </section>
+
+        <form class="chat-composer" method="post">
+            {% csrf_token %}
+            {{ form.non_field_errors }}
+            {{ form.body.errors }}
+            {{ form.body }}
+            <button type="submit" aria-label="Send message">Send</button>
+            <span class="chat-status" role="status" aria-live="polite"></span>
+        </form>
+    </main>
+    <script>
+        const history = document.querySelector(".chat-history");
+        const list = history.querySelector(".message-list");
+        const composer = document.querySelector(".chat-composer");
+        const messageField = composer.querySelector("textarea");
+        const sendButton = composer.querySelector("button");
+        const status = composer.querySelector(".chat-status");
+        let latestMessageId = Number(history.dataset.latestMessageId);
+        let pollInProgress = false;
+
+        function appendMessage(message) {
+            if (history.querySelector(`[data-message-id="${message.id}"]`)) {
+                latestMessageId = Math.max(latestMessageId, message.id);
+                return;
+            }
+
+            const rows = list || history.querySelector(".message-list") || createMessageList();
+            const item = document.createElement("li");
+            item.className = "message-row";
+            item.dataset.messageId = message.id;
+            if (message.sender_id === {{ request.user.pk }}) {
+                item.classList.add("is-own-message");
+            }
+
+            const bubble = document.createElement("div");
+            bubble.className = "message-bubble";
+            if (message.sender_id !== {{ request.user.pk }}) {
+                const sender = document.createElement("span");
+                sender.className = "message-sender";
+                sender.textContent = message.sender_name;
+                bubble.append(sender);
+            }
+
+            const body = document.createElement("p");
+            body.className = "message-body";
+            body.textContent = message.body;
+            bubble.append(body);
+
+            const time = document.createElement("time");
+            time.className = "message-time";
+            time.dateTime = message.created_at;
+            time.textContent = new Intl.DateTimeFormat(undefined, {
+                hour: "numeric",
+                minute: "2-digit"
+            }).format(new Date(message.created_at));
+            bubble.append(time);
+            item.append(bubble);
+            rows.append(item);
+            latestMessageId = Math.max(latestMessageId, message.id);
+            history.scrollTop = history.scrollHeight;
+        }
+
+        function createMessageList() {
+            const newList = document.createElement("ol");
+            newList.className = "message-list";
+            const empty = history.querySelector(".chat-empty");
+            if (empty) empty.remove();
+            history.append(newList);
+            return newList;
+        }
+
+        async function pollMessages() {
+            if (pollInProgress || document.hidden) return;
+            pollInProgress = true;
+            try {
+                const response = await fetch(
+                    `${history.dataset.updatesUrl}?after=${latestMessageId}`,
+                    {
+                        cache: "no-store",
+                        headers: { "Accept": "application/json" }
+                    }
+                );
+                if (!response.ok) throw new Error("Message updates are unavailable.");
+                const data = await response.json();
+                data.messages.forEach(appendMessage);
+                status.textContent = "";
+            } catch (error) {
+                status.textContent = "Trying to reconnect...";
+            } finally {
+                pollInProgress = false;
+            }
+        }
+
+        composer.addEventListener("submit", async function (event) {
+            event.preventDefault();
+            if (!messageField.value.trim()) return;
+            sendButton.disabled = true;
+            status.textContent = "";
+            try {
+                const response = await fetch(window.location.href, {
+                    method: "POST",
+                    body: new URLSearchParams(new FormData(composer)),
+                    headers: {
+                        "Accept": "application/json",
+                        "X-Requested-With": "XMLHttpRequest"
+                    }
+                });
+                const data = await response.json();
+                if (!response.ok) throw new Error("Message could not be sent.");
+                appendMessage(data.message);
+                messageField.value = "";
+                messageField.focus();
+            } catch (error) {
+                status.textContent = error.message || "Message could not be sent.";
+            } finally {
+                sendButton.disabled = false;
+            }
+        });
+
+        history.scrollTop = history.scrollHeight;
+        pollMessages();
+        window.setInterval(pollMessages, 3000);
+        document.addEventListener("visibilitychange", function () {
+            if (!document.hidden) pollMessages();
+        });
+    </script>
+    {% include "chatbot/widget.html" %}
+</body>
+</html>

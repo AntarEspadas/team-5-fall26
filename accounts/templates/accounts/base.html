@@ -1,0 +1,40 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>{% block title %}Team 5{% endblock %}</title>
+  <style>
+    body { margin: 0; font-family: system-ui, sans-serif; line-height: 1.5; color: #1f2328; background: #f6f8fa; }
+    main { max-width: 30rem; margin: 2rem auto; padding: 1.5rem 2rem; background: #fff; border: 1px solid #d0d7de; border-radius: 8px; }
+    .messages { list-style: none; padding: 0; }
+    .messages li { padding: 0.75rem 1rem; border-radius: 6px; margin-bottom: 0.5rem; }
+    .messages .success { background: #dafbe1; color: #116329; }
+    .messages .error { background: #ffebe9; color: #a40e26; }
+    form div { margin-bottom: 1rem; }
+    label { display: block; font-weight: 600; }
+    input, textarea { box-sizing: border-box; max-width: 100%; width: 100%; padding: 0.5rem; font: inherit; border: 1px solid #d0d7de; border-radius: 6px; }
+    input[type="checkbox"] { width: auto; }
+    textarea { resize: vertical; }
+    .profile-photo { width: 96px; height: 96px; border-radius: 50%; object-fit: cover; }
+    .helptext, .helptext ul { font-size: 0.875rem; color: #59636e; }
+    .errorlist { color: #a40e26; padding-left: 1.25rem; }
+    .button { display: inline-block; padding: 0.5rem 1rem; font: inherit; font-weight: 600; border: 1px solid #d0d7de; border-radius: 6px; cursor: pointer; text-decoration: none; color: #1f2328; background: #f6f8fa; }
+    .button.primary { color: #fff; background: #1f883d; border-color: #1a7f37; }
+    .actions { display: flex; flex-wrap: wrap; gap: 0.5rem; }
+  </style>
+</head>
+<body>
+  <main>
+    {% if messages %}
+      <ul class="messages" role="status">
+        {% for message in messages %}
+          <li{% if message.tags %} class="{{ message.tags }}"{% endif %}>{{ message }}</li>
+        {% endfor %}
+      </ul>
+    {% endif %}
+    {% block content %}{% endblock %}
+  </main>
+  {% include "chatbot/widget.html" %}
+</body>
+</html>

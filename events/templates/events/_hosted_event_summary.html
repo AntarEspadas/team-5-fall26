@@ -1,0 +1,9 @@
+{% load tz %}<div class="hosted-summary">
+    <h3><a href="{% url 'event_detail' event.pk %}">{{ event.title }}</a></h3>
+    <p class="hosted-meta">
+        {% timezone "America/New_York" %}
+            {% if event.start_time %}{{ event.start_time|date:"D, M j, Y, g:i A" }}{% else %}Date to be announced{% endif %}
+        {% endtimezone %}
+        {% if event.location %}&middot; {{ event.location }}{% endif %}
+    </p>
+</div>

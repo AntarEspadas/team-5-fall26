@@ -1,0 +1,14 @@
+[run]
+source = .
+omit =
+    .venv/*
+    venv/*
+    manage.py
+    config/asgi.py
+    config/wsgi.py
+    */migrations/*
+    */tests/*
+
+[report]
+fail_under = 95
+show_missing = True

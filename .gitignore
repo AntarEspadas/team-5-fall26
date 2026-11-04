@@ -1,0 +1,27 @@
+# Python
+__pycache__/
+*.py[cod]
+
+# Virtual environments
+.venv/
+venv/
+
+# Local settings and data
+.env
+db.sqlite3
+staticfiles/
+media/
+
+# Test coverage
+.coverage
+htmlcov/
+
+# Editors and OS files
+.idea/
+.vscode/
+.DS_Store
+
+# Elastic Beanstalk Files
+.elasticbeanstalk/*
+!.elasticbeanstalk/*.cfg.yml
+!.elasticbeanstalk/*.global.yml

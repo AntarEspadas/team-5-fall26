@@ -1,0 +1,71 @@
+.reportable-heading {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+}
+
+.reportable-heading > h3,
+.reportable-heading > strong {
+    margin: 0;
+    min-width: 0;
+    overflow-wrap: anywhere;
+}
+
+.report-menu {
+    position: relative;
+    flex-shrink: 0;
+}
+
+.report-menu > summary {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 44px;
+    height: 44px;
+    border-radius: 8px;
+    color: #24352c;
+    font-size: 26px;
+    cursor: pointer;
+    list-style: none;
+}
+
+.report-menu > summary::-webkit-details-marker {
+    display: none;
+}
+
+.report-menu > summary:hover {
+    background: #e4f0e8;
+}
+
+.report-menu > summary:focus-visible,
+.report-menu-options a:focus-visible {
+    outline: 2px solid #237b53;
+    outline-offset: 2px;
+}
+
+.report-menu-options {
+    position: absolute;
+    top: 100%;
+    right: 0;
+    z-index: 20;
+    min-width: 150px;
+    padding: 4px;
+    border: 1px solid #d5ded7;
+    border-radius: 8px;
+    background: #ffffff;
+    box-shadow: 0 4px 16px rgba(30, 65, 43, 0.15);
+}
+
+.report-menu-options a {
+    display: block;
+    padding: 12px 16px;
+    border-radius: 4px;
+    color: #8a2f2f;
+    font: inherit;
+    text-decoration: none;
+}
+
+.report-menu-options a:hover {
+    background: #f7f9f7;
+}
