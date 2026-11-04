@@ -2,7 +2,7 @@
 
 from django.contrib import admin
 
-from .models import Event, Notification
+from .models import Event, EventPost, EventReply, Notification
 
 
 @admin.register(Notification)
@@ -34,3 +34,21 @@ class EventAdmin(admin.ModelAdmin):
     list_select_related = ("host",)
     search_fields = ("title", "location", "park_names")
     ordering = ("start_time",)
+
+
+@admin.register(EventPost)
+class EventPostAdmin(admin.ModelAdmin):
+    """Manage public discussion comments flagged in the moderation queue."""
+
+    list_display = ("__str__", "event", "author", "created_at")
+    list_select_related = ("event", "author")
+    search_fields = ("body", "event__title", "author__username")
+
+
+@admin.register(EventReply)
+class EventReplyAdmin(admin.ModelAdmin):
+    """Manage replies independently of their parent comments."""
+
+    list_display = ("__str__", "post", "author", "created_at")
+    list_select_related = ("post", "author")
+    search_fields = ("body", "post__event__title", "author__username")

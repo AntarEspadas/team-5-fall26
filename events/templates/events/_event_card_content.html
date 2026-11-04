@@ -19,6 +19,10 @@
     <p class="event-tag" title="{{ event.categories }}">{{ event.primary_category }}</p>
     {% endif %}
 
+    {% if event.status == "done" %}
+    <p class="event-tag archived-tag">Archived</p>
+    {% endif %}
+
     {% timezone "America/New_York" %}
     <p class="event-when">
         <span class="event-date">
@@ -50,7 +54,7 @@
     <p class="event-description">{{ event.description|truncatewords:25 }}</p>
     {% endif %}
 
-    {% if link_to_source %}
+    {% if link_to_source and event.status != "done" %}
         {% if event.is_cancelled %}
         <span class="register is-cancelled" aria-disabled="true">Cancelled</span>
         {% elif event.registration_url %}

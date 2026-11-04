@@ -45,7 +45,10 @@ class ReportKindMigrationTests(TransactionTestCase):
         )
         executor = MigrationExecutor(connection)
         executor.migrate(after)
-        upgraded = Report.objects.get(pk=existing.pk)
+        migrated_report = executor.loader.project_state(after).apps.get_model(
+            "reports", "Report"
+        )
+        upgraded = migrated_report.objects.get(pk=existing.pk)
         self.assertEqual(upgraded.kind, Report.Kind.EVENT)
         self.assertEqual(upgraded.event_id, event.pk)
         self.assertEqual(upgraded.reporter_id, user.pk)
@@ -55,7 +58,7 @@ class ReportKindMigrationTests(TransactionTestCase):
         self.assertEqual(upgraded.created_at, existing.created_at)
         self.assertIsNone(upgraded.reported_user_id)
         self.assertIsNone(upgraded.context_message_id)
-        historical = Report.objects.get(pk=deleted_source.pk)
+        historical = migrated_report.objects.get(pk=deleted_source.pk)
         self.assertEqual(historical.kind, Report.Kind.EVENT)
         self.assertEqual(historical.event_title, "Deleted event")
         self.assertEqual(historical.resolved_at, deleted_source.resolved_at)
@@ -121,14 +124,42 @@ class ReportKindMigrationTests(TransactionTestCase):
                 **fields
             )
         original = list(old_report.objects.order_by("pk").values())
-        MigrationExecutor(connection).migrate(after)
-        self.assertEqual(list(Report.objects.order_by("pk").values()), original)
-        profile_report = Report.objects.create(
+        executor = MigrationExecutor(connection)
+        executor.migrate(after)
+        migrated_report = executor.loader.project_state(after).apps.get_model(
+            "reports", "Report"
+        )
+        self.assertEqual(
+            list(migrated_report.objects.order_by("pk").values()), original
+        )
+        profile_report = migrated_report.objects.create(
             kind=Report.Kind.PROFILE,
-            reporter=reporter,
-            reported_user=subject,
+            reporter_id=reporter.pk,
+            reported_user_id=subject.pk,
             reason=Report.Reason.OTHER,
         )
-        self.assertEqual(profile_report.reported_user, subject)
+        self.assertEqual(profile_report.reported_user_id, subject.pk)
         self.assertIsNone(profile_report.conversation_id)
-        self.assertEqual(Report.objects.count(), 5)
+        self.assertEqual(migrated_report.objects.count(), 5)
+
+    def test_resolution_attribution_migration_preserves_history(self):
+        self.addCleanup(self.restore_latest)
+        before = [("reports", "0003_profile_reports")]
+        after = [("reports", "0004_report_resolved_by")]
+        executor = MigrationExecutor(connection)
+        executor.migrate(before)
+        old_report = executor.loader.project_state(before).apps.get_model(
+            "reports", "Report"
+        )
+        resolved_at = timezone.now()
+        report = old_report.objects.create(
+            event_title="Historical event",
+            reason="other",
+            details="Original history",
+            resolved_at=resolved_at,
+        )
+        original = old_report.objects.values().get(pk=report.pk)
+        MigrationExecutor(connection).migrate(after)
+        migrated = Report.objects.get(pk=report.pk)
+        self.assertIsNone(migrated.resolved_by_id)
+        self.assertEqual(Report.objects.values(*original).get(pk=report.pk), original)

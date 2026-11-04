@@ -20,6 +20,7 @@
             {% url 'conversation_report' conversation.pk as report_url %}
             {% include 'reports/_report_menu.html' with report_url=report_url menu_label="Conversation actions" report_label="Report user" only %}
         </header>
+        <p class="chat-moderation-notice"><small>Conversations may be reviewed by administrators for moderation purposes.</small></p>
 
         {% if messages %}
         <ul class="message-alerts" role="status">
