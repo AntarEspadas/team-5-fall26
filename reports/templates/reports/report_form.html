@@ -14,6 +14,9 @@
         <h1>Report {{ target_label }}</h1>
         <p class="event-form-intro">Tell us why you are reporting <strong>{{ subject }}</strong>.</p>
         {% if comment %}<blockquote>{{ comment.body|linebreaksbr }}</blockquote>{% endif %}
+        {% if is_conversation_report %}
+        <p class="moderation-notice" role="note"><strong>Conversations may be reviewed by administrators for moderation purposes when reported.</strong></p>
+        {% endif %}
 
         <form class="event-form" method="post">
             {% csrf_token %}

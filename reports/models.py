@@ -83,6 +83,13 @@ class Report(models.Model):
     details = models.TextField(max_length=5000, blank=True)
     created_at = models.DateTimeField(auto_now_add=True, db_index=True)
     resolved_at = models.DateTimeField(null=True, blank=True)
+    resolved_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="resolved_reports",
+    )
 
     class Meta:
         ordering = ["-created_at", "-pk"]

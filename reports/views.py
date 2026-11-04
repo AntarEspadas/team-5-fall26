@@ -151,5 +151,6 @@ def _report(
             "back_url": back_url,
             "back_label": back_label,
             "comment": comment,
+            "is_conversation_report": conversation is not None,
         },
     )

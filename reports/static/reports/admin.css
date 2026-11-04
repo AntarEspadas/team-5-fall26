@@ -1,0 +1,12 @@
+.report-filters, .report-links {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 12px;
+    margin-bottom: 20px;
+}
+.report-group { padding: 16px; border: 1px solid var(--hairline-color); }
+.report-group h2 { overflow-wrap: anywhere; }
+.report-group summary { cursor: pointer; padding: 16px 0; }
+.individual-report { padding: 12px 0; border-top: 1px solid var(--hairline-color); }
+.report-details { white-space: normal; overflow-wrap: anywhere; }

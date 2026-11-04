@@ -1,0 +1,58 @@
+{% extends "admin/base_site.html" %}
+{% load static %}
+{% block extrastyle %}{{ block.super }}<link rel="stylesheet" href="{% static 'reports/admin.css' %}">{% endblock %}
+{% block breadcrumbs %}
+<div class="breadcrumbs"><a href="{% url 'admin:index' %}">Home</a> &rsaquo; Reports</div>
+{% endblock %}
+{% block content %}
+<form method="get" class="report-filters">
+    <label for="report-status">Status</label>
+    <select name="status" id="report-status">
+        {% for value, label in status_options %}<option value="{{ value }}"{% if status == value %} selected{% endif %}>{{ label }}</option>{% endfor %}
+    </select>
+    <label for="report-sort">Sort by</label>
+    <select name="sort" id="report-sort">
+        {% for value, label in sort_options %}<option value="{{ value }}"{% if sort == value %} selected{% endif %}>{{ label }}</option>{% endfor %}
+    </select>
+    <button type="submit" class="button">Apply</button>
+</form>
+{% for group in groups %}
+<section class="module report-group" aria-label="{{ group.label }} reports">
+    <h2>{{ group.label }} — {{ group.summary }}</h2>
+    <p>{{ group.report_count }} matching report{{ group.report_count|pluralize }} · {{ group.open_count }} unresolved · Latest submission: {{ group.latest|date:"DATETIME_FORMAT" }}</p>
+    <p class="report-links">
+        {% if group.admin_url %}<a href="{{ group.admin_url }}">Manage {{ group.label|lower }}</a>{% endif %}
+        {% if group.public_url %}<a href="{{ group.public_url }}">View on site</a>{% endif %}
+    </p>
+    {% if can_resolve and group.open_count %}
+    <form method="post" action="{% url 'admin:reports_report_resolve_all' group.representative.pk %}?{{ filter_query }}&amp;page={{ page_obj.number }}">
+        {% csrf_token %}<button type="submit" class="button">Resolve all</button>
+    </form>
+    {% endif %}
+    <details>
+        <summary>View individual reports ({{ group.report_count }})</summary>
+        {% for report in group.reports %}
+        <article class="individual-report">
+            <h3>Report #{{ report.pk }}</h3>
+            <p>Reporter: {% if report.reporter %}{{ report.reporter.get_display_name }} (@{{ report.reporter.username }}){% else %}Deleted user{% endif %}</p>
+            <p>Reason: {{ report.get_reason_display }}</p>
+            <div class="report-details">{{ report.details|default:"No additional details."|linebreaksbr }}</div>
+            <p>Submitted: {{ report.created_at|date:"DATETIME_FORMAT" }}</p>
+            {% if report.resolved_at %}
+            <p>Resolved: {{ report.resolved_at|date:"DATETIME_FORMAT" }} · Administrator: {% if report.resolved_by %}{{ report.resolved_by.get_display_name }} (@{{ report.resolved_by.username }}){% else %}Unknown{% endif %}</p>
+            {% elif can_resolve %}
+            <form method="post" action="{% url 'admin:reports_report_resolve' report.pk %}?{{ filter_query }}&amp;page={{ page_obj.number }}">
+                {% csrf_token %}<button type="submit" class="button">Resolve report</button>
+            </form>
+            {% else %}<p>Unresolved</p>{% endif %}
+        </article>
+        {% endfor %}
+    </details>
+</section>
+{% empty %}<p>No reports match this filter.</p>{% endfor %}
+<nav class="paginator" aria-label="Report pages">
+    {% if page_obj.has_previous %}<a href="?{{ filter_query }}&amp;page={{ page_obj.previous_page_number }}">Previous</a>{% endif %}
+    <span>Page {{ page_obj.number }} of {{ page_obj.paginator.num_pages }}</span>
+    {% if page_obj.has_next %}<a href="?{{ filter_query }}&amp;page={{ page_obj.next_page_number }}">Next</a>{% endif %}
+</nav>
+{% endblock %}
