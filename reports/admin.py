@@ -5,13 +5,24 @@ from urllib.parse import urlencode
 from django.contrib import admin, messages
 from django.core.exceptions import PermissionDenied
 from django.core.paginator import Paginator
-from django.db.models import BigIntegerField, Case, Count, F, Max, Q, Value, When
+from django.db.models import (
+    BigIntegerField,
+    Case,
+    Count,
+    Exists,
+    F,
+    Max,
+    OuterRef,
+    Q,
+    Value,
+    When,
+)
 from django.http import HttpResponseRedirect
 from django.shortcuts import get_object_or_404
 from django.template.response import TemplateResponse
 from django.urls import path, reverse
 from django.utils import timezone
-from django.views.decorators.http import require_POST
+from django.views.decorators.http import require_GET, require_POST
 
 from .models import Report
 from .services import TARGET_FIELDS
@@ -29,6 +40,13 @@ SORT_ORDER = {
     "most": "-report_count",
     "fewest": "report_count",
 }
+
+
+def open_chat_reports():
+    """Only a report for this conversation can authorize private review."""
+    return Report.objects.filter(
+        kind=Report.Kind.USER, conversation__isnull=False, resolved_at__isnull=True
+    )
 
 
 def feed_options(request):
@@ -96,6 +114,11 @@ class ReportAdmin(admin.ModelAdmin):
     def get_urls(self):
         return [
             path(
+                "<int:report_id>/conversation/",
+                self.admin_site.admin_view(require_GET(self.conversation_view)),
+                name="reports_report_conversation",
+            ),
+            path(
                 "<int:report_id>/resolve/",
                 self.admin_site.admin_view(require_POST(self.resolve_report)),
                 name="reports_report_resolve",
@@ -136,6 +159,67 @@ class ReportAdmin(admin.ModelAdmin):
 
     def resolve_all(self, request, report_id):
         return self.resolve(request, report_id, all_reports=True)
+
+    def conversation_view(self, request, report_id):
+        """Review live messages without invoking participant-side read receipts."""
+        if not self.has_view_permission(request):
+            raise PermissionDenied
+        report = get_object_or_404(
+            Report.objects.select_related(
+                "conversation__user_one", "conversation__user_two"
+            ).annotate(
+                can_review_conversation=Exists(
+                    open_chat_reports().filter(
+                        conversation_id=OuterRef("conversation_id")
+                    )
+                )
+            ),
+            pk=report_id,
+            kind=Report.Kind.USER,
+            conversation__isnull=False,
+            can_review_conversation=True,
+        )
+        thread = report.conversation
+        thread_messages = thread.messages.select_related("sender").order_by(
+            "created_at", "pk"
+        )
+        context_message = thread.messages.filter(pk=report.context_message_id).first()
+        paginator = Paginator(thread_messages, 50)
+        context_page = None
+        if context_message is not None:
+            preceding = thread.messages.filter(
+                Q(created_at__lt=context_message.created_at)
+                | Q(created_at=context_message.created_at, pk__lt=context_message.pk)
+            ).count()
+            context_page = preceding // paginator.per_page + 1
+        status, sort = feed_options(request)
+        feed_query = urlencode(
+            {"status": status, "sort": sort, "page": request.GET.get("page", "1")}
+        )
+        if "message_page" not in request.GET:
+            initial_page = context_page or paginator.num_pages
+            anchor = f"#message-{context_message.pk}" if context_message else ""
+            return HttpResponseRedirect(
+                f"{request.path}?{feed_query}&message_page={initial_page}{anchor}"
+            )
+        page = paginator.get_page(request.GET.get("message_page"))
+        request.current_app = self.admin_site.name
+        return TemplateResponse(
+            request,
+            "admin/reports/report/conversation.html",
+            {
+                **self.admin_site.each_context(request),
+                "title": "Conversation review",
+                "opts": self.model._meta,
+                "report": report,
+                "conversation": thread,
+                "message_page": page,
+                "context_message": context_message,
+                "context_page": context_page,
+                "feed_url": self.feed_url(request),
+                "feed_query": feed_query,
+            },
+        )
 
     def changelist_view(self, request, extra_context=None):
         if not self.has_view_permission(request):
@@ -191,6 +275,19 @@ class ReportAdmin(admin.ModelAdmin):
         reports = (
             targets.filter(predicates)
             .filter(match)
+            .annotate(
+                can_review_conversation=Case(
+                    When(
+                        kind=Report.Kind.USER,
+                        then=Exists(
+                            open_chat_reports().filter(
+                                conversation_id=OuterRef("conversation_id")
+                            )
+                        ),
+                    ),
+                    default=Value(False),
+                )
+            )
             .select_related(
                 "reporter",
                 "resolved_by",

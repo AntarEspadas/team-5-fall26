@@ -38,6 +38,9 @@
             <p>Reason: {{ report.get_reason_display }}</p>
             <div class="report-details">{{ report.details|default:"No additional details."|linebreaksbr }}</div>
             <p>Submitted: {{ report.created_at|date:"DATETIME_FORMAT" }}</p>
+            {% if report.can_review_conversation %}
+            <p><a href="{% url 'admin:reports_report_conversation' report.pk %}?{{ filter_query }}&amp;page={{ page_obj.number }}">Review conversation</a></p>
+            {% endif %}
             {% if report.resolved_at %}
             <p>Resolved: {{ report.resolved_at|date:"DATETIME_FORMAT" }} · Administrator: {% if report.resolved_by %}{{ report.resolved_by.get_display_name }} (@{{ report.resolved_by.username }}){% else %}Unknown{% endif %}</p>
             {% elif can_resolve %}

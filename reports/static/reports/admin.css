@@ -10,3 +10,12 @@
 .report-group summary { cursor: pointer; padding: 16px 0; }
 .individual-report { padding: 12px 0; border-top: 1px solid var(--hairline-color); }
 .report-details { white-space: normal; overflow-wrap: anywhere; }
+.conversation-message {
+    padding: 16px;
+    border: 1px solid var(--hairline-color);
+    scroll-margin-top: 24px;
+}
+.report-context-message {
+    border: 3px solid var(--link-fg);
+    background: var(--selected-bg);
+}
