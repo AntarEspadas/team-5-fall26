@@ -112,6 +112,7 @@ jobs:
       - name: Generate coverage XML
         run: python -m coverage xml -o coverage.xml
       - name: Upload coverage to Coveralls
+        if: vars.COVERALLS_ENABLED == 'true' && github.event_name == 'push'
         uses: coverallsapp/github-action@v2
         with:
           github-token: ${{ secrets.GITHUB_TOKEN }}
@@ -121,18 +122,21 @@ jobs:
   deploy:
     name: Deploy to Elastic Beanstalk
     needs: [black, flake8, coverage]
-    if: github.event_name == 'push' && github.ref == 'refs/heads/develop'
+    if: >-
+      vars.DEPLOY_ENABLED == 'true' &&
+      github.event_name == 'push' &&
+      github.ref == 'refs/heads/develop'
     runs-on: ubuntu-latest
     timeout-minutes: 20
     concurrency:
       group: deploy-team5-develop
       cancel-in-progress: false
     env:
-      AWS_REGION: us-east-1
+      AWS_REGION: ${{ vars.EB_REGION || 'us-east-1' }}
       AWS_PAGER: ""
-      EB_APPLICATION: team5
-      EB_ENVIRONMENT: team5-develop
-      EB_BUCKET: elasticbeanstalk-us-east-1-390844769109
+      EB_APPLICATION: ${{ vars.EB_APPLICATION || 'team5' }}
+      EB_ENVIRONMENT: ${{ vars.EB_ENVIRONMENT || 'team5-develop' }}
+      EB_BUCKET: ${{ vars.EB_BUCKET || 'elasticbeanstalk-us-east-1-390844769109' }}
     steps:
       - name: Check out repository
         uses: actions/checkout@v7
