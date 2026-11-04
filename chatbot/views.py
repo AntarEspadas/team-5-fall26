@@ -19,7 +19,10 @@ from .assistant import (
     INQUIRIES_KEY,
     append_history,
     get_history,
+    live_setup,
     reply,
+    run_live_tool,
+    save_voice_turn,
 )
 from .forms import AnswerInquiryForm
 from .inquiries import answer_inquiry, inquiries_managed_by, undelivered_answers
@@ -29,6 +32,7 @@ from .models import ChatLog, Inquiry
 logger = logging.getLogger(__name__)
 
 MAX_MESSAGE_LENGTH = 1000
+MAX_REPLY_LENGTH = 4000
 MAX_AUDIO_BYTES = 4 * 1024 * 1024
 AUDIO_TYPES = (
     "audio/wav",
@@ -45,6 +49,10 @@ RATE_LIMIT = 15
 # A looser limit per network address, for visitors who drop cookies.
 IP_RATE_LIMIT = 60
 RATE_WINDOW_SECONDS = 60
+# Tool calls and saved turns during a voice call are counted separately.
+VOICE_CALL_SCOPE = "voice-call:"
+VOICE_CALL_RATE_LIMIT = 60
+VOICE_CALL_IP_RATE_LIMIT = 240
 # Answered questions listed under the open ones on the Questions page.
 ANSWERED_SHOWN = 20
 
@@ -76,30 +84,54 @@ def over_limit(key, limit):
     return count > limit
 
 
-def is_rate_limited(request):
+def rate_limits(scope):
+    """Return the per-visitor and per-address limits for ``scope``."""
+    if scope == VOICE_CALL_SCOPE:
+        return VOICE_CALL_RATE_LIMIT, VOICE_CALL_IP_RATE_LIMIT
+    return RATE_LIMIT, IP_RATE_LIMIT
+
+
+def is_rate_limited(request, scope=""):
     """Limit each account or browser session, and each network address."""
+    limit, ip_limit = rate_limits(scope)
     if request.user.is_authenticated:
         visitor = f"user:{request.user.pk}"
     else:
         if not request.session.session_key:
             request.session.save()
         visitor = f"session:{request.session.session_key}"
-    limited = over_limit(visitor, RATE_LIMIT)
-    return over_limit(f"ip:{client_ip(request)}", IP_RATE_LIMIT) or limited
+    limited = over_limit(f"{scope}{visitor}", limit)
+    return over_limit(f"{scope}ip:{client_ip(request)}", ip_limit) or limited
 
 
-def assistant_endpoint(view):
+def assistant_endpoint(view=None, *, scope=""):
     """Hide endpoints while disabled and throttle visitors who send too much."""
+    if view is None:
+        return lambda view: assistant_endpoint(view, scope=scope)
 
     @wraps(view)
     def wrapper(request, *args, **kwargs):
         if not settings.CHATBOT_ENABLED:
             raise Http404("The assistant is not enabled.")
-        if request.method == "POST" and is_rate_limited(request):
+        if request.method == "POST" and is_rate_limited(request, scope):
             return error(TOO_FAST, 429)
         return view(request, *args, **kwargs)
 
     return wrapper
+
+
+# Tool calls and saved turns during a voice call, which come faster than
+# typed messages. Starting a call counts against the normal limit.
+voice_call_endpoint = assistant_endpoint(scope=VOICE_CALL_SCOPE)
+
+
+def json_body(request):
+    """Decode a JSON object request body, or return None."""
+    try:
+        data = json.loads(request.body or b"{}")
+    except ValueError:
+        return None
+    return data if isinstance(data, dict) else None
 
 
 def failure_message(exc):
@@ -111,8 +143,8 @@ def outcome_of(result):
     """Classify a reply for the conversation log."""
     if result["declined"]:
         return ChatLog.Outcome.DECLINED
-    if result["escalated"]:
-        return ChatLog.Outcome.ESCALATED
+    if result["unanswered"]:
+        return ChatLog.Outcome.UNANSWERED
     return ChatLog.Outcome.ANSWERED
 
 
@@ -143,7 +175,7 @@ def chat_message(request):
     """Answer a typed message: ``POST /api/chat`` with JSON ``{"message"}``.
 
     The optional ``page`` is the path the visitor is on. The reply is JSON
-    ``{"reply", "escalated", "declined"}``, or ``{"error"}`` with a 4xx/5xx
+    ``{"reply", "declined", "unanswered"}``, or ``{"error"}`` with a 4xx/5xx
     status the widget shows as a friendly message.
     """
     try:
@@ -190,6 +222,62 @@ def chat_voice(request):
     if isinstance(result, JsonResponse):
         return result
     return JsonResponse(dict(result, transcript=transcript, language=language))
+
+
+@require_POST
+@assistant_endpoint
+def live_session(request):
+    """Start a voice call: ``POST /api/chat/live`` with JSON ``{"page"}``.
+
+    Returns ``{"url", "token"}``: the browser opens the Live API WebSocket
+    at ``url`` with the single-use ``token``. The API key stays here.
+    """
+    data = json_body(request) or {}
+    try:
+        token = gemini.create_live_token(live_setup(request, data.get("page", "")))
+    except gemini.GeminiError as exc:
+        return error(failure_message(exc), 503)
+    return JsonResponse({"url": settings.GEMINI_LIVE_SOCKET_URL, "token": token})
+
+
+@require_POST
+@voice_call_endpoint
+def live_tool(request):
+    """Run a tool for a voice call: JSON ``{"name", "args"}`` → ``{"result"}``."""
+    data = json_body(request)
+    if data is None or not isinstance(data.get("name"), str):
+        return error("Send the tool call as JSON.", 400)
+    return JsonResponse(
+        {"result": run_live_tool(request, data["name"], data.get("args"))}
+    )
+
+
+@require_POST
+@voice_call_endpoint
+def live_turn(request):
+    """Save one spoken exchange: JSON ``{"message", "reply", "page"}``.
+
+    Keeps it in the conversation (so it shows after a page change and typed
+    chat can continue it) and in the anonymous log.
+    """
+    data = json_body(request)
+    if data is None:
+        return error("Send the turn as JSON.", 400)
+    message = str(data.get("message", "")).strip()[:MAX_MESSAGE_LENGTH]
+    text = str(data.get("reply", "")).strip()[:MAX_REPLY_LENGTH]
+    if not message and not text:
+        return error("The turn is empty.", 400)
+    save_voice_turn(request.session, message, text)
+    record_chat(
+        request,
+        message,
+        text,
+        ChatLog.Outcome.ANSWERED,
+        0,
+        data.get("page", ""),
+        voice=True,
+    )
+    return JsonResponse({"saved": True})
 
 
 @require_GET

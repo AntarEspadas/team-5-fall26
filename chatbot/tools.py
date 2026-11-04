@@ -8,7 +8,6 @@ counts (never attendee identities), and the signed-in user's own activity.
 import logging
 from datetime import date
 
-from django.conf import settings
 from django.db.models import F, Q
 from django.urls import reverse
 from django.utils.text import Truncator
@@ -17,8 +16,6 @@ from events.filters import BOROUGHS, CATEGORY_GROUPS, filter_events, nyc_today
 from events.models import DirectMessage, Event, EventInterest
 from events.notifications import describe_when
 from events.search import search_events
-
-from .inquiries import create_inquiry
 
 logger = logging.getLogger(__name__)
 
@@ -91,38 +88,6 @@ DECLARATIONS = [
         ),
         # No "parameters": Gemini rejects an OBJECT with no properties.
     },
-    {
-        "name": "escalate_to_event_manager",
-        "description": (
-            "Forward a question to the event manager when the answer is not "
-            "in the site data or the site guide (for example prices, "
-            "accessibility details, or policies not listed). Call it at most "
-            "once per question, then tell the visitor you will check with "
-            "the event manager and let them know."
-        ),
-        "parameters": {
-            "type": "OBJECT",
-            "properties": {
-                "question": {
-                    "type": "STRING",
-                    "description": "The visitor's question, in their words.",
-                },
-                "question_english": {
-                    "type": "STRING",
-                    "description": "The question translated into English.",
-                },
-                "language": {
-                    "type": "STRING",
-                    "description": "Language of the question, e.g. 'Spanish'.",
-                },
-                "event_id": {
-                    "type": "INTEGER",
-                    "description": "The event the question is about, if any.",
-                },
-            },
-            "required": ["question", "question_english", "language"],
-        },
-    },
 ]
 
 
@@ -175,10 +140,8 @@ def clean_list(values, allowed):
 class Toolbox:
     """Run the assistant's tools on behalf of one visitor's request."""
 
-    def __init__(self, user, inquiry_ids=None):
+    def __init__(self, user):
         self.user = user
-        self.inquiry_ids = inquiry_ids if inquiry_ids is not None else []
-        self.escalated = False
 
     declarations = DECLARATIONS
 
@@ -188,7 +151,6 @@ class Toolbox:
             "search_events": self.search_events,
             "get_event_details": self.get_event_details,
             "get_my_activity": self.get_my_activity,
-            "escalate_to_event_manager": self.escalate_to_event_manager,
         }.get(name)
         if handler is None:
             return {"error": f"Unknown tool {name}."}
@@ -328,38 +290,4 @@ class Toolbox:
                 "share_profile_with_attendees": user.share_profile_with_attendees,
                 "settings_page": reverse("account_settings"),
             },
-        }
-
-    def escalate_to_event_manager(
-        self, question="", question_english="", language="", event_id=None
-    ):
-        """Save the question for the event manager, once per visitor message."""
-        if self.escalated:
-            return {"status": "already_forwarded"}
-        question = str(question or "").strip()[:2000]
-        if not question:
-            return {"error": "The question is empty."}
-        event = None
-        if event_id not in (None, ""):
-            try:
-                event = Event.objects.select_related("host").get(pk=int(event_id))
-            except (TypeError, ValueError, Event.DoesNotExist):
-                event = None
-        user = self.user if self.user.is_authenticated else None
-        inquiry = create_inquiry(
-            user,
-            question,
-            question_english=str(question_english or "").strip()[:2000],
-            language=str(language or "").strip()[:40],
-            event=event,
-        )
-        self.escalated = True
-        self.inquiry_ids.append(inquiry.pk)
-        how = "in this chat window"
-        if user:
-            how += ", by email" + (" and in their notifications" if event else "")
-        return {
-            "status": "forwarded",
-            "visitor_will_be_told": how,
-            "support_email": settings.CHATBOT_SUPPORT_EMAIL,
         }

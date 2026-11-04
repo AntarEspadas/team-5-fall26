@@ -254,11 +254,29 @@ if not DEBUG:
 # in production if you need fully repeatable answers.
 GEMINI_API_KEY = os.environ.get("GEMINI_API_KEY", "").strip()
 GEMINI_MODEL = os.environ.get("GEMINI_MODEL", "").strip() or "gemini-flash-latest"
+# Used when GEMINI_MODEL is overloaded or times out; set it equal to
+# GEMINI_MODEL to disable the fallback.
+GEMINI_FALLBACK_MODEL = (
+    os.environ.get("GEMINI_FALLBACK_MODEL", "").strip() or "gemini-flash-lite-latest"
+)
 GEMINI_API_BASE_URL = (
     os.environ.get("GEMINI_API_BASE_URL", "").strip()
     or "https://generativelanguage.googleapis.com/v1beta"
 )
 CHATBOT_ENABLED = bool(GEMINI_API_KEY)
+# Voice conversations use Gemini's Live API: the browser streams audio to it
+# directly with a short-lived token that this server creates, so the API key
+# never leaves the server. GEMINI_LIVE_VOICE is a prebuilt Gemini voice
+# (Achernar is soft; Vindemiatrix, Sulafat, Aoede, and Kore are other
+# female voices).
+GEMINI_LIVE_MODEL = os.environ.get("GEMINI_LIVE_MODEL", "").strip() or "gemini-3.8-live"
+GEMINI_LIVE_VOICE = os.environ.get("GEMINI_LIVE_VOICE", "").strip() or "Achernar"
+GEMINI_LIVE_LANGUAGE = os.environ.get("GEMINI_LIVE_LANGUAGE", "").strip() or "en-US"
+GEMINI_LIVE_TOKEN_URL = "https://generativelanguage.googleapis.com/v1alpha/auth_tokens"
+GEMINI_LIVE_SOCKET_URL = (
+    "wss://generativelanguage.googleapis.com/ws/google.ai.generativelanguage."
+    "v1alpha.GenerativeService.BidiGenerateContentConstrained"
+)
 
 # Staff who receive questions the assistant could not answer about NYC Parks
 # feed events (hosted events go to their host). Comma-separated emails.
