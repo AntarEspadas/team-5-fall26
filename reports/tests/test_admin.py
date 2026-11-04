@@ -20,10 +20,7 @@ from events.models import (
 )
 from reports.models import Report
 
-NOTICE = (
-    "Conversations may be reviewed by administrators "
-    "for moderation purposes if reported."
-)
+NOTICE = "Conversations may be reviewed by administrators for moderation purposes."
 
 
 class ReportAdminTests(TestCase):
