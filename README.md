@@ -2,8 +2,6 @@
 
 [![Checks](https://github.com/gcivil-nyu-org/team-5-fall26/actions/workflows/checks.yml/badge.svg?branch=develop)](https://github.com/gcivil-nyu-org/team-5-fall26/actions/workflows/checks.yml?query=branch%3Adevelop)
 
-[![Build Status](https://app.travis-ci.com/gcivil-nyu-org/team-5-fall26.svg?branch=develop)](https://app.travis-ci.com/github/gcivil-nyu-org/team-5-fall26)
-
 [![Coverage Status](https://coveralls.io/repos/github/gcivil-nyu-org/team-5-fall26/badge.svg?branch=develop)](https://coveralls.io/github/gcivil-nyu-org/team-5-fall26?branch=develop)
 
 
@@ -291,9 +289,11 @@ crontab -e
 
 ## Checks
 
-The badge above shows the combined status of the Black, Flake8, and coverage jobs
-in the pull request workflow. Click it to see workflow runs and individual job
-results.
+The Checks workflow runs Black, Flake8, and tests with a 95% coverage minimum on
+pull requests, pushes to `main` and `develop`, and manual runs. It uses Python
+3.11 and uploads successful coverage results to Coveralls using GitHub's
+automatic `GITHUB_TOKEN`; no Coveralls secret is required. Click the badge above
+to see workflow runs and individual job results.
 
 Start PostgreSQL with `docker compose up -d --wait db` before running tests.
 The database user needs permission to create Django's temporary test database;
@@ -309,6 +309,30 @@ coverage report  # fails below 95% coverage
 ```
 
 ## Deploying to AWS Elastic Beanstalk
+
+GitHub Actions deploys pushes to `develop` to the existing `team5-develop`
+environment after Black, Flake8, and coverage pass. Pull requests, `main`, and
+manual workflow runs only run checks. Deployments use the tested commit, include
+the Elastic Beanstalk configuration and platform hooks, and wait for the
+environment update before verifying the deployed version. Deployments run one
+at a time; newer pushes do not cancel an active deployment.
+
+Before the first Actions deployment:
+
+1. In the GitHub repository, open **Settings → Secrets and variables → Actions**
+   and add repository secrets `AWS_ACCESS_KEY_ID` and `AWS_SECRET_ACCESS_KEY`
+   using the deployment credentials previously configured in Travis. Travis
+   secrets are not transferred automatically. These names match this repo's old
+   Travis configuration.
+2. Ensure that IAM principal can upload source bundles to
+   `elasticbeanstalk-us-east-1-390844769109`, create application versions for
+   `team5`, update `team5-develop`, and describe the environment in `us-east-1`.
+   The target values are set in `.github/workflows/checks.yml`.
+3. Enable GitHub Actions for the repository and allow the actions referenced by
+   the workflow, including the [Coveralls action](https://github.com/coverallsapp/github-action).
+4. Disable builds for this repository in Travis to stop duplicate builds. If
+   branch protection requires Travis, replace that required check with the
+   Actions **Black**, **Flake8**, and **Coverage** checks after their first run.
 
 The repo is configured for Elastic Beanstalk's Python platform:
 `.ebextensions/django.config` sets `DJANGO_SETTINGS_MODULE`, the WSGI path

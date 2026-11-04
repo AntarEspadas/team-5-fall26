@@ -13,7 +13,8 @@ permissions:
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
-  cancel-in-progress: true
+  # Let a develop deployment finish before the next push can deploy.
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
 env:
   PIP_DISABLE_PIP_VERSION_CHECK: "1"
@@ -108,3 +109,67 @@ jobs:
       - name: Report coverage and enforce 95% minimum
         if: ${{ !cancelled() && steps.tests.outcome != 'skipped' }}
         run: python -m coverage report
+      - name: Generate coverage XML
+        run: python -m coverage xml -o coverage.xml
+      - name: Upload coverage to Coveralls
+        uses: coverallsapp/github-action@v2
+        with:
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          file: coverage.xml
+          format: cobertura
+
+  deploy:
+    name: Deploy to Elastic Beanstalk
+    needs: [black, flake8, coverage]
+    if: github.event_name == 'push' && github.ref == 'refs/heads/develop'
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    concurrency:
+      group: deploy-team5-develop
+      cancel-in-progress: false
+    env:
+      AWS_REGION: us-east-1
+      AWS_PAGER: ""
+      EB_APPLICATION: team5
+      EB_ENVIRONMENT: team5-develop
+      EB_BUCKET: elasticbeanstalk-us-east-1-390844769109
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v6.3.0
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: ${{ env.AWS_REGION }}
+      - name: Package and deploy the tested commit
+        shell: bash
+        run: |
+          set -euo pipefail
+          version="gh-${GITHUB_RUN_ID}-${GITHUB_RUN_ATTEMPT}-${GITHUB_SHA:0:12}"
+          bundle="$RUNNER_TEMP/application.zip"
+          key="$EB_APPLICATION/$version.zip"
+
+          # Archive tracked files, including .ebextensions and .platform,
+          # without a parent directory, local secrets, or virtual environments.
+          git archive --format=zip --output="$bundle" "$GITHUB_SHA"
+          aws s3 cp "$bundle" "s3://$EB_BUCKET/$key"
+          aws elasticbeanstalk create-application-version \
+            --application-name "$EB_APPLICATION" \
+            --version-label "$version" \
+            --source-bundle "S3Bucket=$EB_BUCKET,S3Key=$key"
+          aws elasticbeanstalk update-environment \
+            --environment-name "$EB_ENVIRONMENT" \
+            --version-label "$version"
+          aws elasticbeanstalk wait environment-updated \
+            --environment-names "$EB_ENVIRONMENT"
+
+          deployed_version=$(aws elasticbeanstalk describe-environments \
+            --environment-names "$EB_ENVIRONMENT" \
+            --query 'Environments[0].VersionLabel' --output text)
+          if [[ "$deployed_version" != "$version" ]]; then
+            echo "::error::Elastic Beanstalk did not deploy $version (current: $deployed_version)."
+            exit 1
+          fi
