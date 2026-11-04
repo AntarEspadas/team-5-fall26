@@ -35,6 +35,8 @@ from .search import search_events
 UPCOMING_EVENT_LIMIT = 20
 SEARCH_PAGE_SIZE = 20
 NOTIFICATION_PAGE_SIZE = 20
+ARCHIVED_EVENT_PREVIEW_LIMIT = 3
+ARCHIVED_EVENT_PAGE_SIZE = 20
 
 
 class EventCreateView(LoginRequiredMixin, CreateView):
@@ -350,76 +352,151 @@ class EventDetailView(DetailView):
 
 
 class LandingView(TemplateView):
-    """Render the landing page with upcoming events for signed-in visitors.
+    """Render the landing page with upcoming and archived events for signed-in visitors.
 
     Anonymous visitors see the same page with the login prompt, matching the
-    behaviour the accounts tests expect, but no event list.
+    behaviour the accounts tests expect, but no event lists.
     """
 
     template_name = "events/home.html"
 
     def get_context_data(self, **kwargs):
-        """Add upcoming events, soonest first, and an empty filter bar."""
+        """Add upcoming events, archived events, and an empty filter bar."""
         context = super().get_context_data(**kwargs)
         context["filter_form"] = EventFilterForm()
         context["events"] = []
+        context["archived_events"] = []
         if self.request.user.is_authenticated:
+            # Upcoming events, soonest first.
             context["events"] = Event.objects.filter(
                 status=Event.Status.UPCOMING
-            ).order_by(F("start_time").asc(nulls_last=True), "end_time", "title")[
+            ).order_by(
+                F("start_time").asc(nulls_last=True),
+                "end_time",
+                "title",
+            )[
                 :UPCOMING_EVENT_LIMIT
             ]
+
+            # Recently completed events, newest first.
+            context["archived_events"] = Event.objects.filter(
+                status=Event.Status.DONE
+            ).order_by(
+                F("start_time").desc(nulls_last=True),
+                "-end_time",
+                "-title",
+            )[
+                :ARCHIVED_EVENT_PREVIEW_LIMIT
+            ]
+
         return context
 
 
-class SearchView(ListView):
-    """Let any visitor search and filter upcoming events.
+class EventSearchMixin:
+    """Share search, filtering, and pagination behavior across event lists."""
 
-    A search term ranks results by relevance; filters alone list matching
-    events soonest first. Without either, the page asks for input instead of
-    listing every event.
-    """
+    event_status = None
+    default_ordering = ()
+    empty_without_filters = False
+    clear_filters_url_name = None
+    search_action_url_name = None
+
+    def get_queryset(self):
+        """Filter events by status, keyword, and validated form fields."""
+        self.query = self.request.GET.get("q", "").strip()
+
+        form = EventFilterForm(self.request.GET)
+        is_valid = form.is_valid()
+        filters = form.cleaned_data
+
+        self.filter_params = filter_params(filters)
+
+        if is_valid:
+            self.filter_form = EventFilterForm(QueryDict(urlencode(self.filter_params)))
+        else:
+            self.filter_form = form
+
+        events = filter_events(
+            Event.objects.filter(status=self.event_status),
+            filters,
+        )
+
+        if self.query:
+            return search_events(events, self.query)
+
+        if self.empty_without_filters and not self.filter_params:
+            return Event.objects.none()
+
+        return events.order_by(*self.default_ordering)
+
+    def get_context_data(self, **kwargs):
+        """Preserve search and filter parameters in pagination and forms."""
+        context = super().get_context_data(**kwargs)
+
+        search_params = [("q", self.query)] if self.query else []
+
+        context["query"] = self.query
+        context["filter_form"] = self.filter_form
+        context["has_filters"] = bool(self.filter_params)
+        context["page_query"] = urlencode(
+            search_params + self.filter_params,
+            quote_via=quote,
+        )
+
+        if self.search_action_url_name:
+            context["search_action"] = reverse(self.search_action_url_name)
+
+        if self.query:
+            context["clear_filters_url"] = "?" + urlencode(
+                search_params,
+                quote_via=quote,
+            )
+        else:
+            context["clear_filters_url"] = reverse(self.clear_filters_url_name)
+
+        return context
+
+
+class ArchivedEventsView(
+    EventSearchMixin,
+    LoginRequiredMixin,
+    ListView,
+):
+    """Display and search completed events in the public archive."""
+
+    model = Event
+    template_name = "events/archived_events.html"
+    context_object_name = "events"
+    paginate_by = ARCHIVED_EVENT_PAGE_SIZE
+
+    event_status = Event.Status.DONE
+
+    default_ordering = (
+        F("start_time").desc(nulls_last=True),
+        "-end_time",
+        "-title",
+        "-pk",
+    )
+
+    empty_without_filters = False
+    clear_filters_url_name = "archived_events"
+    search_action_url_name = "archived_events"
+
+
+class SearchView(EventSearchMixin, ListView):
+    """Let any visitor search and filter upcoming events."""
 
     template_name = "events/search.html"
     context_object_name = "events"
     paginate_by = SEARCH_PAGE_SIZE
 
-    def get_queryset(self):
-        """Return upcoming events matching the search term and every filter."""
-        self.query = self.request.GET.get("q", "").strip()
-        form = EventFilterForm(self.request.GET)
-        form.is_valid()
-        filters = form.cleaned_data
-        self.filter_params = filter_params(filters)
-        if form.errors:
-            self.filter_form = form
-        else:
-            self.filter_form = EventFilterForm(QueryDict(urlencode(self.filter_params)))
-        events = filter_events(
-            Event.objects.filter(status=Event.Status.UPCOMING), filters
-        )
-        if self.query:
-            return search_events(events, self.query)
-        if not self.filter_params:
-            return Event.objects.none()
-        return events.order_by(
-            F("start_time").asc(nulls_last=True), "end_time", "title", "pk"
-        )
+    event_status = Event.Status.UPCOMING
 
-    def get_context_data(self, **kwargs):
-        """Keep the search term and filters for the form and pagination links."""
-        context = super().get_context_data(**kwargs)
-        search_params = [("q", self.query)] if self.query else []
-        context["query"] = self.query
-        context["filter_form"] = self.filter_form
-        context["has_filters"] = bool(self.filter_params)
-        context["page_query"] = urlencode(
-            search_params + self.filter_params, quote_via=quote
-        )
-        if self.query:
-            context["clear_filters_url"] = "?" + urlencode(
-                search_params, quote_via=quote
-            )
-        else:
-            context["clear_filters_url"] = reverse("landing")
-        return context
+    default_ordering = (
+        F("start_time").asc(nulls_last=True),
+        "end_time",
+        "title",
+        "pk",
+    )
+    empty_without_filters = True
+    clear_filters_url_name = "landing"

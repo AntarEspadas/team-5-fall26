@@ -1,0 +1,167 @@
+{% load static %}
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Archived Events | NYC Parks Events</title>
+
+    <link rel="stylesheet" href="{% static 'events/search.css' %}">
+    <link rel="stylesheet" href="{% static 'events/filters.css' %}">
+    <link rel="stylesheet" href="{% static 'events/cards.css' %}">
+    <link rel="stylesheet" href="{% static 'events/home.css' %}">
+</head>
+
+<body class="home-page archive-page">
+    <header class="topbar">
+        <div class="topbar-inner">
+            <a class="brand" href="{% url 'landing' %}">
+                NYC Parks <span>Events</span>
+            </a>
+
+            {% if user.is_authenticated %}
+            <nav class="topbar-nav" aria-label="Account">
+                <a class="nav-link" href="{% url 'landing' %}">
+                    Home
+                </a>
+
+                <a class="nav-link" href="{% url 'event_create' %}">
+                    Post an event
+                </a>
+
+                <a class="nav-link" href="{% url 'my_events' %}">
+                    My events
+                </a>
+
+                {% with unread=unread_message_count %}
+                <a
+                    class="nav-link"
+                    href="{% url 'inbox' %}"
+                    data-message-count-url="{% url 'unread_message_count' %}"
+                    aria-label="Messages{% if unread %}, {{ unread }} new{% endif %}"
+                >
+                    Messages{% if unread %}&nbsp;<span class="count-pill message-count-badge">{{ unread }} new</span>{% endif %}
+                </a>
+                {% endwith %}
+
+                {% with unread=unread_notification_count %}
+                <a class="nav-link" href="{% url 'notifications' %}">
+                    Notifications{% if unread %}&nbsp;<span class="count-pill">{{ unread }} new</span>{% endif %}
+                </a>
+                {% endwith %}
+
+                <a
+                    class="nav-link"
+                    href="{% url 'public_profile' username=request.user.username %}"
+                >
+                    Public Profile
+                </a>
+
+                <span class="nav-user">
+                    {{ user.display_name|default:user.username }}
+                </span>
+
+                <form method="post" action="{% url 'logout' %}">
+                    {% csrf_token %}
+                    <button type="submit" class="btn-ghost">Log out</button>
+                </form>
+            </nav>
+            {% else %}
+            <nav class="topbar-nav" aria-label="Account">
+                <a class="nav-link" href="{% url 'landing' %}">Home</a>
+                <a class="nav-link" href="{% url 'login' %}">Log in</a>
+            </nav>
+            {% endif %}
+        </div>
+    </header>
+
+    <main class="shell archive-shell">
+
+        <nav class="breadcrumb" aria-label="Breadcrumb">
+            <a href="{% url 'landing' %}">Home</a>
+            <span aria-hidden="true">/</span>
+            <span aria-current="page">Archived events</span>
+        </nav>
+
+        <section class="archive-heading">
+            <p class="archive-eyebrow">EVENT HISTORY</p>
+
+            <h1 class="headline">Archived events</h1>
+
+            <p class="archived-description">
+                Explore past community events in NYC parks.
+                Revisit the activities, programs, and experiences
+                that brought our park communities together.
+            </p>
+
+            {% if page_obj %}
+            <span class="count-pill archive-count">
+                {{ page_obj.paginator.count }}
+                archived event{{ page_obj.paginator.count|pluralize }}
+            </span>
+            {% endif %}
+        </section>
+
+        <section class="archive-search">
+        {% include "events/_search_form.html" %}
+        </section>
+
+        <section class="archive-results" aria-label="Archived events list">
+
+            {% if events %}
+            <ul class="event-grid">
+                {% for event in events %}
+                <li class="event">
+                    {% include "events/_event_card_content.html" with link_to_source=True %}
+                </li>
+                {% endfor %}
+            </ul>
+
+            {% if is_paginated %}
+            <nav class="pagination" aria-label="Archive pages">
+
+                {% if page_obj.has_previous %}
+                <a class="pagination-link"
+                   href="?{% if page_query %}{{ page_query }}&amp;{% endif %}page={{ page_obj.previous_page_number }}">
+                    &larr; Previous
+                </a>
+                {% endif %}
+
+                <span class="pagination-status">
+                    Page {{ page_obj.number }} of {{ page_obj.paginator.num_pages }}
+                </span>
+
+                {% if page_obj.has_next %}
+                <a class="pagination-link"
+                   href="?{% if page_query %}{{ page_query }}&amp;{% endif %}page={{ page_obj.next_page_number }}">
+                    Next &rarr;
+                </a>
+                {% endif %}
+
+            </nav>
+            {% endif %}
+
+            {% else %}
+            <div class="empty-state">
+                {% if query or has_filters %}
+                    No archived events match your search.
+                    Try another activity, park, or location.
+                    {% if has_filters %}
+                        <a href="{{ clear_filters_url }}">Clear filters</a>
+                    {% endif %}
+                {% else %}
+                    No archived events available yet.
+                    Check back after more community events have taken place.
+                {% endif %}
+            </div>
+            {% endif %}
+
+        </section>
+    </main>
+
+    {% if user.is_authenticated %}
+    <script src="{% static 'events/message-count.js' %}" defer></script>
+    {% endif %}
+</body>
+</html>
