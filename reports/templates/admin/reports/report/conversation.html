@@ -1,0 +1,39 @@
+{% extends "admin/base_site.html" %}
+{% load static %}
+{% block extrastyle %}{{ block.super }}<link rel="stylesheet" href="{% static 'reports/admin.css' %}">{% endblock %}
+{% block breadcrumbs %}
+<div class="breadcrumbs"><a href="{% url 'admin:index' %}">Home</a> &rsaquo; <a href="{{ feed_url }}">Reports</a> &rsaquo; Conversation review</div>
+{% endblock %}
+{% block content %}
+<p><a href="{{ feed_url }}">Back to reports</a></p>
+<section class="module report-group" aria-label="Review details">
+    <h2>{{ conversation.user_one.get_display_name }} (@{{ conversation.user_one.username }}) &amp; {{ conversation.user_two.get_display_name }} (@{{ conversation.user_two.username }})</h2>
+    <p>Read-only moderation review. Access is available while this conversation has an unresolved report.</p>
+    <h3>Report #{{ report.pk }}</h3>
+    <p>Reason: {{ report.get_reason_display }}</p>
+    <div class="report-details">{{ report.details|default:"No additional details."|linebreaksbr }}</div>
+    <p>Submitted: {{ report.created_at|date:"DATETIME_FORMAT" }}</p>
+    <p>Status: {% if report.resolved_at %}Resolved {{ report.resolved_at|date:"DATETIME_FORMAT" }}{% else %}Unresolved{% endif %}</p>
+    {% if not context_message %}<p>The report context message is unavailable. The latest page opens by default.</p>{% endif %}
+</section>
+<nav class="report-links" aria-label="Conversation navigation">
+    <a href="?{{ feed_query }}&amp;message_page=1">Beginning</a>
+    <a href="?{{ feed_query }}&amp;message_page={{ message_page.paginator.num_pages }}">Latest messages</a>
+    {% if context_message %}<a href="?{{ feed_query }}&amp;message_page={{ context_page }}#message-{{ context_message.pk }}">Report context</a>{% endif %}
+</nav>
+<section aria-label="Conversation messages">
+{% for message in message_page %}
+    <article id="message-{{ message.pk }}" class="module conversation-message{% if message.pk == context_message.pk %} report-context-message{% endif %}">
+        {% if message.pk == context_message.pk %}<p><strong>Report context message</strong></p>{% endif %}
+        <h3>{{ message.sender.get_display_name }} (@{{ message.sender.username }})</h3>
+        <p><time datetime="{{ message.created_at|date:'c' }}">{{ message.created_at|date:"DATETIME_FORMAT" }}</time></p>
+        <div class="report-details">{{ message.body|linebreaksbr }}</div>
+    </article>
+{% empty %}<p>This conversation has no messages.</p>{% endfor %}
+</section>
+<nav class="paginator" aria-label="Message pages">
+    {% if message_page.has_previous %}<a href="?{{ feed_query }}&amp;message_page={{ message_page.previous_page_number }}">Earlier messages</a>{% endif %}
+    <span>Page {{ message_page.number }} of {{ message_page.paginator.num_pages }}</span>
+    {% if message_page.has_next %}<a href="?{{ feed_query }}&amp;message_page={{ message_page.next_page_number }}">Later messages</a>{% endif %}
+</nav>
+{% endblock %}

@@ -921,7 +921,7 @@
 
         <div class="discussion-list">
             {% for post in posts %}
-                <article class="discussion-post">
+                <article class="discussion-post" id="comment-{{ post.pk }}">
                     <div class="reportable-heading">
                         <h3>{{ post.author.get_display_name }}</h3>
                         {% if post.author_id != user.pk %}
@@ -942,7 +942,7 @@
                     <h4>Replies ({{ post.replies.count }})</h4>
 
                     {% for reply in post.replies.all %}
-                        <div class="reply">
+                        <div class="reply" id="reply-{{ reply.pk }}">
                             <div class="reportable-heading">
                                 <strong>{{ reply.author.get_display_name }}</strong>
                                 {% if reply.author_id != user.pk %}
