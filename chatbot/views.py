@@ -143,8 +143,8 @@ def outcome_of(result):
     """Classify a reply for the conversation log."""
     if result["declined"]:
         return ChatLog.Outcome.DECLINED
-    if result["escalated"]:
-        return ChatLog.Outcome.ESCALATED
+    if result["unanswered"]:
+        return ChatLog.Outcome.UNANSWERED
     return ChatLog.Outcome.ANSWERED
 
 
@@ -175,7 +175,7 @@ def chat_message(request):
     """Answer a typed message: ``POST /api/chat`` with JSON ``{"message"}``.
 
     The optional ``page`` is the path the visitor is on. The reply is JSON
-    ``{"reply", "escalated", "declined"}``, or ``{"error"}`` with a 4xx/5xx
+    ``{"reply", "declined", "unanswered"}``, or ``{"error"}`` with a 4xx/5xx
     status the widget shows as a friendly message.
     """
     try:
@@ -247,8 +247,9 @@ def live_tool(request):
     data = json_body(request)
     if data is None or not isinstance(data.get("name"), str):
         return error("Send the tool call as JSON.", 400)
-    result, escalated = run_live_tool(request, data["name"], data.get("args"))
-    return JsonResponse({"result": result, "escalated": escalated})
+    return JsonResponse(
+        {"result": run_live_tool(request, data["name"], data.get("args"))}
+    )
 
 
 @require_POST
@@ -267,10 +268,15 @@ def live_turn(request):
     if not message and not text:
         return error("The turn is empty.", 400)
     save_voice_turn(request.session, message, text)
-    outcome = (
-        ChatLog.Outcome.ESCALATED if data.get("escalated") else ChatLog.Outcome.ANSWERED
+    record_chat(
+        request,
+        message,
+        text,
+        ChatLog.Outcome.ANSWERED,
+        0,
+        data.get("page", ""),
+        voice=True,
     )
-    record_chat(request, message, text, outcome, 0, data.get("page", ""), voice=True)
     return JsonResponse({"saved": True})
 
 

@@ -4,7 +4,7 @@ from django.contrib.auth.models import AnonymousUser
 from django.core import mail
 from django.test import SimpleTestCase, TestCase, override_settings
 
-from chatbot.models import Inquiry
+from chatbot.inquiries import create_inquiry
 from chatbot.tools import DECLARATIONS, Toolbox, borough_label, event_status
 from chatbot.tests.helpers import make_event, make_user
 from events.models import (
@@ -159,30 +159,21 @@ class MyActivityToolTests(TestCase):
 
 
 @override_settings(MANAGERS=[("Staff", "staff@example.com")])
-class EscalateToolTests(TestCase):
-    """Unanswerable questions are saved and their manager is told."""
+class CreateInquiryTests(TestCase):
+    """Questions saved for managers notify the host and email staff."""
 
     def test_question_about_a_hosted_event_notifies_its_host(self):
         host = make_user("host")
         asker = make_user("asker")
         event = make_event("host-2", "Kite Day", host=host)
-        toolbox = Toolbox(asker)
-
-        result = toolbox.call(
-            "escalate_to_event_manager",
-            {
-                "question": "¿Hay estacionamiento?",
-                "question_english": "Is there parking?",
-                "language": "Spanish",
-                "event_id": event.pk,
-            },
+        inquiry = create_inquiry(
+            asker,
+            "¿Hay estacionamiento?",
+            question_english="Is there parking?",
+            language="Spanish",
+            event=event,
         )
-
-        self.assertEqual(result["status"], "forwarded")
-        self.assertIn("notifications", result["visitor_will_be_told"])
-        inquiry = Inquiry.objects.get()
         self.assertEqual((inquiry.user, inquiry.event), (asker, event))
-        self.assertEqual(toolbox.inquiry_ids, [inquiry.pk])
         notification = Notification.objects.get(recipient=host)
         self.assertIn("Is there parking?", notification.body)
         self.assertIn("¿Hay estacionamiento?", notification.body)
@@ -190,38 +181,30 @@ class EscalateToolTests(TestCase):
             sorted(m.to[0] for m in mail.outbox),
             ["host@example.com", "staff@example.com"],
         )
-        self.assertEqual(
-            toolbox.escalate_to_event_manager(question="Again?"),
-            {"status": "already_forwarded"},
-        )
 
-    def test_anonymous_question_without_an_event_goes_to_staff(self):
-        toolbox = Toolbox(AnonymousUser())
-        result = toolbox.escalate_to_event_manager(
-            question="Are dogs allowed?", event_id="nonsense"
-        )
-        self.assertEqual(result["visitor_will_be_told"], "in this chat window")
-        inquiry = Inquiry.objects.get()
-        self.assertIsNone(inquiry.user)
+    def test_question_without_an_event_goes_to_staff(self):
+        inquiry = create_inquiry(None, "Are dogs allowed?")
         self.assertIsNone(inquiry.event)
         self.assertFalse(Notification.objects.exists())
         self.assertEqual([m.to for m in mail.outbox], [["staff@example.com"]])
 
-    def test_signed_in_question_without_an_event(self):
-        result = Toolbox(make_user("u")).escalate_to_event_manager(question="Hours?")
-        self.assertEqual(
-            result["visitor_will_be_told"], "in this chat window, by email"
-        )
-
     def test_hosts_asking_about_their_own_event_are_not_notified(self):
         host = make_user("host")
         event = make_event("host-3", "Own Event", host=host)
-        Toolbox(host).escalate_to_event_manager(question="Q?", event_id=event.pk)
+        create_inquiry(host, "Q?", event=event)
         self.assertFalse(Notification.objects.exists())
 
-    def test_empty_questions_are_rejected(self):
-        self.assertIn("error", Toolbox(AnonymousUser()).escalate_to_event_manager())
-        self.assertFalse(Inquiry.objects.exists())
+
+class NoHandoffTests(SimpleTestCase):
+    """The assistant no longer forwards questions to a person."""
+
+    def test_escalation_tool_is_gone(self):
+        names = {declaration["name"] for declaration in DECLARATIONS}
+        self.assertNotIn("escalate_to_event_manager", names)
+        result = Toolbox(AnonymousUser()).call(
+            "escalate_to_event_manager", {"question": "Dogs?"}
+        )
+        self.assertIn("error", result)
 
 
 class ToolDispatchTests(TestCase):

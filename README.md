@@ -227,14 +227,18 @@ the server creates (see below).
   login help, events and venues) lives in the **FAQ entries** table. Edit,
   add, or deactivate entries in the Django admin; changes apply to the next
   message without a deploy. The first migration seeds 16 entries.
-- **When it isn't sure** it says so, forwards the question to the event
-  manager, and offers the support email (`CHATBOT_SUPPORT_EMAIL`). The host
-  of a posted event gets a notification and email; other questions go to
-  staff (emailed when `CHATBOT_MANAGER_EMAILS` is set). Managers answer on
-  the **Questions** page (`/assistant/inquiries/`, linked from **My events**)
-  or in the admin. The answer is translated into the asker's language and
-  appears in their chat; signed-in askers also get an email, plus a
-  notification for event questions.
+- **When it isn't sure** it says so and never promises that a person will
+  follow up. For a question about an event, it suggests asking in the
+  comments on that event's page, where the host and other attendees can
+  answer. For anything else, it tells the visitor to contact the site admin
+  (at `CHATBOT_SUPPORT_EMAIL` when it is set). These replies are logged with
+  the outcome **Couldn't answer**, so staff can see which questions need FAQ
+  entries.
+- **Questions page.** Earlier versions forwarded unanswered questions to
+  event managers. Those questions can still be answered on the **Questions**
+  page (`/assistant/inquiries/`, linked from **My events**) or in the admin;
+  the answer is translated into the asker's language and appears in their
+  chat. New questions are no longer forwarded.
 - **Off-topic or inappropriate requests** are declined by the system prompt
   and by Gemini's safety settings (harassment, hate speech, sexual, and
   dangerous content blocked at medium and above).

@@ -126,6 +126,8 @@ class ChatLog(models.Model):
 
     class Outcome(models.TextChoices):
         ANSWERED = "answered", "Answered"
+        UNANSWERED = "unanswered", "Couldn't answer"
+        # Older conversations, from when unanswered questions were forwarded.
         ESCALATED = "escalated", "Sent to event manager"
         DECLINED = "declined", "Declined (safety)"
         ERROR = "error", "Gemini unavailable"

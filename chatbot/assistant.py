@@ -10,6 +10,8 @@ from .prompts import system_prompt
 from .tools import Toolbox
 
 HISTORY_KEY = "chatbot_history"
+# Questions forwarded to event managers by earlier versions of the assistant,
+# whose answers are still delivered into the chat.
 INQUIRIES_KEY = "chatbot_inquiries"
 # Earlier messages sent back to Gemini for context, and kept in the session.
 HISTORY_LIMIT = 20
@@ -20,10 +22,7 @@ BLOCKED_REPLY = (
     "Sorry, I can't help with that request. I'm happy to help with events, "
     "bookings, or your account."
 )
-ESCALATED_REPLY = (
-    "I'm not sure about that, so I've passed your question to the event "
-    "manager. I'll let you know here as soon as they reply."
-)
+UNSURE = "Sorry, I'm not sure about that."
 
 
 VOICE_INSTRUCTIONS = """
@@ -51,14 +50,26 @@ VOICE_HISTORY_LIMIT = 10
 VOICE_HISTORY_CHARS = 600
 
 
-def escalated_reply():
-    """Return the fallback reply, offering the support email when set."""
+def contact_admin():
+    """Tell the visitor how to reach the site admin."""
     if settings.CHATBOT_SUPPORT_EMAIL:
+        return f"Please contact the site admin at {settings.CHATBOT_SUPPORT_EMAIL}."
+    return "Please contact the site admin."
+
+
+def unsure_reply(event=None):
+    """Point the visitor to where they can get an answer the assistant lacks.
+
+    Questions about an event belong in the comments on its page, where the
+    host and other attendees can answer; anything else goes to the admin.
+    """
+    if event is not None:
         return (
-            f"{ESCALATED_REPLY} You can also email "
-            f"{settings.CHATBOT_SUPPORT_EMAIL}."
+            f"{UNSURE} You can ask in the comments on the event's page "
+            f"(/events/{event.pk}/), where the host and other attendees can "
+            "answer."
         )
-    return ESCALATED_REPLY
+    return f"{UNSURE} {contact_admin()}"
 
 
 def event_on_page(path):
@@ -87,8 +98,8 @@ def reply(request, message, page=""):
     """Answer a visitor's message, using tools to look things up.
 
     Returns:
-        dict: ``reply`` text, whether the question was ``escalated`` to the
-        event manager, and whether Gemini ``declined`` it for safety.
+        dict: ``reply`` text, whether Gemini ``declined`` it for safety, and
+        whether the assistant had no answer (``unanswered``).
 
     Raises:
         gemini.GeminiError: when Gemini cannot be reached.
@@ -101,7 +112,7 @@ def reply(request, message, page=""):
     ]
     contents.append({"role": "user", "parts": [{"text": message}]})
     current_event = event_on_page(page)
-    toolbox = Toolbox(request.user, list(session.get(INQUIRIES_KEY, [])))
+    toolbox = Toolbox(request.user)
     payload = {
         "systemInstruction": {
             "parts": [{"text": system_prompt(request.user, current_event)}]
@@ -151,21 +162,18 @@ def reply(request, message, page=""):
             }
         )
 
-    if not text:
-        # The model ran out of rounds or said nothing: hand the question to a
-        # person rather than leave the visitor without an answer.
-        toolbox.escalate_to_event_manager(
-            question=message, event_id=current_event.pk if current_event else None
-        )
-        text = escalated_reply()
+    unanswered = not text
+    if unanswered:
+        # The model ran out of rounds or said nothing: say where the visitor
+        # can get an answer rather than leave them without one.
+        text = unsure_reply(current_event)
 
-    session[INQUIRIES_KEY] = toolbox.inquiry_ids[-HISTORY_LIMIT:]
     append_history(
         session,
         {"role": "user", "text": message},
         {"role": "model", "text": text},
     )
-    return {"reply": text, "escalated": toolbox.escalated, "declined": declined}
+    return {"reply": text, "declined": declined, "unanswered": unanswered}
 
 
 def earlier_conversation(session):
@@ -214,17 +222,8 @@ def live_setup(request, page=""):
 
 
 def run_live_tool(request, name, args):
-    """Run one tool the voice assistant asked for, as this visitor.
-
-    Returns:
-        tuple: the tool's result and whether it escalated the question.
-    """
-    session = request.session
-    toolbox = Toolbox(request.user, list(session.get(INQUIRIES_KEY, [])))
-    result = toolbox.call(name, args)
-    if toolbox.escalated:
-        session[INQUIRIES_KEY] = toolbox.inquiry_ids[-HISTORY_LIMIT:]
-    return result, toolbox.escalated
+    """Run one tool the voice assistant asked for, as this visitor."""
+    return Toolbox(request.user).call(name, args)
 
 
 def save_voice_turn(session, message, text):

@@ -150,24 +150,16 @@
         message.append(bubble);
 
         if (options.live) message.classList.add("is-live");
-        if (role === "model" && !options.error && !options.live && (speech || options.escalated)) {
+        if (role === "model" && !options.error && !options.live && speech) {
             const meta = document.createElement("div");
             meta.className = "pa-meta";
-            if (options.escalated) {
-                const note = document.createElement("span");
-                note.className = "pa-escalated";
-                note.textContent = "Sent to event manager";
-                meta.append(note);
-            }
-            if (speech) {
-                const listen = document.createElement("button");
-                listen.type = "button";
-                listen.className = "pa-listen";
-                listen.textContent = "▶ Listen";
-                listen.setAttribute("aria-label", "Read this reply aloud");
-                listen.addEventListener("click", () => speak(text, "", listen));
-                meta.append(listen);
-            }
+            const listen = document.createElement("button");
+            listen.type = "button";
+            listen.className = "pa-listen";
+            listen.textContent = "▶ Listen";
+            listen.setAttribute("aria-label", "Read this reply aloud");
+            listen.addEventListener("click", () => speak(text, "", listen));
+            meta.append(listen);
             message.append(meta);
         }
         log.append(message);
@@ -242,10 +234,6 @@
         micButton.disabled = !voiceSupported || (value && !call);
     }
 
-    function rememberPending(escalated) {
-        if (escalated) store.set("localStorage", PENDING_KEY, "1");
-    }
-
     async function sendText(text) {
         text = text.trim();
         if (call && text) {
@@ -268,8 +256,7 @@
                 body: JSON.stringify({ message: text, page: location.pathname }),
             });
             typing.remove();
-            addMessage("model", data.reply, { escalated: data.escalated });
-            rememberPending(data.escalated);
+            addMessage("model", data.reply);
         } catch (error) {
             typing.remove();
             addMessage("model", error.message, { error: true });
@@ -385,7 +372,7 @@
         return {
             userText: "", userEl: null,
             modelText: "", shownText: "", modelEl: null,
-            interrupted: false, escalated: false, awaitingAnswer: false, timers: [],
+            interrupted: false, awaitingAnswer: false, timers: [],
         };
     }
 
@@ -650,26 +637,19 @@
         const settle = () => {
             if (turn.interrupted) setBubble(element, reply);
             element.classList.remove("is-live");
-            if (turn.escalated) {
-                const meta = document.createElement("div");
-                meta.className = "pa-meta";
-                meta.innerHTML = '<span class="pa-escalated">Sent to event manager</span>';
-                element.append(meta);
-            }
         };
         const lag = turn.interrupted ? 0 : (current.playhead - current.speaker.currentTime) * 1000;
         if (lag > 30) window.setTimeout(settle, lag);
         else settle();
-        saveTurn(message, reply, turn.escalated);
+        saveTurn(message, reply);
     }
 
-    function saveTurn(message, reply, escalated) {
-        rememberPending(escalated);
+    function saveTurn(message, reply) {
         request(urls.liveTurnUrl, {
             method: "POST",
             keepalive: true,
             headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ message, reply, escalated, page: location.pathname }),
+            body: JSON.stringify({ message, reply, page: location.pathname }),
         }).catch(() => { /* The transcript is still on screen. */ });
     }
 
@@ -686,7 +666,6 @@
                     body: JSON.stringify({ name: fc.name, args: fc.args || {} }),
                 });
                 result = data.result;
-                if (data.escalated) current.turn.escalated = true;
             } catch (error) {
                 result = { error: error.message };
             }
@@ -720,7 +699,7 @@
             current.playhead = 0;
             finishTurn(current, true);
         } else if (current.turn.userText.trim()) {
-            saveTurn(current.turn.userText.trim(), "", current.turn.escalated);
+            saveTurn(current.turn.userText.trim(), "");
         }
         call = null;
         window.clearInterval(current.timer);

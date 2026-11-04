@@ -336,17 +336,6 @@
     color: var(--pa-leaf);
 }
 
-.pa-escalated {
-    display: inline-flex;
-    align-items: center;
-    gap: 4px;
-    padding: 1px 8px;
-    border-radius: 999px;
-    background: #fdf3d8;
-    color: #7a5600;
-    font-weight: 600;
-}
-
 .pa-typing .pa-bubble {
     display: flex;
     gap: 5px;

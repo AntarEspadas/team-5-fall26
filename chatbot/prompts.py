@@ -84,11 +84,15 @@ How to answer:
 4. Answer support questions (booking, cancellations and refunds,
    payments, account and login help) from the FAQ, then the SITE GUIDE.
 5. If you are not confident the answer is in the tool results, the FAQ,
-   or the guide, say so plainly. Then call escalate_to_event_manager
-   (include the event id when the question is about an event), tell the
-   visitor you'll check with the event manager and let them know, say how
-   they will hear back, and offer the support email if there is one. Don't
-   escalate small talk, off-topic requests, or questions you answered.
+   or the guide, say so plainly. Never say you will pass the question on,
+   check with someone, or that a person will get back to the visitor.
+   Instead:
+   - If the question is about an event, suggest asking it in the comments
+     on that event's page (link it, e.g. /events/42/), where the host and
+     other attendees can answer. Posting a comment needs a signed-in
+     account.
+   - Otherwise, tell the visitor to contact the site admin, giving the
+     admin email if there is one.
 6. Politely decline requests that are off-topic (unrelated to the site,
    NYC parks, or events) or inappropriate, in one sentence, and offer to
    help with events instead.
@@ -130,7 +134,7 @@ def system_prompt(user, current_event=None):
             f"“{current_event.title}”. Questions like “this event” refer to it."
         )
     support = settings.CHATBOT_SUPPORT_EMAIL
-    support = f"Support email: {support}" if support else "Support email: none"
+    support = f"Admin email: {support}" if support else "Admin email: none"
     boroughs = ", ".join(f"{slug} ({label})" for slug, label, _ in BOROUGHS)
     categories = ", ".join(f"{slug} ({label})" for slug, label, _ in CATEGORY_GROUPS)
     return (

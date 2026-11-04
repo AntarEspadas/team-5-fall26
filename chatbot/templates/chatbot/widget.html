@@ -73,7 +73,7 @@
                 <svg viewBox="0 0 24 24" width="20" height="20" aria-hidden="true"><path fill="currentColor" d="M3.4 20.4 21 12 3.4 3.6 3.4 10l12.6 2-12.6 2z"/></svg>
             </button>
         </form>
-        <p class="pa-footnote">AI answers can be wrong. Questions it can't answer go to the event manager{% if chatbot_support_email %}, or email <a href="mailto:{{ chatbot_support_email }}">{{ chatbot_support_email }}</a>{% endif %}.</p>
+        <p class="pa-footnote">AI answers can be wrong. Ask about an event in the comments on its page{% if chatbot_support_email %}, or email the site admin at <a href="mailto:{{ chatbot_support_email }}">{{ chatbot_support_email }}</a>{% else %}, or contact the site admin{% endif %}.</p>
     </section>
 
     <button type="button" class="pa-launcher" id="pa-launcher" aria-controls="pa-panel" aria-expanded="false" aria-label="Open the Parks Assistant">
