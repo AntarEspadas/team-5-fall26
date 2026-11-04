@@ -2,8 +2,6 @@
 
 [![Checks](https://github.com/gcivil-nyu-org/team-5-fall26/actions/workflows/checks.yml/badge.svg?branch=develop)](https://github.com/gcivil-nyu-org/team-5-fall26/actions/workflows/checks.yml?query=branch%3Adevelop)
 
-[![Build Status](https://app.travis-ci.com/gcivil-nyu-org/team-5-fall26.svg?branch=develop)](https://app.travis-ci.com/github/gcivil-nyu-org/team-5-fall26)
-
 [![Coverage Status](https://coveralls.io/repos/github/gcivil-nyu-org/team-5-fall26/badge.svg?branch=develop)](https://coveralls.io/github/gcivil-nyu-org/team-5-fall26?branch=develop)
 
 
@@ -291,9 +289,18 @@ crontab -e
 
 ## Checks
 
-The badge above shows the combined status of the Black, Flake8, and coverage jobs
-in the pull request workflow. Click it to see workflow runs and individual job
-results.
+The Checks workflow runs Black, Flake8, and tests with a 95% coverage minimum on
+pull requests, pushes to `main` and `develop`, and manual runs. It uses Python
+3.11. Tests and the coverage minimum run in forks without deployment credentials
+or Coveralls setup. Click the badge above to see workflow runs and individual
+job results.
+
+To upload successful coverage results to Coveralls, set the repository variable
+`COVERALLS_ENABLED` to `true` under **Settings → Secrets and variables → Actions
+→ Variables**. Uploads run only on pushes, using GitHub's automatic
+`GITHUB_TOKEN`; no Coveralls secret is required. Pull requests and manual runs
+still enforce the coverage minimum without uploading. Unset or `false` disables
+uploads without affecting tests.
 
 Start PostgreSQL with `docker compose up -d --wait db` before running tests.
 The database user needs permission to create Django's temporary test database;
@@ -309,6 +316,51 @@ coverage report  # fails below 95% coverage
 ```
 
 ## Deploying to AWS Elastic Beanstalk
+
+With the repository variable `DEPLOY_ENABLED` set to `true`, GitHub Actions
+deploys pushes to `develop` to the configured Elastic Beanstalk environment
+(default: `team5-develop`) after Black, Flake8, and coverage pass. With the
+variable unset or `false`, deployment is skipped. Pull requests, `main`, and
+manual workflow runs only run checks. Deployments use the tested commit, include
+the Elastic Beanstalk configuration and platform hooks, and wait for the
+environment update before verifying the deployed version. Deployments run one
+at a time; newer pushes do not cancel an active deployment.
+
+Both opt-in variables are repository configuration, rather than workflow `env`
+values or secrets. Forks must configure their own variables to enable these
+integrations. The conditions do not depend on the repository name or owner.
+
+Before the first Actions deployment:
+
+1. In the GitHub repository, open **Settings → Secrets and variables → Actions**
+   and add repository secrets `AWS_ACCESS_KEY_ID` and `AWS_SECRET_ACCESS_KEY`
+   using the deployment credentials previously configured in Travis. Travis
+   secrets are not transferred automatically. These names match this repo's old
+   Travis configuration.
+2. Ensure that IAM principal can upload source bundles to
+   `elasticbeanstalk-us-east-1-390844769109`, create application versions for
+   `team5`, update `team5-develop`, and describe the environment in `us-east-1`.
+   These are the default deployment targets. To deploy to a different environment
+   (including from a fork), set the repository variables below and configure
+   credentials for that target before enabling deployment.
+3. Enable GitHub Actions for the repository and allow the actions referenced by
+   the workflow, including the [Coveralls action](https://github.com/coverallsapp/github-action).
+4. Disable builds for this repository in Travis to stop duplicate builds. If
+   branch protection requires Travis, replace that required check with the
+   Actions **Black**, **Flake8**, and **Coverage** checks after their first run.
+5. Under **Settings → Secrets and variables → Actions → Variables**, add
+   `DEPLOY_ENABLED` with the value `true`. Set `COVERALLS_ENABLED=true` separately
+   if coverage uploads are wanted. These flags enable integrations on subsequent
+   pushes; changing a variable does not trigger a workflow run.
+
+Optional deployment repository variables (defaults preserve the existing target):
+
+| Variable | Default |
+| --- | --- |
+| `EB_REGION` | `us-east-1` |
+| `EB_APPLICATION` | `team5` |
+| `EB_ENVIRONMENT` | `team5-develop` |
+| `EB_BUCKET` | `elasticbeanstalk-us-east-1-390844769109` |
 
 The repo is configured for Elastic Beanstalk's Python platform:
 `.ebextensions/django.config` sets `DJANGO_SETTINGS_MODULE`, the WSGI path
