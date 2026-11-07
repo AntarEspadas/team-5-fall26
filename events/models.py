@@ -176,6 +176,34 @@ class EventInterest(models.Model):
         return f"{self.user} — {self.get_status_display()} — {self.event}"
 
 
+class Registration(models.Model):
+    """Record a user's registration for an event."""
+
+    event = models.ForeignKey(
+        Event,
+        on_delete=models.CASCADE,
+        related_name="registrations",
+    )
+    user = models.ForeignKey(
+        "accounts.User",
+        on_delete=models.CASCADE,
+        related_name="event_registrations",
+    )
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ["-created_at"]
+        constraints = [
+            models.UniqueConstraint(
+                fields=["event", "user"],
+                name="unique_event_registration",
+            ),
+        ]
+
+    def __str__(self):
+        return f"{self.user} registered for {self.event}"
+
+
 class Notification(models.Model):
     """An event update or incoming contact request.
 

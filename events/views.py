@@ -23,7 +23,14 @@ from django.views.generic import (
 
 from .filters import EventFilterForm, filter_events, filter_params
 from .forms import CancelEventForm, EventListingForm, NotifyAttendeesForm
-from .models import ContactRequest, Event, EventInterest, EventPost, Notification
+from .models import (
+    ContactRequest,
+    Event,
+    EventInterest,
+    EventPost,
+    Notification,
+    Registration,
+)
 from .notifications import (
     cancel_notice,
     change_notice,
@@ -174,20 +181,32 @@ class MyEventsView(LoginRequiredMixin, TemplateView):
     template_name = "events/my_events.html"
 
     def get_context_data(self, **kwargs):
-        """Split hosted events into upcoming (soonest first) and archived.
-
-        Archived events are cancelled or over, most recent first.
-        """
+        """Show hosted events and events the user registered for."""
         context = super().get_context_data(**kwargs)
+        user = self.request.user
         events = list(
-            self.request.user.hosted_events.order_by(
-                F("start_time").asc(nulls_last=True), "end_time", "title", "pk"
+            user.hosted_events.order_by(
+                F("start_time").asc(nulls_last=True),
+                "end_time",
+                "title",
+                "pk",
             )
         )
-        context["upcoming_events"] = [event for event in events if event.is_open]
+        context["upcoming_events"] = [
+            event for event in events if event.is_open
+        ]
         context["archived_events"] = [
             event for event in reversed(events) if not event.is_open
         ]
+        context["registered_events"] = (
+            Registration.objects.filter(user=user)
+            .select_related("event")
+            .order_by(
+                F("event__start_time").asc(nulls_last=True),
+                "event__end_time",
+                "event__title",
+            )
+        )
         return context
 
 
@@ -229,6 +248,60 @@ class NotificationListView(LoginRequiredMixin, ListView):
         return context
 
 
+@login_required
+@require_POST
+def register_event(request, pk):
+    """Register the current user for an upcoming event."""
+    event = get_object_or_404(Event, pk=pk)
+    detail_url = reverse("event_detail", args=[event.pk])
+
+    if event.host_id is None:
+        messages.error(
+            request,
+            "This event does not accept registrations on this platform.",
+        )
+        return redirect(detail_url)
+
+    if event.host_id == request.user.pk:
+        messages.error(request, "You cannot register for your own event.")
+        return redirect(detail_url)
+
+    if not event.is_open or event.is_cancelled:
+        messages.error(request, "This event is no longer accepting registrations.")
+        return redirect(detail_url)
+
+    registration, created = Registration.objects.get_or_create(
+        event=event,
+        user=request.user,
+    )
+
+    if created:
+        messages.success(request, "You have successfully registered for this event!")
+    else:
+        messages.info(request, "You are already registered for this event.")
+
+    return redirect(detail_url)
+
+
+@login_required
+@require_POST
+def cancel_registration(request, pk):
+    """Cancel the current user's registration for an event."""
+    event = get_object_or_404(Event, pk=pk)
+
+    deleted, _ = Registration.objects.filter(
+        event=event,
+        user=request.user,
+    ).delete()
+
+    if deleted:
+        messages.success(request, "Your registration has been cancelled.")
+    else:
+        messages.info(request, "You are not registered for this event.")
+
+    return redirect("event_detail", pk=event.pk)
+
+
 class EventDetailView(DetailView):
     """Display event details and its community content."""
 
@@ -252,9 +325,7 @@ class EventDetailView(DetailView):
         context["interested_count"] = interests.filter(
             status=EventInterest.Status.INTERESTED
         ).count()
-        context["want_to_attend_count"] = interests.filter(
-            status=EventInterest.Status.WANT_TO_ATTEND
-        ).count()
+
 
         # Get the current user's selected intention.
         current_interest = (
@@ -268,12 +339,53 @@ class EventDetailView(DetailView):
 
         # Control whether users can interact with the event.
         context["can_interact"] = (
-            is_authenticated and event.status == Event.Status.UPCOMING
+                is_authenticated
+                and event.is_open
+                and not event.is_cancelled
         )
         context["can_manage"] = (
             is_authenticated and event.host_id == user.pk and event.is_open
         )
-        context["host_cancelled"] = event.status == Event.Status.CANCELLED
+        context["host_cancelled"] = event.is_cancelled
+
+        # Check whether this event accepts registrations on our platform.
+        context["event_accepts_registration"] = (
+            event.host_id is not None
+            and event.is_open
+            and not event.is_cancelled
+        )
+
+        # Get registrations for this event.
+        registrations = Registration.objects.filter(
+            event=event
+        ).select_related("user")
+
+        context["registered_count"] = registrations.count()
+
+        # Only show attendees who have chosen to share their profiles.
+        context["registered_users"] = registrations.filter(
+            user__share_profile_with_attendees=True
+        )
+
+        # Check whether the current user has registered.
+        current_registration = (
+            Registration.objects.filter(
+                event=event,
+                user=user,
+            ).first()
+            if is_authenticated
+            else None
+        )
+
+        context["user_is_registered"] = current_registration is not None
+
+        # Only logged-in users who are not the host can register.
+        context["can_register"] = (
+            is_authenticated
+            and context["event_accepts_registration"]
+            and event.host_id != user.pk
+            and current_registration is None
+        )
 
         if context["can_manage"]:
             context["recipient_count"] = interested_recipients(event).count()
@@ -322,11 +434,6 @@ class EventDetailView(DetailView):
             if attendee["status"] == EventInterest.Status.INTERESTED
         ]
 
-        context["want_to_attend_users"] = [
-            attendee
-            for attendee in attendees
-            if attendee["status"] == EventInterest.Status.WANT_TO_ATTEND
-        ]
 
         context["attendees"] = attendees
 
