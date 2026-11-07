@@ -533,21 +533,16 @@
         >
 
         <h1>{{ event.title }}</h1>
-
         {% if event.host %}
-            <p class="detail-meta">
-                Hosted by <strong>{{ event.host.get_display_name }}</strong>
+          <p class="event-host">
+            Hosted by <strong>{{ event.host.display_name|default:event.host.username }}</strong>
+          </p>
+        {% endif %}
+        {% if can_manage %}
+            <p class="detail-actions">
+                <a class="detail-button" href="{% url 'event_edit' event.pk %}">Edit event</a>
+                <a class="detail-button danger-button" href="{% url 'event_cancel' event.pk %}">Cancel event</a>
             </p>
-            {% if can_manage %}
-                <p class="detail-actions">
-                    <a class="detail-button" href="{% url 'event_edit' event.pk %}">
-                        Edit event
-                    </a>
-                    <a class="detail-button danger-button" href="{% url 'event_cancel' event.pk %}">
-                        Cancel event
-                    </a>
-                </p>
-            {% endif %}
         {% endif %}
 
         <h2>Event details</h2>

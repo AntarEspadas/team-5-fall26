@@ -81,7 +81,7 @@ DECLARATIONS = [
         "name": "get_my_activity",
         "description": (
             "Get the signed-in visitor's own activity and bookings: their "
-            "next event, events they are interested in or want to attend "
+            "next event, events they are interested in"
             "(their bookings), events they host, unread "
             "notifications and messages, pending contact requests, and their "
             "privacy settings."
@@ -223,12 +223,7 @@ class Toolbox:
                 "contact_phone": event.contact_phone,
                 "registration_link": event.registration_url,
                 "nyc_parks_page": event.event_url,
-                "interested_count": interests.filter(
-                    status=EventInterest.Status.INTERESTED
-                ).count(),
-                "want_to_attend_count": interests.filter(
-                    status=EventInterest.Status.WANT_TO_ATTEND
-                ).count(),
+                "interested_count": interests.count(),
             }
         )
         if self.user.is_authenticated:

@@ -192,9 +192,7 @@ class MyEventsView(LoginRequiredMixin, TemplateView):
                 "pk",
             )
         )
-        context["upcoming_events"] = [
-            event for event in events if event.is_open
-        ]
+        context["upcoming_events"] = [event for event in events if event.is_open]
         context["archived_events"] = [
             event for event in reversed(events) if not event.is_open
         ]
@@ -326,7 +324,6 @@ class EventDetailView(DetailView):
             status=EventInterest.Status.INTERESTED
         ).count()
 
-
         # Get the current user's selected intention.
         current_interest = (
             interests.filter(user=user).first() if is_authenticated else None
@@ -339,9 +336,7 @@ class EventDetailView(DetailView):
 
         # Control whether users can interact with the event.
         context["can_interact"] = (
-                is_authenticated
-                and event.is_open
-                and not event.is_cancelled
+            is_authenticated and event.is_open and not event.is_cancelled
         )
         context["can_manage"] = (
             is_authenticated and event.host_id == user.pk and event.is_open
@@ -350,15 +345,11 @@ class EventDetailView(DetailView):
 
         # Check whether this event accepts registrations on our platform.
         context["event_accepts_registration"] = (
-            event.host_id is not None
-            and event.is_open
-            and not event.is_cancelled
+            event.host_id is not None and event.is_open and not event.is_cancelled
         )
 
         # Get registrations for this event.
-        registrations = Registration.objects.filter(
-            event=event
-        ).select_related("user")
+        registrations = Registration.objects.filter(event=event).select_related("user")
 
         context["registered_count"] = registrations.count()
 
@@ -433,7 +424,6 @@ class EventDetailView(DetailView):
             for attendee in attendees
             if attendee["status"] == EventInterest.Status.INTERESTED
         ]
-
 
         context["attendees"] = attendees
 

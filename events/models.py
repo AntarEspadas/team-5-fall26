@@ -144,7 +144,6 @@ class EventInterest(models.Model):
 
     class Status(models.TextChoices):
         INTERESTED = "interested", "Interested"
-        WANT_TO_ATTEND = "want_to_attend", "Want to Attend"
 
     event = models.ForeignKey(
         Event,
