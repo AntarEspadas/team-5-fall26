@@ -20,7 +20,8 @@ from django.views.generic import (
     TemplateView,
     UpdateView,
 )
-
+from django.db.models import Exists, OuterRef
+from django.utils.http import url_has_allowed_host_and_scheme
 from .filters import EventFilterForm, filter_events, filter_params
 from .forms import CancelEventForm, EventListingForm, NotifyAttendeesForm
 from .models import (
@@ -253,20 +254,27 @@ def register_event(request, pk):
     event = get_object_or_404(Event, pk=pk)
     detail_url = reverse("event_detail", args=[event.pk])
 
-    if event.host_id is None:
-        messages.error(
-            request,
-            "This event does not accept registrations on this platform.",
-        )
-        return redirect(detail_url)
+    # Return to the page where the user clicked Register.
+    next_url = request.POST.get("next")
+    if not url_has_allowed_host_and_scheme(
+        next_url,
+        allowed_hosts={request.get_host()},
+        require_https=request.is_secure(),
+    ):
+        next_url = detail_url
 
+    # Prevent event hosts from registering for their own events.
     if event.host_id == request.user.pk:
         messages.error(request, "You cannot register for your own event.")
-        return redirect(detail_url)
+        return redirect(next_url)
 
+    # Only allow registration for open, non-cancelled events.
     if not event.is_open or event.is_cancelled:
-        messages.error(request, "This event is no longer accepting registrations.")
-        return redirect(detail_url)
+        messages.error(
+            request,
+            "This event is no longer accepting registrations.",
+        )
+        return redirect(next_url)
 
     registration, created = Registration.objects.get_or_create(
         event=event,
@@ -274,11 +282,17 @@ def register_event(request, pk):
     )
 
     if created:
-        messages.success(request, "You have successfully registered for this event!")
+        messages.success(
+            request,
+            "You have successfully registered for this event!",
+        )
     else:
-        messages.info(request, "You are already registered for this event.")
+        messages.info(
+            request,
+            "You are already registered for this event.",
+        )
 
-    return redirect(detail_url)
+    return redirect(next_url)
 
 
 @login_required
@@ -287,17 +301,31 @@ def cancel_registration(request, pk):
     """Cancel the current user's registration for an event."""
     event = get_object_or_404(Event, pk=pk)
 
+    next_url = request.POST.get("next")
+    if not url_has_allowed_host_and_scheme(
+        next_url,
+        allowed_hosts={request.get_host()},
+        require_https=request.is_secure(),
+    ):
+        next_url = reverse("event_detail", args=[event.pk])
+
     deleted, _ = Registration.objects.filter(
         event=event,
         user=request.user,
     ).delete()
 
     if deleted:
-        messages.success(request, "Your registration has been cancelled.")
+        messages.success(
+            request,
+            "Your registration has been cancelled.",
+        )
     else:
-        messages.info(request, "You are not registered for this event.")
+        messages.info(
+            request,
+            "You are not registered for this event.",
+        )
 
-    return redirect("event_detail", pk=event.pk)
+    return redirect(next_url)
 
 
 class EventDetailView(DetailView):
@@ -344,9 +372,7 @@ class EventDetailView(DetailView):
         context["host_cancelled"] = event.is_cancelled
 
         # Check whether this event accepts registrations on our platform.
-        context["event_accepts_registration"] = (
-            event.host_id is not None and event.is_open and not event.is_cancelled
-        )
+        context["event_accepts_registration"] = event.is_open and not event.is_cancelled
 
         # Get registrations for this event.
         registrations = Registration.objects.filter(event=event).select_related("user")
@@ -465,26 +491,42 @@ class LandingView(TemplateView):
         context["archived_events"] = []
         if self.request.user.is_authenticated:
             # Upcoming events, soonest first.
-            context["events"] = Event.objects.filter(
-                status=Event.Status.UPCOMING
-            ).order_by(
-                F("start_time").asc(nulls_last=True),
-                "end_time",
-                "title",
-            )[
-                :UPCOMING_EVENT_LIMIT
-            ]
+            context["events"] = (
+                Event.objects.filter(
+                    status=Event.Status.UPCOMING,
+                )
+                .annotate(
+                    user_is_registered=Exists(
+                        Registration.objects.filter(
+                            event_id=OuterRef("pk"),
+                            user=self.request.user,
+                        )
+                    )
+                )
+                .order_by(
+                    F("start_time").asc(nulls_last=True),
+                    "end_time",
+                    "title",
+                )[:UPCOMING_EVENT_LIMIT]
+            )
 
             # Recently completed events, newest first.
-            context["archived_events"] = Event.objects.filter(
-                status=Event.Status.DONE
-            ).order_by(
-                F("start_time").desc(nulls_last=True),
-                "-end_time",
-                "-title",
-            )[
-                :ARCHIVED_EVENT_PREVIEW_LIMIT
-            ]
+            context["archived_events"] = (
+                Event.objects.filter(status=Event.Status.DONE)
+                .annotate(
+                    user_is_registered=Exists(
+                        Registration.objects.filter(
+                            event_id=OuterRef("pk"),
+                            user=self.request.user,
+                        )
+                    )
+                )
+                .order_by(
+                    F("start_time").desc(nulls_last=True),
+                    "-end_time",
+                    "-title",
+                )[:ARCHIVED_EVENT_PREVIEW_LIMIT]
+            )
 
         return context
 
@@ -513,10 +555,19 @@ class EventSearchMixin:
         else:
             self.filter_form = form
 
-        events = filter_events(
-            Event.objects.filter(status=self.event_status),
-            filters,
-        )
+        base_queryset = Event.objects.filter(status=self.event_status)
+
+        events = filter_events(base_queryset, filters)
+
+        if self.request.user.is_authenticated:
+            events = events.annotate(
+                user_is_registered=Exists(
+                    Registration.objects.filter(
+                        event_id=OuterRef("pk"),
+                        user=self.request.user,
+                    )
+                )
+            )
 
         if self.query:
             return search_events(events, self.query)

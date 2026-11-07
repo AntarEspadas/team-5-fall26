@@ -104,7 +104,8 @@ class LandingViewTests(TestCase):
             response,
             f'href="{reverse("event_detail", args=[self.alpha_event.pk])}"',
         )
-        self.assertContains(response, ">Register</a>")
+        self.assertContains(response, '<button type="submit" class="register">')
+        self.assertContains(response, "Register")
         self.assertContains(response, "Stretch and breathe in the park.")
 
     def test_images_use_the_stored_url_or_a_placeholder(self):
@@ -457,15 +458,9 @@ class RegistrationViewTests(TestCase):
             end_time=datetime(2099, 3, 15, 10, 0, tzinfo=NYC),
         )
 
-        self.register_url = reverse(
-            "event_register", args=[self.event.pk]
-        )
-        self.cancel_url = reverse(
-            "event_cancel_registration", args=[self.event.pk]
-        )
-        self.detail_url = reverse(
-            "event_detail", args=[self.event.pk]
-        )
+        self.register_url = reverse("event_register", args=[self.event.pk])
+        self.cancel_url = reverse("event_cancel_registration", args=[self.event.pk])
+        self.detail_url = reverse("event_detail", args=[self.event.pk])
 
         self.client.login(
             username="registration_user",
@@ -495,14 +490,20 @@ class RegistrationViewTests(TestCase):
         self.assertRedirects(response, self.detail_url)
         self.assertEqual(Registration.objects.count(), 1)
 
-    def test_event_without_host_does_not_accept_registration(self):
+    def test_event_without_host_accepts_registration(self):
         self.event.host = None
         self.event.save(update_fields=["host"])
 
         response = self.client.post(self.register_url)
 
         self.assertRedirects(response, self.detail_url)
-        self.assertFalse(Registration.objects.exists())
+        self.assertTrue(
+            Registration.objects.filter(
+                event=self.event,
+                user=self.user,
+            ).exists()
+        )
+        self.assertEqual(Registration.objects.count(), 1)
 
     def test_host_cannot_register_for_own_event(self):
         self.client.logout()
@@ -579,7 +580,6 @@ class RegistrationViewTests(TestCase):
 
         self.assertEqual(response.status_code, 405)
         self.assertFalse(Registration.objects.exists())
-
 
 
 class EventDetailViewTests(TestCase):
