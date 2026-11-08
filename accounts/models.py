@@ -3,6 +3,7 @@
 from django.contrib.auth.models import AbstractUser, UserManager
 from django.contrib.auth.validators import ASCIIUsernameValidator
 from django.db import models
+from django.utils import timezone
 
 
 class AccountManager(UserManager):
@@ -101,3 +102,48 @@ class User(AbstractUser):
     def get_display_name(self):
         """Return the display name, or the username if no display name is set."""
         return self.display_name or self.username
+
+
+class UserBan(models.Model):
+    """One offense, retained after its ban expires or an admin lifts it."""
+
+    user = models.ForeignKey(User, on_delete=models.CASCADE, related_name="bans")
+    offense_number = models.PositiveIntegerField()
+    issued_by = models.ForeignKey(
+        User,
+        on_delete=models.SET_NULL,
+        null=True,
+        related_name="bans_issued",
+    )
+    started_at = models.DateTimeField(default=timezone.now, editable=False)
+    expires_at = models.DateTimeField(null=True, blank=True)
+    lifted_at = models.DateTimeField(null=True, blank=True)
+    lifted_by = models.ForeignKey(
+        User,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="bans_lifted",
+    )
+
+    class Meta:
+        ordering = ["-offense_number"]
+        constraints = [
+            models.UniqueConstraint(
+                fields=["user", "offense_number"], name="unique_user_ban_offense"
+            ),
+            models.CheckConstraint(
+                condition=models.Q(offense_number__gte=1),
+                name="user_ban_positive_offense",
+            ),
+        ]
+
+    @property
+    def is_active(self):
+        """An expiration boundary ends a ban without changing its history."""
+        return self.lifted_at is None and (
+            self.expires_at is None or self.expires_at > timezone.now()
+        )
+
+    def __str__(self):
+        return f"Ban {self.offense_number} for user {self.user_id}"
