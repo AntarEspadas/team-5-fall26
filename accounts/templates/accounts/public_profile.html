@@ -12,6 +12,7 @@
     <link rel="stylesheet" href="{% static 'events/cards.css' %}">
     <link rel="stylesheet" href="{% static 'events/home.css' %}">
     <link rel="stylesheet" href="{% static 'reports/menus.css' %}">
+    <link rel="stylesheet" href="{% static 'accounts/ban.css' %}">
     <script src="{% static 'reports/menus.js' %}" defer></script>
 
     <style>
@@ -439,7 +440,11 @@
 
             <div class="profile-actions">
                 {% if request.user.is_authenticated and request.user.pk == profile_user.pk %}
+                    {% if profile_ban %}
+                    <a class="profile-button" href="{% url 'account_settings' %}">Account settings</a>
+                    {% else %}
                     <a class="profile-button" href="{% url 'account_settings' %}">Edit profile</a>
+                    {% endif %}
                 {% elif request.user.is_authenticated %}
                     {% if can_message %}
                         <a class="profile-button" href="{% url 'message_user' profile_user.pk %}">Send Message</a>
@@ -449,6 +454,12 @@
                 {% endif %}
             </div>
         </div>
+
+        {% if request.user.pk == profile_user.pk %}
+            {% include 'accounts/_ban_banner.html' with ban=profile_ban is_owner=True only %}
+        {% else %}
+            {% include 'accounts/_ban_banner.html' with ban=profile_ban is_owner=False only %}
+        {% endif %}
 
         <section class="profile-summary" aria-label="Profile information">
             <div class="profile-avatar-wrap">
@@ -482,7 +493,7 @@
 
                 <p class="profile-member-label">NYC Parks Community Member</p>
 
-                {% if request.user.is_authenticated and request.user.pk == profile_user.pk %}
+                {% if request.user.is_authenticated and request.user.pk == profile_user.pk and not profile_ban %}
                     <p class="profile-privacy-note">
                         Update your profile details, interests, and privacy preferences using Edit profile.
                     </p>
@@ -509,7 +520,7 @@
                 {% else %}
                     <p class="profile-empty-state">
                         No interests added yet.
-                        {% if request.user.is_authenticated and request.user.pk == profile_user.pk %}
+                        {% if request.user.is_authenticated and request.user.pk == profile_user.pk and not profile_ban %}
                             <a href="{% url 'account_settings' %}">Choose your interests</a> in Account Settings.
                         {% endif %}
                     </p>

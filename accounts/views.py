@@ -16,6 +16,7 @@ from django.utils import timezone
 from django.views.generic import CreateView, DetailView, UpdateView
 
 from events.models import ContactRequest, Event
+from .ban_services import get_active_ban
 from .forms import AccountSettingsForm, LoginForm, RegistrationForm
 
 
@@ -30,6 +31,16 @@ class AccountSettingsView(LoginRequiredMixin, SuccessMessageMixin, UpdateView):
     def get_object(self, queryset=None):
         """Select the account from the session, never from submitted identifiers."""
         return self.request.user
+
+    def get_context_data(self, **kwargs):
+        """Keep saved settings readable while an active ban prevents editing."""
+        context = super().get_context_data(**kwargs)
+        context["active_ban"] = get_active_ban(self.object)
+        interest_labels = dict(AccountSettingsForm.INTEREST_CHOICES)
+        context["interest_categories"] = [
+            interest_labels.get(value, value) for value in (self.object.interests or [])
+        ]
+        return context
 
 
 class PublicProfileView(LoginRequiredMixin, DetailView):
@@ -69,6 +80,7 @@ class PublicProfileView(LoginRequiredMixin, DetailView):
         """Provide real profile information from existing event data."""
         context = super().get_context_data(**kwargs)
         profile_user = self.object
+        context["profile_ban"] = get_active_ban(profile_user)
 
         # Upcoming events the member marked as Interested.
         context["upcoming_events"] = (

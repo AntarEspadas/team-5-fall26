@@ -1,0 +1,16 @@
+{% if ban %}
+<section class="ban-banner" role="status" aria-labelledby="ban-banner-title">
+    <h2 id="ban-banner-title">Account banned</h2>
+    <p>
+        {% if is_owner %}Your account is banned{% else %}This account is banned{% endif %}
+        {% if ban.expires_at %}
+        until <time datetime="{{ ban.expires_at|date:'c' }}">{{ ban.expires_at|date:"F j, Y, g:i A T" }}</time>.
+        {% else %}
+        indefinitely.
+        {% endif %}
+    </p>
+    {% if is_owner %}
+    <p>You can continue browsing and marking events as Interested. Other submissions, including profile edits, are disabled.</p>
+    {% endif %}
+</section>
+{% endif %}

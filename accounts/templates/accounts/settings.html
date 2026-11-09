@@ -4,6 +4,10 @@
 
 {% block title %}Account settings{% endblock %}
 
+{% block extrastyle %}
+<link rel="stylesheet" href="{% static 'accounts/ban.css' %}">
+{% endblock %}
+
 {% block content %}
 <style>
   .settings-page {
@@ -201,9 +205,15 @@
   <h1>Account Settings</h1>
 
     <p class="settings-intro">
+        {% if active_ban %}
+        Your saved profile and privacy settings are shown below. Account settings are read-only while your ban is active.
+        {% else %}
         Manage your account, edit your community profile, and control
         what other members can see.
+        {% endif %}
     </p>
+
+    {% include 'accounts/_ban_banner.html' with ban=active_ban is_owner=True only %}
     
     <p>
         <a
@@ -214,6 +224,9 @@
         </a>
     </p>
 
+  {% if active_ban %}
+    {% include 'accounts/_settings_readonly.html' with profile_user=object interest_categories=interest_categories only %}
+  {% else %}
   <form method="post" enctype="multipart/form-data">
     {% csrf_token %}
 
@@ -383,10 +396,13 @@
       </a>
     </div>
   </form>
+  {% endif %}
 </div>
 
+{% if not active_ban %}
 <script
   src="{% static 'accounts/profile-photo-preview.js' %}"
   defer
 ></script>
+{% endif %}
 {% endblock %}

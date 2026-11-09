@@ -1,0 +1,43 @@
+<div class="settings-readonly">
+    <section class="settings-section">
+        <h2>Profile information</h2>
+        {% if profile_user.profile_photo %}
+        <img class="profile-photo" src="{{ profile_user.profile_photo.url }}" alt="Your current profile photo" width="96" height="96">
+        {% else %}
+        <p>No profile photo.</p>
+        {% endif %}
+        <dl>
+            <dt>Display name</dt>
+            <dd>{{ profile_user.display_name|default:"Not set" }}</dd>
+            <dt>Bio</dt>
+            <dd>{{ profile_user.bio|default:"Not set" }}</dd>
+            <dt>Pronouns</dt>
+            <dd>{{ profile_user.pronouns|default:"Not set" }}</dd>
+        </dl>
+    </section>
+
+    <section class="settings-section">
+        <h2>My Interests</h2>
+        <ul>
+            {% for interest in interest_categories %}
+            <li>{{ interest }}</li>
+            {% empty %}
+            <li>No interests added yet.</li>
+            {% endfor %}
+        </ul>
+    </section>
+
+    <section class="settings-section">
+        <h2>Profile &amp; Privacy</h2>
+        <dl>
+            <dt>Share my profile with other event attendees</dt>
+            <dd>{{ profile_user.share_profile_with_attendees|yesno:"Yes,No" }}</dd>
+        </dl>
+    </section>
+
+    <section class="settings-section">
+        <h2>Contact preferences</h2>
+        <p>{{ profile_user.get_contact_permission_display }}</p>
+    </section>
+    <a class="button" href="{% url 'landing' %}">Back to home</a>
+</div>
