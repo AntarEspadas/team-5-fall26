@@ -1,6 +1,5 @@
 """Keep upstream attendance and discussion features working with request alerts."""
 
-from itertools import product
 from unittest.mock import patch
 
 from django.core import mail
@@ -87,62 +86,10 @@ class NotificationIntegrationTests(NotifyTestCase):
         self.assertIn(self.event.title, alert.body)
         self.assertEqual(EventReply.objects.count(), 1)
 
-    def test_both_intentions_support_requests_and_resolved_card_status(self):
-        choices = EventInterest.Status.values
-        for sender_status, recipient_status in product(choices, repeat=2):
-            with self.subTest(sender=sender_status, recipient=recipient_status):
-                ContactRequest.objects.all().delete()
-                EventInterest.objects.filter(user=self.host).update(
-                    status=sender_status
-                )
-                EventInterest.objects.filter(user=self.fan).update(
-                    status=recipient_status
-                )
-                self.client.force_login(self.host)
-                page = self.client.get(self.detail_url)
-                self.assertContains(
-                    page, reverse("public_profile", args=[self.fan.username])
-                )
-                group = (
-                    "interested_users"
-                    if recipient_status == EventInterest.Status.INTERESTED
-                    else "want_to_attend_users"
-                )
-                self.assertEqual(page.context[group][0]["user"], self.fan)
-                self.assertRedirects(
-                    self.client.post(self.contact_url, {"message": "Hello"}),
-                    self.detail_url,
-                )
-                self.assertContains(
-                    self.client.get(self.detail_url), "awaiting response."
-                )
-                contact_request = ContactRequest.objects.get()
-                alert = Notification.objects.get()
-                self.assertIsNone(alert.read_at)
-                self.client.force_login(self.fan)
-                self.assertRedirects(
-                    self.client.post(
-                        reverse(
-                            "respond_to_contact_request",
-                            args=[contact_request.pk, "accept"],
-                        ),
-                        {"return_to": "notifications"},
-                    ),
-                    reverse("notifications"),
-                )
-                alert.refresh_from_db()
-                self.assertIsNotNone(alert.read_at)
-                self.client.force_login(self.host)
-                page = self.client.get(self.detail_url)
-                self.assertContains(page, "Contact request accepted.")
-                self.assertNotContains(page, f'action="{self.contact_url}"')
-
-    def test_want_to_attend_users_receive_host_announcements(self):
-        EventInterest.objects.filter(user=self.fan).update(
-            status=EventInterest.Status.WANT_TO_ATTEND
-        )
+    def test_interested_users_receive_host_announcements(self):
         self.assertEqual(
-            set(interested_recipients(self.event)), {self.fan, self.second_fan}
+            set(interested_recipients(self.event)),
+            {self.fan, self.second_fan},
         )
         self.send()
         self.assertEqual(
@@ -151,32 +98,37 @@ class NotificationIntegrationTests(NotifyTestCase):
         )
         self.assertEqual(len(mail.outbox), 2)
 
-    def test_intention_switch_and_removal_do_not_resolve_request(self):
+    def test_interest_removal_does_not_resolve_request(self):
         self.client.post(self.contact_url)
         alert = Notification.objects.get()
+
         self.client.force_login(self.fan)
         url = reverse("toggle_event_interest", args=[self.event.pk])
-        self.client.post(url, {"status": EventInterest.Status.WANT_TO_ATTEND})
-        self.assertEqual(
-            EventInterest.objects.get(user=self.fan).status,
-            EventInterest.Status.WANT_TO_ATTEND,
-        )
+
+        # Clicking Interested removes the user's interest.
         self.client.post(url, {"status": EventInterest.Status.INTERESTED})
-        self.assertEqual(
-            EventInterest.objects.get(user=self.fan).status,
-            EventInterest.Status.INTERESTED,
+
+        self.assertFalse(
+            EventInterest.objects.filter(
+                event=self.event,
+                user=self.fan,
+            ).exists()
         )
-        self.client.post(url, {"status": EventInterest.Status.INTERESTED})
-        self.assertFalse(EventInterest.objects.filter(user=self.fan).exists())
+
+        # Removing interest must not resolve the contact request.
         alert.refresh_from_db()
         self.assertIsNone(alert.read_at)
-        self.assertEqual(alert.contact_request.status, ContactRequest.Status.PENDING)
+        self.assertEqual(
+            alert.contact_request.status,
+            ContactRequest.Status.PENDING,
+        )
 
     def test_invalid_intention_is_ignored(self):
-        self.client.post(
-            reverse("toggle_event_interest", args=[self.event.pk]),
-            {"status": "invalid"},
-        )
+        url = reverse("toggle_event_interest", args=[self.event.pk])
+
+        self.client.post(url, {"status": "invalid"})
+        self.client.post(url, {"status": "want_to_attend"})
+
         self.assertEqual(
             EventInterest.objects.get(user=self.host).status,
             EventInterest.Status.INTERESTED,
@@ -186,7 +138,7 @@ class NotificationIntegrationTests(NotifyTestCase):
         self.client.force_login(self.bystander)
         response = self.client.get(self.detail_url)
         self.assertNotContains(response, f'action="{self.contact_url}"')
-        self.assertContains(response, "Select Interested or Want to Attend")
+        self.assertContains(response, "Interested")
         self.client.force_login(self.host)
         self.host.share_profile_with_attendees = True
         self.host.save()

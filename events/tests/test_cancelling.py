@@ -39,11 +39,7 @@ class CancelTestCase(TestCase):
     def setUp(self):
         self.event = self.hosted("yoga")
         EventInterest.objects.create(event=self.event, user=self.fan)
-        EventInterest.objects.create(
-            event=self.event,
-            user=self.goer,
-            status=EventInterest.Status.WANT_TO_ATTEND,
-        )
+        EventInterest.objects.create(event=self.event, user=self.goer)
         EventInterest.objects.create(event=self.event, user=self.host)
         self.cancel_url = reverse("event_cancel", args=[self.event.pk])
         self.detail_url = reverse("event_detail", args=[self.event.pk])
@@ -84,7 +80,7 @@ class CancelEventTests(CancelTestCase):
         self.client.force_login(self.fan)
         self.assertNotContains(self.client.get(self.detail_url), self.cancel_url)
 
-    def test_confirmation_page_counts_both_interest_kinds(self):
+    def test_confirmation_page_counts_interested_users(self):
         self.client.force_login(self.host)
         response = self.client.get(self.cancel_url)
         self.assertContains(response, "Cancel this event?")

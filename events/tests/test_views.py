@@ -7,7 +7,7 @@ from django.contrib.auth import get_user_model
 from django.test import TestCase
 from django.urls import reverse
 
-from events.models import Event
+from events.models import Event, Registration
 from events.views import (
     ARCHIVED_EVENT_PAGE_SIZE,
     UPCOMING_EVENT_LIMIT,
@@ -104,7 +104,8 @@ class LandingViewTests(TestCase):
             response,
             f'href="{reverse("event_detail", args=[self.alpha_event.pk])}"',
         )
-        self.assertContains(response, ">Register</a>")
+        self.assertContains(response, '<button type="submit" class="register">')
+        self.assertContains(response, "Register")
         self.assertContains(response, "Stretch and breathe in the park.")
 
     def test_images_use_the_stored_url_or_a_placeholder(self):
@@ -431,6 +432,154 @@ class ArchivedEventsViewTests(TestCase):
 
         self.assertEqual(response.status_code, 200)
         self.assertTrue(response.context["filter_form"].errors)
+
+
+class RegistrationViewTests(TestCase):
+    """Tests for registering for and cancelling event registrations."""
+
+    def setUp(self):
+        User = get_user_model()
+        self.user = User.objects.create_user(
+            username="registration_user",
+            email="registration@example.com",
+            password="pass12345",
+        )
+        self.other_user = User.objects.create_user(
+            username="event_host",
+            email="host@example.com",
+            password="pass12345",
+        )
+
+        self.event = make_event(
+            "registration-1",
+            "Community Yoga",
+            host=self.other_user,
+            start_time=datetime(2099, 3, 15, 9, 0, tzinfo=NYC),
+            end_time=datetime(2099, 3, 15, 10, 0, tzinfo=NYC),
+        )
+
+        self.register_url = reverse("event_register", args=[self.event.pk])
+        self.cancel_url = reverse("event_cancel_registration", args=[self.event.pk])
+        self.detail_url = reverse("event_detail", args=[self.event.pk])
+
+        self.client.login(
+            username="registration_user",
+            password="pass12345",
+        )
+
+    def test_user_can_register_for_an_upcoming_event(self):
+        response = self.client.post(self.register_url)
+
+        self.assertRedirects(response, self.detail_url)
+        self.assertTrue(
+            Registration.objects.filter(
+                event=self.event,
+                user=self.user,
+            ).exists()
+        )
+        self.assertEqual(Registration.objects.count(), 1)
+
+    def test_duplicate_registration_does_not_create_another_record(self):
+        Registration.objects.create(
+            event=self.event,
+            user=self.user,
+        )
+
+        response = self.client.post(self.register_url)
+
+        self.assertRedirects(response, self.detail_url)
+        self.assertEqual(Registration.objects.count(), 1)
+
+    def test_event_without_host_accepts_registration(self):
+        self.event.host = None
+        self.event.save(update_fields=["host"])
+
+        response = self.client.post(self.register_url)
+
+        self.assertRedirects(response, self.detail_url)
+        self.assertTrue(
+            Registration.objects.filter(
+                event=self.event,
+                user=self.user,
+            ).exists()
+        )
+        self.assertEqual(Registration.objects.count(), 1)
+
+    def test_host_cannot_register_for_own_event(self):
+        self.client.logout()
+        self.client.login(
+            username="event_host",
+            password="pass12345",
+        )
+
+        response = self.client.post(self.register_url)
+
+        self.assertRedirects(response, self.detail_url)
+        self.assertFalse(Registration.objects.exists())
+
+    def test_closed_event_does_not_accept_registration(self):
+        self.event.status = Event.Status.DONE
+        self.event.save(update_fields=["status"])
+
+        response = self.client.post(self.register_url)
+
+        self.assertRedirects(response, self.detail_url)
+        self.assertFalse(Registration.objects.exists())
+
+    def test_cancelled_event_does_not_accept_registration(self):
+        self.event.status = Event.Status.CANCELLED
+        self.event.save(update_fields=["status"])
+
+        response = self.client.post(self.register_url)
+
+        self.assertRedirects(response, self.detail_url)
+        self.assertFalse(Registration.objects.exists())
+
+    def test_user_can_cancel_existing_registration(self):
+        Registration.objects.create(
+            event=self.event,
+            user=self.user,
+        )
+
+        response = self.client.post(self.cancel_url)
+
+        self.assertRedirects(response, self.detail_url)
+        self.assertFalse(Registration.objects.exists())
+
+    def test_cancelling_without_registration_does_not_create_record(self):
+        response = self.client.post(self.cancel_url)
+
+        self.assertRedirects(response, self.detail_url)
+        self.assertFalse(Registration.objects.exists())
+
+    def test_registration_requires_login(self):
+        self.client.logout()
+
+        response = self.client.post(self.register_url)
+
+        self.assertEqual(response.status_code, 302)
+        self.assertIn("/accounts/login/", response.url)
+        self.assertFalse(Registration.objects.exists())
+
+    def test_cancelling_registration_requires_login(self):
+        self.client.logout()
+
+        response = self.client.post(self.cancel_url)
+
+        self.assertEqual(response.status_code, 302)
+        self.assertIn("/accounts/login/", response.url)
+
+    def test_registration_requires_post(self):
+        response = self.client.get(self.register_url)
+
+        self.assertEqual(response.status_code, 405)
+        self.assertFalse(Registration.objects.exists())
+
+    def test_cancelling_registration_requires_post(self):
+        response = self.client.get(self.cancel_url)
+
+        self.assertEqual(response.status_code, 405)
+        self.assertFalse(Registration.objects.exists())
 
 
 class EventDetailViewTests(TestCase):

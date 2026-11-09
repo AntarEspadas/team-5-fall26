@@ -54,7 +54,6 @@ def toggle_event_interest(request, event_id):
 
     valid_statuses = {
         EventInterest.Status.INTERESTED,
-        EventInterest.Status.WANT_TO_ATTEND,
     }
 
     if status not in valid_statuses:

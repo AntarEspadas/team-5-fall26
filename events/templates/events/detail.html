@@ -1,4 +1,3 @@
-
 {% load static tz %}
 <!DOCTYPE html>
 <html lang="en">
@@ -534,17 +533,16 @@
         >
 
         <h1>{{ event.title }}</h1>
-
         {% if event.host %}
-            <p class="detail-meta">
-                Hosted by <strong>{{ event.host.get_display_name }}</strong>
+          <p class="event-host">
+            Hosted by <strong>{{ event.host.display_name|default:event.host.username }}</strong>
+          </p>
+        {% endif %}
+        {% if can_manage %}
+            <p class="detail-actions">
+                <a class="detail-button" href="{% url 'event_edit' event.pk %}">Edit event</a>
+                <a class="detail-button danger-button" href="{% url 'event_cancel' event.pk %}">Cancel event</a>
             </p>
-            {% if can_manage %}
-                <p class="detail-actions">
-                    <a class="detail-button" href="{% url 'event_edit' event.pk %}">Edit event</a>
-                    <a class="detail-button danger-button" href="{% url 'event_cancel' event.pk %}">Cancel event</a>
-                </p>
-            {% endif %}
         {% endif %}
 
         <h2>Event details</h2>
@@ -572,7 +570,9 @@
                 {% else %}
                     {{ event.park_names }}
                 {% endif %}
-                {% if event.borough %}({{ event.get_borough_display }}){% endif %}
+                {% if event.borough %}
+                    ({{ event.get_borough_display }})
+                {% endif %}
             </p>
         {% endif %}
 
@@ -606,8 +606,51 @@
         <div class="detail-actions">
             {% if event.registration_url and not host_cancelled %}
                 <a class="detail-button" href="{{ event.registration_url }}">
-                    Register
+                    External Registration
                 </a>
+            {% endif %}
+
+            {% if event_accepts_registration %}
+                {% if user.is_authenticated %}
+                    {% if event.host_id != user.pk %}
+                        {% if user_is_registered %}
+                            <p class="status-message">
+                                You are registered for this event.
+                            </p>
+
+                            <form
+                                method="post"
+                                action="{% url 'event_cancel_registration' event.pk %}"
+                            >
+                                {% csrf_token %}
+                                <button
+                                    class="detail-button danger-button"
+                                    type="submit"
+                                >
+                                    Cancel Registration
+                                </button>
+                            </form>
+
+                        {% elif can_register %}
+                            <form
+                                method="post"
+                                action="{% url 'event_register' event.pk %}"
+                            >
+                                {% csrf_token %}
+                                <button class="detail-button" type="submit">
+                                    Register for Event
+                                </button>
+                            </form>
+                        {% endif %}
+                    {% endif %}
+                {% else %}
+                    <a
+                        class="detail-button"
+                        href="{% url 'login' %}?next={{ request.path|urlencode }}"
+                    >
+                        Log in to Register
+                    </a>
+                {% endif %}
             {% endif %}
 
             {% if event.event_url %}
@@ -615,14 +658,17 @@
                     Official Event Page
                 </a>
             {% endif %}
-            <a class="detail-button secondary-button" href="{% url 'event_report' event.pk %}">
+
+            <a
+                class="detail-button secondary-button"
+                href="{% url 'event_report' event.pk %}"
+            >
                 Report event
             </a>
         </div>
     </main>
 
     {% if can_manage %}
-        <!-- Host messages to interested attendees -->
         <section class="community-section">
             <h2>Message interested attendees</h2>
 
@@ -637,19 +683,31 @@
                 {% endif %}
             </p>
 
-            <form class="community-form notify-form"
-                  method="post"
-                  action="{% url 'event_notify' event.pk %}">
+            <form
+                class="community-form notify-form"
+                method="post"
+                action="{% url 'event_notify' event.pk %}"
+            >
                 {% csrf_token %}
 
                 <label for="notify-subject">Subject</label>
-                <input id="notify-subject" type="text" name="subject"
-                       maxlength="200" required>
+                <input
+                    id="notify-subject"
+                    type="text"
+                    name="subject"
+                    maxlength="200"
+                    required
+                >
 
                 <label for="notify-message">Message</label>
-                <textarea id="notify-message" name="message" rows="4"
-                          maxlength="5000" required
-                          placeholder="Share a reminder or update..."></textarea>
+                <textarea
+                    id="notify-message"
+                    name="message"
+                    rows="4"
+                    maxlength="5000"
+                    required
+                    placeholder="Share a reminder or update..."
+                ></textarea>
 
                 <div class="community-actions">
                     <button class="community-button" type="submit">
@@ -665,177 +723,179 @@
         <h2>Connect with Other Attendees</h2>
         <p>
             See who's interested in this event and connect with other attendees.
-    </p>
-    <p>Attendees who share their profiles can be explored below.</p>
+        </p>
+        <p>
+            Attendees who share their profiles can be explored below.
+        </p>
+        {% if can_interact %}
+            <div class="community-actions">
+                <form
+                    method="post"
+                    action="{% url 'toggle_event_interest' event.pk %}"
+                >
+                    {% csrf_token %}
+
+                    <button
+                        class="community-button intention-button {% if user_has_interest %}selected{% endif %}"
+                        type="submit"
+                        name="status"
+                        value="interested"
+                        aria-pressed="{% if user_has_interest %}true{% else %}false{% endif %}"
+                    >
+                        {% if user_has_interest %}
+                            ✓ Interested (click to cancel)
+                        {% else %}
+                            Interested
+                        {% endif %}
+                    </button>
+                </form>
+            </div>
+        {% elif not user.is_authenticated and event.is_open and not host_cancelled %}
+            <p>
+                <a href="{% url 'login' %}?next={{ request.path|urlencode }}">
+                    Log in
+                </a>
+                to mark yourself as interested.
+            </p>
+        {% endif %}
+
+        <p>
+            <strong>{{ interest_count }}</strong>
+            people have selected an attendance intention.
+        </p>
+
+        <h3>Interested ({{ interested_count }})</h3>
+
+        {% if interested_users %}
+            <div class="attendee-avatars">
+                {% for attendee in interested_users %}
+                    <div class="attendee-profile">
+                        <button
+                            type="button"
+                            class="attendee-avatar-trigger"
+                            aria-label="View {{ attendee.user.get_display_name|default:attendee.user.username }}'s profile preview"
+                            aria-haspopup="true"
+                        >
+                            {% if attendee.user.profile_photo %}
+                                <img
+                                    src="{{ attendee.user.profile_photo.url }}"
+                                    alt=""
+                                >
+                            {% else %}
+                                {{ attendee.user.get_display_name|default:attendee.user.username|slice:":1"|upper }}
+                            {% endif %}
+                        </button>
+
+                        <div class="attendee-hover-card">
+                            <h4 class="attendee-card-name">
+                                {{ attendee.user.get_display_name|default:attendee.user.username }}
+                            </h4>
+
+                            <p class="attendee-card-username">
+                                @{{ attendee.user.username }}
+                            </p>
+
+                            {% if attendee.user.pronouns %}
+                                <p class="attendee-card-pronouns">
+                                    {{ attendee.user.pronouns }}
+                                </p>
+                            {% endif %}
+
+                            {% if attendee.user.bio %}
+                                <p class="attendee-card-bio">
+                                    {{ attendee.user.bio }}
+                                </p>
+                            {% else %}
+                                <p class="attendee-contact-note">
+                                    This member hasn't added a bio yet.
+                                </p>
+                            {% endif %}
+
+                            <div class="attendee-card-actions">
+                                {% include "events/_contact_request_action.html" %}
+
+                                <a
+                                    class="attendee-details-link"
+                                    href="{% url 'public_profile' username=attendee.user.username %}"
+                                >
+                                    See Details
+                                </a>
+                            </div>
+                        </div>
+                    </div>
+                {% endfor %}
+            </div>
+        {% else %}
+            <p>No public profiles are available in this group yet.</p>
+        {% endif %}
+
+        <h3>Registered Attendees ({{ registered_count }})</h3>
+
+        <p class="muted">
+            Showing members who have chosen to share their profiles.
+        </p>
+
+        {% if registered_users %}
+            <div class="attendee-avatars">
+                {% for attendee in registered_users %}
+                    <div class="attendee-profile">
+                        <button
+                            type="button"
+                            class="attendee-avatar-trigger"
+                            aria-label="View {{ attendee.user.get_display_name|default:attendee.user.username }}'s profile preview"
+                            aria-haspopup="true"
+                        >
+                            {% if attendee.user.profile_photo %}
+                                <img
+                                    src="{{ attendee.user.profile_photo.url }}"
+                                    alt=""
+                                >
+                            {% else %}
+                                {{ attendee.user.get_display_name|default:attendee.user.username|slice:":1"|upper }}
+                            {% endif %}
+                        </button>
+
+                        <div class="attendee-hover-card">
+                            <h4 class="attendee-card-name">
+                                {{ attendee.user.get_display_name|default:attendee.user.username }}
+                            </h4>
+
+                            <p class="attendee-card-username">
+                                @{{ attendee.user.username }}
+                            </p>
+
+                            {% if attendee.user.pronouns %}
+                                <p class="attendee-card-pronouns">
+                                    {{ attendee.user.pronouns }}
+                                </p>
+                            {% endif %}
+
+                            {% if attendee.user.bio %}
+                                <p class="attendee-card-bio">
+                                    {{ attendee.user.bio }}
+                                </p>
+                            {% else %}
+                                <p class="attendee-contact-note">
+                                    This member hasn't added a bio yet.
+                                </p>
+                            {% endif %}
+
+                            <div class="attendee-card-actions">
+                                <a
+                                    class="attendee-details-link"
+                                    href="{% url 'public_profile' username=attendee.user.username %}"
+                                >
+                                    See Details
+                                </a>
+                            </div>
+                        </div>
+                    </div>
+                {% endfor %}
+            </div>
+        {% else %}
+            <p>No one has registered for this event yet.</p>
+        {% endif %}
     </section>
-    {% if not host_cancelled %}
-    <div class="community-actions">
-    <form
-        method="post"
-        action="{% url 'toggle_event_interest' event.pk %}"
-    >
-        {% csrf_token %}
-
-        <button
-            class="community-button intention-button {% if current_interest_status == 'interested' %}selected{% endif %}"
-            type="submit"
-            name="status"
-            value="interested"
-            aria-pressed="{% if current_interest_status == 'interested' %}true{% else %}false{% endif %}"
-        >
-            {% if current_interest_status == "interested" %}
-                ✓ Interested (click to cancel)
-            {% else %}
-                Interested
-            {% endif %}
-        </button>
-
-        <button
-            class="community-button intention-button {% if current_interest_status == 'want_to_attend' %}selected{% endif %}"
-            type="submit"
-            name="status"
-            value="want_to_attend"
-            aria-pressed="{% if current_interest_status == 'want_to_attend' %}true{% else %}false{% endif %}"
-        >
-            {% if current_interest_status == "want_to_attend" %}
-                ✓ Want to Attend (click to cancel)
-            {% else %}
-                Want to Attend
-            {% endif %}
-        </button>
-    </form>
-</div>
-    {% endif %}
-
-<p>
-    <strong>{{ interest_count }}</strong>
-    people have selected an attendance intention.
-</p>
-
-
-<h3>Interested ({{ interested_count }})</h3>
-
-{% if interested_users %}
-    <div class="attendee-avatars">
-        {% for attendee in interested_users %}
-            <div class="attendee-profile">
-                <button
-                    type="button"
-                    class="attendee-avatar-trigger"
-                    aria-label="View {{ attendee.user.get_display_name|default:attendee.user.username }}'s profile preview"
-                    aria-haspopup="true"
-                >
-                    {% if attendee.user.profile_photo %}
-                        <img
-                            src="{{ attendee.user.profile_photo.url }}"
-                            alt=""
-                        >
-                    {% else %}
-                        {{ attendee.user.get_display_name|default:attendee.user.username|slice:":1"|upper }}
-                    {% endif %}
-                </button>
-
-                <div class="attendee-hover-card">
-                    <h4 class="attendee-card-name">
-                        {{ attendee.user.get_display_name|default:attendee.user.username }}
-                    </h4>
-
-                    <p class="attendee-card-username">
-                        @{{ attendee.user.username }}
-                    </p>
-
-                    {% if attendee.user.pronouns %}
-                        <p class="attendee-card-pronouns">
-                            {{ attendee.user.pronouns }}
-                        </p>
-                    {% endif %}
-
-                    {% if attendee.user.bio %}
-                        <p class="attendee-card-bio">{{ attendee.user.bio }}</p>
-                    {% else %}
-                        <p class="attendee-contact-note">
-                            This member hasn't added a bio yet.
-                        </p>
-                    {% endif %}
-
-                    <div class="attendee-card-actions">
-                        {% include "events/_contact_request_action.html" %}
-
-                        <a
-                            class="attendee-details-link"
-                            href="{% url 'public_profile' username=attendee.user.username %}"
-                        >See Details</a>
-                    </div>
-                </div>
-            </div>
-        {% endfor %}
-    </div>
-{% else %}
-    <p>No public profiles are available in this group yet.</p>
-{% endif %}
-
-
-<h3>Want to Attend ({{ want_to_attend_count }})</h3>
-
-{% if want_to_attend_users %}
-    <div class="attendee-avatars">
-        {% for attendee in want_to_attend_users %}
-            <div class="attendee-profile">
-                <button
-                    type="button"
-                    class="attendee-avatar-trigger"
-                    aria-label="View {{ attendee.user.get_display_name|default:attendee.user.username }}'s profile preview"
-                    aria-haspopup="true"
-                >
-                    {% if attendee.user.profile_photo %}
-                        <img
-                            src="{{ attendee.user.profile_photo.url }}"
-                            alt=""
-                        >
-                    {% else %}
-                        {{ attendee.user.get_display_name|default:attendee.user.username|slice:":1"|upper }}
-                    {% endif %}
-                </button>
-
-                <div class="attendee-hover-card">
-                    <h4 class="attendee-card-name">
-                        {{ attendee.user.get_display_name|default:attendee.user.username }}
-                    </h4>
-
-                    <p class="attendee-card-username">
-                        @{{ attendee.user.username }}
-                    </p>
-
-                    {% if attendee.user.pronouns %}
-                        <p class="attendee-card-pronouns">
-                            {{ attendee.user.pronouns }}
-                        </p>
-                    {% endif %}
-
-                    {% if attendee.user.bio %}
-                        <p class="attendee-card-bio">{{ attendee.user.bio }}</p>
-                    {% else %}
-                        <p class="attendee-contact-note">
-                            This member hasn't added a bio yet.
-                        </p>
-                    {% endif %}
-
-                    <div class="attendee-card-actions">
-                        {% include "events/_contact_request_action.html" %}
-
-                        <a
-                            class="attendee-details-link"
-                            href="{% url 'public_profile' username=attendee.user.username %}"
-                        >See Details</a>
-                    </div>
-                </div>
-            </div>
-        {% endfor %}
-    </div>
-{% else %}
-    <p>No public profiles are available in this group yet.</p>
-{% endif %}
-
 
     <!-- Incoming contact requests -->
     {% if user.is_authenticated and received_contact_requests %}
@@ -852,19 +912,25 @@
                         {% endif %}
 
                         <div class="community-actions">
-                            <form method="post"
-                                  action="{% url 'respond_to_contact_request' contact_request.pk 'accept' %}">
+                            <form
+                                method="post"
+                                action="{% url 'respond_to_contact_request' contact_request.pk 'accept' %}"
+                            >
                                 {% csrf_token %}
                                 <button class="community-button" type="submit">
                                     Accept
                                 </button>
                             </form>
 
-                            <form method="post"
-                                  action="{% url 'respond_to_contact_request' contact_request.pk 'decline' %}">
+                            <form
+                                method="post"
+                                action="{% url 'respond_to_contact_request' contact_request.pk 'decline' %}"
+                            >
                                 {% csrf_token %}
-                                <button class="community-button danger-button"
-                                        type="submit">
+                                <button
+                                    class="community-button danger-button"
+                                    type="submit"
+                                >
                                     Decline
                                 </button>
                             </form>
@@ -879,7 +945,6 @@
     <section class="community-section">
         <h2>Discuss This Event</h2>
 
-
         <p class="muted">
             Share your thoughts about this event and connect with other
             community members. You can comment and reply whether the event
@@ -889,9 +954,11 @@
         {% if host_cancelled %}
             <p>This event was cancelled, so new comments are closed.</p>
         {% elif user.is_authenticated %}
-            <form class="community-form"
-                  method="post"
-                  action="{% url 'create_event_post' event.pk %}">
+            <form
+                class="community-form"
+                method="post"
+                action="{% url 'create_event_post' event.pk %}"
+            >
                 {% csrf_token %}
 
                 <label for="new-post-body">Write a comment</label>
@@ -924,6 +991,7 @@
                 <article class="discussion-post" id="comment-{{ post.pk }}">
                     <div class="reportable-heading">
                         <h3>{{ post.author.get_display_name }}</h3>
+
                         {% if post.author_id != user.pk %}
                             {% url 'event_post_report' post.pk as report_url %}
                             {% include 'reports/_report_menu.html' with report_url=report_url menu_label="Comment actions" only %}
@@ -1007,23 +1075,6 @@
         </div>
     </section>
 
-    <script>
-        document.addEventListener("click", function (event) {
-            if (!event.target.closest(".profile-preview")) {
-                document.querySelectorAll(".profile-preview.open").forEach(
-                    function (item) {
-                        item.classList.remove("open");
-                        const button = item.querySelector(
-                            ".profile-preview-trigger"
-                        );
-                        if (button) {
-                            button.setAttribute("aria-expanded", "false");
-                        }
-                    }
-                );
-            }
-        });
-    </script>
     {% include "chatbot/widget.html" %}
 </body>
 </html>

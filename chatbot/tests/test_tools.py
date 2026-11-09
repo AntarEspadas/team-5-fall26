@@ -82,15 +82,13 @@ class EventDetailsToolTests(TestCase):
         EventInterest.objects.create(
             event=cls.event,
             user=make_user("other"),
-            status=EventInterest.Status.WANT_TO_ATTEND,
         )
 
     def test_anonymous_details(self):
         details = Toolbox(AnonymousUser()).get_event_details(self.event.pk)
         self.assertEqual(details["host"], "Hana")
         self.assertEqual(details["source"], "posted by a user")
-        self.assertEqual(details["interested_count"], 1)
-        self.assertEqual(details["want_to_attend_count"], 1)
+        self.assertEqual(details["interested_count"], 2)
         self.assertEqual(details["registration_link"], "https://example.org/register")
         self.assertNotIn("my_attendance", details)
         self.assertNotIn("fan", str(details))

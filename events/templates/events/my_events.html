@@ -1,59 +1,369 @@
-{% load static tz %}<!DOCTYPE html>
+
+{% load static tz %}
+<!DOCTYPE html>
 <html lang="en">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>My events | NYC Parks Events</title>
+
+    <title>My Events | NYC Parks Events</title>
+
     <link rel="stylesheet" href="{% static 'events/search.css' %}">
     <link rel="stylesheet" href="{% static 'events/home.css' %}">
-    <link rel="stylesheet" href="{% static 'events/my_events.css' %}">
+    <style>
+        /* Main page */
+        .my-events-page {
+            max-width: 1100px;
+            margin: 0 auto;
+            padding: 32px 24px 60px;
+        }
+
+        .my-events-page h1 {
+            margin-bottom: 10px;
+        }
+
+        .my-events-intro {
+            margin-bottom: 28px;
+            color: #666;
+        }
+
+        /* Tab container */
+        .my-events-container {
+            margin-top: 32px;
+        }
+
+        /* Tabs: labels attached to a paper page */
+        .my-events-tabs {
+            display: flex;
+            align-items: flex-end;
+            gap: 6px;
+            padding-left: 18px;
+            margin-bottom: -1px;
+            position: relative;
+            z-index: 2;
+        }
+
+        .my-events-tab {
+            padding: 14px 24px;
+            background: #e8edf2;
+            color: #536273;
+            border: 1px solid #cbd5df;
+            border-bottom: none;
+            border-radius: 12px 12px 0 0;
+            font-size: 17px;
+            font-weight: 700;
+            cursor: pointer;
+            transition: background 0.2s ease, color 0.2s ease;
+        }
+
+        .my-events-tab:hover {
+            background: #f5f7f9;
+            color: #26384a;
+        }
+
+        /* Selected tab visually merges into the page */
+        .my-events-tab[aria-selected="true"] {
+            background: #fff;
+            color: #26384a;
+            border-color: #cbd5df;
+            padding-top: 17px;
+            padding-bottom: 15px;
+            position: relative;
+            z-index: 3;
+        }
+
+        .my-events-tab:focus-visible {
+            outline: 3px solid #64748b;
+            outline-offset: 3px;
+        }
+
+        /* The entire paper page */
+        .my-events-page-content {
+            position: relative;
+            background: #fff;
+            border: 1px solid #cbd5df;
+            border-radius: 0 12px 12px 12px;
+            padding: 30px;
+            min-height: 300px;
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.05);
+        }
+
+        /* Hide inactive page */
+        .my-events-panel[hidden] {
+            display: none;
+        }
+
+        .my-events-panel h2 {
+            margin-top: 0;
+        }
+
+        .my-events-panel > .panel-description {
+            color: #666;
+            margin-bottom: 20px;
+        }
+
+        /* Mobile layout */
+        @media (max-width: 600px) {
+            .my-events-page {
+                padding: 24px 14px 40px;
+            }
+
+            .my-events-tabs {
+                padding-left: 8px;
+                gap: 4px;
+            }
+
+            .my-events-tab {
+                flex: 1;
+                padding: 12px 8px;
+                font-size: 14px;
+                line-height: 1.35;
+            }
+
+            .my-events-tab[aria-selected="true"] {
+                padding-top: 14px;
+                padding-bottom: 13px;
+            }
+
+            .my-events-page-content {
+                padding: 18px;
+            }
+        }
+    </style>
 </head>
+
 <body>
     <main class="my-events-page">
-        <a class="search-back" href="{% url 'landing' %}">Back to home</a>
-        <h1>My events</h1>
+
+        <a class="search-back" href="{% url 'landing' %}">
+            Back to home
+        </a>
+
+        <h1>My Events</h1>
+
         <p class="my-events-intro">
-            Events you posted. <a href="{% url 'event_create' %}">Post a new event</a>
-            &middot; <a href="{% url 'chatbot:inquiries' %}">Answer attendee questions</a>
+            Manage the events you host and the events you attend.
+            <a href="{% url 'event_create' %}">Post a new event</a>
+            &middot;
+            <a href="{% url 'chatbot:inquiries' %}">
+                Answer attendee questions
+            </a>
         </p>
 
-        <section aria-labelledby="upcoming-heading">
-            <h2 id="upcoming-heading">Upcoming</h2>
-            {% if upcoming_events %}
-            <ul class="hosted-list">
-                {% for event in upcoming_events %}
-                <li class="hosted-event">
-                    {% include "events/_hosted_event_summary.html" %}
-                    <p class="hosted-actions">
-                        <a href="{% url 'event_edit' event.pk %}">Edit</a>
-                        <a class="hosted-cancel" href="{% url 'event_cancel' event.pk %}">Cancel</a>
-                    </p>
-                </li>
-                {% endfor %}
-            </ul>
-            {% else %}
-            <p class="empty-state">You have no upcoming events.</p>
-            {% endif %}
-        </section>
+        <div class="my-events-container">
 
-        <section aria-labelledby="archived-heading">
-            <h2 id="archived-heading">Archived</h2>
-            {% if archived_events %}
-            <ul class="hosted-list">
-                {% for event in archived_events %}
-                <li class="hosted-event is-archived">
-                    {% include "events/_hosted_event_summary.html" %}
-                    <p class="hosted-label">
-                        {% if event.status == "cancelled" %}Cancelled{% else %}Ended{% endif %}
-                    </p>
-                </li>
-                {% endfor %}
-            </ul>
-            {% else %}
-            <p class="empty-state">Cancelled and past events will show up here.</p>
-            {% endif %}
-        </section>
+            <!-- Tab labels -->
+            <div
+                class="my-events-tabs"
+                role="tablist"
+                aria-label="My events"
+            >
+                <button
+                    type="button"
+                    class="my-events-tab"
+                    id="hosted-tab"
+                    role="tab"
+                    aria-selected="true"
+                    aria-controls="hosted-panel"
+                    tabindex="0"
+                >
+                    Hosted / Archived / Cancelled
+                </button>
+
+                <button
+                    type="button"
+                    class="my-events-tab"
+                    id="attended-tab"
+                    role="tab"
+                    aria-selected="false"
+                    aria-controls="attended-panel"
+                    tabindex="-1"
+                >
+                    Attended
+                </button>
+            </div>
+
+            <!-- The paper page -->
+            <div class="my-events-page-content">
+
+                <!-- Page 1: Events hosted by the user -->
+                <div
+                    class="my-events-panel"
+                    id="hosted-panel"
+                    role="tabpanel"
+                    aria-labelledby="hosted-tab"
+                >
+
+                    <section aria-labelledby="upcoming-heading">
+                        <h2 id="upcoming-heading">Upcoming</h2>
+
+                        {% if upcoming_events %}
+                            <ul class="hosted-list">
+                                {% for event in upcoming_events %}
+                                    <li class="hosted-event">
+                                        {% include "events/_hosted_event_summary.html" %}
+
+                                        <p class="hosted-actions">
+                                            <a href="{% url 'event_edit' event.pk %}">
+                                                Edit
+                                            </a>
+
+                                            <a
+                                                class="hosted-cancel"
+                                                href="{% url 'event_cancel' event.pk %}"
+                                            >
+                                                Cancel
+                                            </a>
+                                        </p>
+                                    </li>
+                                {% endfor %}
+                            </ul>
+                        {% else %}
+                            <p class="empty-state">
+                                You have no upcoming events.
+                            </p>
+                        {% endif %}
+                    </section>
+
+                    <section aria-labelledby="archived-heading">
+                        <h2 id="archived-heading">Archived</h2>
+
+                        {% if archived_events %}
+                            <ul class="hosted-list">
+                                {% for event in archived_events %}
+                                    <li class="hosted-event is-archived">
+                                        {% include "events/_hosted_event_summary.html" %}
+
+                                        <p class="hosted-label">
+                                            {% if event.status == "cancelled" %}
+                                                Cancelled
+                                            {% else %}
+                                                Ended
+                                            {% endif %}
+                                        </p>
+                                    </li>
+                                {% endfor %}
+                            </ul>
+                        {% else %}
+                            <p class="empty-state">
+                                Cancelled and past events will show up here.
+                            </p>
+                        {% endif %}
+                    </section>
+
+                </div>
+
+                <!-- Page 2: Events the user registered for -->
+                <div
+                    class="my-events-panel"
+                    id="attended-panel"
+                    role="tabpanel"
+                    aria-labelledby="attended-tab"
+                    hidden
+                >
+
+                    <section aria-labelledby="registered-heading">
+                        <h2 id="registered-heading">Registered Events</h2>
+
+                        <p class="panel-description">
+                            Events you have registered for, listed by date.
+                        </p>
+
+                        {% if registered_events %}
+                            <ul class="hosted-list">
+                                {% for registration in registered_events %}
+                                    <li class="hosted-event">
+                                        {% with event=registration.event %}
+
+                                            {% include "events/_hosted_event_summary.html" %}
+
+                                            <p class="hosted-label">
+                                                {% if event.is_cancelled %}
+                                                    Event cancelled
+                                                {% elif event.has_ended %}
+                                                    Event ended
+                                                {% else %}
+                                                    Registered
+                                                {% endif %}
+                                            </p>
+
+                                            <p class="hosted-actions">
+                                                <a href="{% url 'event_detail' event.pk %}">
+                                                    View event
+                                                </a>
+                                            </p>
+
+                                        {% endwith %}
+                                    </li>
+                                {% endfor %}
+                            </ul>
+                        {% else %}
+                            <p class="empty-state">
+                                You have not registered for any events yet.
+                            </p>
+                        {% endif %}
+                    </section>
+
+                </div>
+
+            </div>
+        </div>
+
     </main>
+
     {% include "chatbot/widget.html" %}
+
+    <!-- Tab switching -->
+    <script>
+        document.addEventListener("DOMContentLoaded", function () {
+            const tabs = document.querySelectorAll(".my-events-tab");
+            const panels = document.querySelectorAll(".my-events-panel");
+
+            function activateTab(selectedTab) {
+                tabs.forEach(function (tab) {
+                    const isSelected = tab === selectedTab;
+
+                    tab.setAttribute(
+                        "aria-selected",
+                        isSelected ? "true" : "false"
+                    );
+
+                    tab.setAttribute(
+                        "tabindex",
+                        isSelected ? "0" : "-1"
+                    );
+                });
+
+                panels.forEach(function (panel) {
+                    panel.hidden =
+                        panel.id !== selectedTab.getAttribute("aria-controls");
+                });
+            }
+
+            tabs.forEach(function (tab, index) {
+                tab.addEventListener("click", function () {
+                    activateTab(tab);
+                });
+
+                tab.addEventListener("keydown", function (event) {
+                    let nextIndex = index;
+
+                    if (event.key === "ArrowRight") {
+                        nextIndex = (index + 1) % tabs.length;
+                    } else if (event.key === "ArrowLeft") {
+                        nextIndex = (index - 1 + tabs.length) % tabs.length;
+                    } else {
+                        return;
+                    }
+
+                    event.preventDefault();
+
+                    tabs[nextIndex].focus();
+                    activateTab(tabs[nextIndex]);
+                });
+            });
+        });
+    </script>
+
 </body>
 </html>

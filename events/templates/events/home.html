@@ -126,7 +126,7 @@
             <div class="section-head">
                 <h2 id="archived-heading">Archived events</h2>
                 <a class="section-link" href="{% url 'archived_events' %}">
-                    View all →
+                    View all archived events →
                 </a>
             </div>
 
@@ -142,12 +142,6 @@
                 </li>
                 {% endfor %}
             </ul>
-
-            <p class="archived-footer">
-                <a class="section-link" href="{% url 'archived_events' %}">
-                    View all archived events →
-                </a>
-            </p>
             {% else %}
             <p class="empty-state">
                 No archived events yet. Check back after upcoming events have taken place.

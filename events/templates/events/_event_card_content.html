@@ -1,4 +1,3 @@
-
 {% load static tz %}
 
 {% if link_to_source %}
@@ -26,7 +25,11 @@
     {% timezone "America/New_York" %}
     <p class="event-when">
         <span class="event-date">
-            {% if event.start_time %}{{ event.start_time|date:"D, M j" }}{% else %}Date to be announced{% endif %}
+            {% if event.start_time %}
+                {{ event.start_time|date:"D, M j" }}
+            {% else %}
+                Date to be announced
+            {% endif %}
         </span>
         {% if event.start_time %}
         <span class="event-time">
@@ -54,14 +57,56 @@
     <p class="event-description">{{ event.description|truncatewords:25 }}</p>
     {% endif %}
 
-    {% if link_to_source and event.status != "done" %}
-        {% if event.is_cancelled %}
-        <span class="register is-cancelled" aria-disabled="true">Cancelled</span>
-        {% elif event.registration_url %}
+    {% if event.is_cancelled %}
+        <span class="register is-cancelled" aria-disabled="true">
+            Cancelled
+        </span>
+
+    {% elif event.has_ended or event.status == "done" %}
+        <span class="register is-cancelled" aria-disabled="true">
+            Ended
+        </span>
+
+    {% elif link_to_source and event.registration_url %}
         <a class="register"
            href="{{ event.registration_url }}"
            target="_blank"
-           rel="noopener noreferrer">Register</a>
-        {% endif %}
+           rel="noopener noreferrer">
+            External Register
+        </a>
+
+    {% elif user.is_authenticated and event.host_id == user.pk %}
+        {# The host cannot register for their own event. #}
+
+    {% elif user.is_authenticated and event.user_is_registered %}
+        <p class="status-message">
+            You are registered for this event.
+        </p>
+        <form method="post"
+              action="{% url 'event_cancel_registration' event.pk %}"
+              class="event-register-form">
+            {% csrf_token %}
+            <input type="hidden" name="next" value="{{ request.get_full_path }}">
+            <button type="submit" class="register danger-register">
+                Cancel Registration
+            </button>
+        </form>
+
+    {% elif event.is_open and user.is_authenticated %}
+        <form method="post"
+              action="{% url 'event_register' event.pk %}"
+              class="event-register-form">
+            {% csrf_token %}
+            <input type="hidden" name="next" value="{{ request.get_full_path }}">
+            <button type="submit" class="register">
+                Register
+            </button>
+        </form>
+
+    {% elif event.is_open %}
+        <a class="register"
+           href="{% url 'login' %}?next={{ request.get_full_path|urlencode }}">
+            Log in to Register
+        </a>
     {% endif %}
 </div>
