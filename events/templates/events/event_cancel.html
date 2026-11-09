@@ -20,7 +20,8 @@
             archive in My events. This can't be undone.
         </p>
 
-        <form class="event-form" method="post">
+        {% include "accounts/_submission_notice.html" %}
+        {% if not viewer_banned %}<form class="event-form" method="post">
             {% csrf_token %}
             <p class="cancel-recipients">
                 {% if recipient_count %}
@@ -45,7 +46,7 @@
                 <button type="submit" class="btn-primary btn-danger">Cancel event</button>
                 <a href="{% url 'event_detail' event.pk %}">Keep event</a>
             </div>
-        </form>
+        </form>{% endif %}
     </main>
     {% include "chatbot/widget.html" %}
 </body>

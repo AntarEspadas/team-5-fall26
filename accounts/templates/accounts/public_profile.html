@@ -378,9 +378,9 @@
                 <a class="nav-link" href="{% url 'landing' %}">
                     Home
                 </a>
-                <a class="nav-link" href="{% url 'event_create' %}">
+                {% if not viewer_banned %}<a class="nav-link" href="{% url 'event_create' %}">
                     Post an event
-                </a>
+                </a>{% endif %}
 
                 <a class="nav-link" href="{% url 'my_events' %}">My events</a>
 
@@ -446,11 +446,12 @@
                     <a class="profile-button" href="{% url 'account_settings' %}">Edit profile</a>
                     {% endif %}
                 {% elif request.user.is_authenticated %}
-                    {% if can_message %}
+                    {% if can_message and not viewer_banned %}
                         <a class="profile-button" href="{% url 'message_user' profile_user.pk %}">Send Message</a>
                     {% endif %}
-                    {% url 'profile_report' profile_user.username as report_url %}
+                    {% if not viewer_banned %}{% url 'profile_report' profile_user.username as report_url %}
                     {% include 'reports/_report_menu.html' with report_url=report_url menu_label="Profile actions" report_label="Report profile" only %}
+                    {% endif %}
                 {% endif %}
             </div>
         </div>

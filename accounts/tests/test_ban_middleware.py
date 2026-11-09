@@ -165,7 +165,7 @@ class BanMiddlewareTests(TestCase):
             (
                 "toggle_event_interest",
                 [self.event.pk],
-                {"status": EventInterest.Status.WANT_TO_ATTEND},
+                {"status": "want_to_attend"},
             ),
             (
                 "register",
@@ -394,7 +394,7 @@ class BanMiddlewareTests(TestCase):
             EventInterest.Status.INTERESTED,
         )
         for data in (
-            {"status": EventInterest.Status.WANT_TO_ATTEND},
+            {"status": "want_to_attend"},
             {"status": "invalid"},
             {"status": ["interested", "want_to_attend"]},
         ):

@@ -23,6 +23,7 @@ from events.models import (
     Event,
     EventInterest,
     Notification,
+    Registration,
 )
 
 
@@ -50,6 +51,12 @@ class BanInteractionTests(TestCase):
             content_hash="",
         )
         EventInterest.objects.create(event=cls.event, user=cls.peer)
+        cls.registration_event = Event.objects.create(
+            guid="ban-registration",
+            host=cls.peer,
+            title="Registration walk",
+            start_time=timezone.now() + timedelta(days=30),
+        )
         cls.inquiry = Inquiry.objects.create(
             user=cls.peer,
             event=cls.event,
@@ -107,18 +114,23 @@ class BanInteractionTests(TestCase):
             self.assertEqual(Notification.objects.count(), 0)
             self.assertEqual(mail.outbox, [])
 
-    def test_attendance_cannot_be_added_removed_or_switched_during_either_ban(self):
-        url = reverse("toggle_event_interest", args=[self.event.pk])
+    def test_registration_cannot_be_added_or_removed_during_either_ban(self):
+        url = reverse("event_register", args=[self.registration_event.pk])
+        cancel_url = reverse(
+            "event_cancel_registration", args=[self.registration_event.pk]
+        )
         for permanent in (False, True):
             if permanent:
                 self.make_indefinite()
-            for initial in (None, *EventInterest.Status.values):
+            for initial in (None, EventInterest.Status.INTERESTED):
                 with self.subTest(permanent=permanent, initial=initial):
                     self.set_interest(initial)
                     before = list(EventInterest.objects.order_by("pk").values())
+                    Registration.objects.filter(
+                        event=self.registration_event, user=self.user
+                    ).delete()
                     response = self.client.post(
                         url,
-                        {"status": EventInterest.Status.WANT_TO_ATTEND},
                         HTTP_X_REQUESTED_WITH="XMLHttpRequest",
                     )
                     self.assertEqual(response.status_code, 403)
@@ -128,9 +140,27 @@ class BanInteractionTests(TestCase):
                     self.assertEqual(
                         list(EventInterest.objects.order_by("pk").values()), before
                     )
+                    self.assertFalse(
+                        Registration.objects.filter(
+                            event=self.registration_event, user=self.user
+                        ).exists()
+                    )
+                    registration = Registration.objects.create(
+                        event=self.registration_event, user=self.user
+                    )
+                    response = self.client.post(
+                        cancel_url, HTTP_X_REQUESTED_WITH="XMLHttpRequest"
+                    )
+                    self.assertEqual(response.status_code, 403)
+                    self.assertEqual(
+                        response.json(), {"error": BAN_MESSAGE, "code": "user_banned"}
+                    )
+                    self.assertTrue(
+                        Registration.objects.filter(pk=registration.pk).exists()
+                    )
 
     def test_interest_handler_enforces_ban_without_middleware(self):
-        for status in (EventInterest.Status.WANT_TO_ATTEND, "invalid", ""):
+        for status in ("want_to_attend", "invalid", ""):
             with self.subTest(status=status):
                 request = RequestFactory().post("/", {"status": status})
                 request.user = self.user
@@ -149,7 +179,10 @@ class BanInteractionTests(TestCase):
                 self.assertFalse(EventInterest.objects.filter(user=self.user).exists())
 
     def test_expiration_and_lifting_restore_attendance(self):
-        url = reverse("toggle_event_interest", args=[self.event.pk])
+        url = reverse("event_register", args=[self.registration_event.pk])
+        cancel_url = reverse(
+            "event_cancel_registration", args=[self.registration_event.pk]
+        )
         for restore in ("expire", "lift"):
             with self.subTest(restore=restore):
                 if restore == "expire":
@@ -159,14 +192,18 @@ class BanInteractionTests(TestCase):
                 else:
                     self.ban, _ = apply_ban(self.admin, self.user)
                     lift_ban(self.admin, self.ban)
-                self.set_interest(None)
-                response = self.client.post(
-                    url, {"status": EventInterest.Status.WANT_TO_ATTEND}
-                )
+                response = self.client.post(url)
                 self.assertEqual(response.status_code, 302)
-                self.assertEqual(
-                    EventInterest.objects.get(user=self.user).status,
-                    EventInterest.Status.WANT_TO_ATTEND,
+                self.assertTrue(
+                    Registration.objects.filter(
+                        event=self.registration_event, user=self.user
+                    ).exists()
+                )
+                self.assertEqual(self.client.post(cancel_url).status_code, 302)
+                self.assertFalse(
+                    Registration.objects.filter(
+                        event=self.registration_event, user=self.user
+                    ).exists()
                 )
 
     def test_message_link_opens_existing_thread_for_either_participant(self):

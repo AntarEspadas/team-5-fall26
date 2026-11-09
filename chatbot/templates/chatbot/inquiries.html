@@ -15,7 +15,7 @@
         <h1>Questions</h1>
         <p class="inquiries-intro">
             Questions the Parks Assistant couldn't answer{% if not user.is_staff %} about your events{% endif %}.
-            Your answer is sent back to the person who asked, translated into their language.
+            {% if viewer_banned %}Answering is disabled while your account is banned.{% else %}Your answer is sent back to the person who asked, translated into their language.{% endif %}
         </p>
 
         {% for message in messages %}
@@ -29,12 +29,12 @@
                 {% for inquiry in open_inquiries %}
                 <li class="inquiry">
                     {% include "chatbot/_inquiry_summary.html" %}
-                    <form method="post" action="{% url 'chatbot:answer_inquiry' inquiry.pk %}" class="inquiry-answer">
+                    {% if not viewer_banned %}<form method="post" action="{% url 'chatbot:answer_inquiry' inquiry.pk %}" class="inquiry-answer">
                         {% csrf_token %}
                         <label for="answer-{{ inquiry.pk }}">Your answer</label>
                         <textarea id="answer-{{ inquiry.pk }}" name="answer" rows="3" maxlength="{{ form.fields.answer.max_length }}" required></textarea>
                         <button type="submit">Send answer</button>
-                    </form>
+                    </form>{% endif %}
                 </li>
                 {% endfor %}
             </ul>

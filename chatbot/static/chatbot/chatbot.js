@@ -37,6 +37,7 @@
     const SITE_PATHS = "events|accounts|search|messages|notifications|assistant";
 
     let busy = false;
+    let submissionsBlocked = false;
     let historyRequest = null;
     let call = null;
     const speech = "speechSynthesis" in window ? window.speechSynthesis : null;
@@ -223,18 +224,32 @@
         let data = {};
         try { data = await response.json(); } catch (e) { /* Non-JSON error page. */ }
         if (!response.ok) {
-            throw new Error(data.error || "Something went wrong. Please try again.");
+            if (data.code === "user_banned") {
+                if (!submissionsBlocked) {
+                    submissionsBlocked = true;
+                    endCall();
+                    addMessage("model", data.error, { error: true });
+                }
+                input.disabled = sendButton.disabled = micButton.disabled = true;
+                root.querySelectorAll(".pa-suggestions, [data-pa-action=reset]").forEach((element) => {
+                    element.hidden = true;
+                });
+            }
+            const error = new Error(data.error || "Something went wrong. Please try again.");
+            error.code = data.code;
+            throw error;
         }
         return data;
     }
 
     function setBusy(value) {
         busy = value;
-        sendButton.disabled = value;
-        micButton.disabled = !voiceSupported || (value && !call);
+        sendButton.disabled = submissionsBlocked || value;
+        micButton.disabled = submissionsBlocked || !voiceSupported || (value && !call);
     }
 
     async function sendText(text) {
+        if (submissionsBlocked) return;
         text = text.trim();
         if (call && text) {
             input.value = "";
@@ -259,7 +274,7 @@
             addMessage("model", data.reply);
         } catch (error) {
             typing.remove();
-            addMessage("model", error.message, { error: true });
+            if (error.code !== "user_banned") addMessage("model", error.message, { error: true });
         } finally {
             setBusy(false);
             input.focus();
@@ -286,14 +301,14 @@
     }
 
     async function resetConversation() {
-        if (busy) return;
+        if (busy || submissionsBlocked) return;
         endCall();
         if (speech) speech.cancel();
         try {
             await request(urls.resetUrl, { method: "POST" });
             clearConversation();
         } catch (error) {
-            addMessage("model", error.message, { error: true });
+            if (error.code !== "user_banned") addMessage("model", error.message, { error: true });
         }
         input.focus();
     }
@@ -398,7 +413,7 @@
     }
 
     async function startCall() {
-        if (call || busy) return;
+        if (submissionsBlocked || call || busy) return;
         if (speech) speech.cancel();
         // Create the audio contexts during the click so the browser lets them play.
         const micContext = new AudioContext();
@@ -645,6 +660,7 @@
     }
 
     function saveTurn(message, reply) {
+        if (submissionsBlocked) return;
         request(urls.liveTurnUrl, {
             method: "POST",
             keepalive: true,

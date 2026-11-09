@@ -20,7 +20,7 @@
         </ul>
         {% endif %}
 
-        {% if ban_message %}
+        {% if viewer_banned %}
         <section class="contact-pending" role="status">
             <p>{{ ban_message }}</p>
             <p>You can read existing conversations from your <a href="{% url 'inbox' %}">Messages</a>.</p>

@@ -18,7 +18,8 @@
         <p class="moderation-notice" role="note"><strong>Conversations may be reviewed by administrators for moderation purposes.</strong></p>
         {% endif %}
 
-        <form class="event-form" method="post">
+        {% include "accounts/_submission_notice.html" %}
+        {% if not viewer_banned %}<form class="event-form" method="post">
             {% csrf_token %}
             {% if form.non_field_errors %}<div class="form-errors" role="alert">{{ form.non_field_errors }}</div>{% endif %}
             {% for field in form %}
@@ -33,7 +34,7 @@
                 <button type="submit" class="btn-primary">Submit report</button>
                 <a href="{{ back_url }}">Cancel</a>
             </div>
-        </form>
+        </form>{% endif %}
     </main>
 </body>
 </html>

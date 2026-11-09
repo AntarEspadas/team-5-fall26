@@ -140,13 +140,14 @@
         </a>
 
         <h1>My Events</h1>
+        {% include "accounts/_submission_notice.html" %}
 
         <p class="my-events-intro">
             Manage the events you host and the events you attend.
-            <a href="{% url 'event_create' %}">Post a new event</a>
+            {% if not viewer_banned %}<a href="{% url 'event_create' %}">Post a new event</a>{% endif %}
             &middot;
             <a href="{% url 'chatbot:inquiries' %}">
-                Answer attendee questions
+                {% if viewer_banned %}View attendee questions{% else %}Answer attendee questions{% endif %}
             </a>
         </p>
 
@@ -203,7 +204,7 @@
                                     <li class="hosted-event">
                                         {% include "events/_hosted_event_summary.html" %}
 
-                                        <p class="hosted-actions">
+                                        {% if not viewer_banned %}<p class="hosted-actions">
                                             <a href="{% url 'event_edit' event.pk %}">
                                                 Edit
                                             </a>
@@ -214,7 +215,7 @@
                                             >
                                                 Cancel
                                             </a>
-                                        </p>
+                                        </p>{% endif %}
                                     </li>
                                 {% endfor %}
                             </ul>
