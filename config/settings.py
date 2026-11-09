@@ -69,6 +69,7 @@ MIDDLEWARE = [
     "django.middleware.common.CommonMiddleware",
     "django.middleware.csrf.CsrfViewMiddleware",
     "django.contrib.auth.middleware.AuthenticationMiddleware",
+    "accounts.middleware.BanMiddleware",
     "allauth.account.middleware.AccountMiddleware",
     # Our custom sliding session middleware: refresh 48h timer on every user activity
     "accounts.middleware.SlidingSessionMiddleware",
