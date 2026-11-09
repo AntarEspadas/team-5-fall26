@@ -204,6 +204,9 @@
                                         {% include "events/_hosted_event_summary.html" %}
 
                                         <p class="hosted-actions">
+                                            <a href="{% url 'event_manage' event.pk %}">
+                                                Manage
+                                            </a>
                                             <a href="{% url 'event_edit' event.pk %}">
                                                 Edit
                                             </a>

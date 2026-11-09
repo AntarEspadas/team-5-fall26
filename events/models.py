@@ -210,6 +210,11 @@ class Notification(models.Model):
     until accepted or declined.
     """
 
+    class Type(models.TextChoices):
+        """Notification groups used by host-facing event management."""
+
+        REGISTRATION = "registration", "Registration update"
+
     recipient = models.ForeignKey(
         "accounts.User",
         on_delete=models.CASCADE,
@@ -226,6 +231,12 @@ class Notification(models.Model):
         null=True,
         blank=True,
         related_name="notification",
+    )
+    notification_type = models.CharField(
+        max_length=20,
+        choices=Type.choices,
+        blank=True,
+        default="",
     )
     subject = models.CharField("subject", max_length=200)
     body = models.TextField("message")
