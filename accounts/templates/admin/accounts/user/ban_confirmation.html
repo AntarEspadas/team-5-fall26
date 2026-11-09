@@ -1,0 +1,42 @@
+{% extends "admin/base_site.html" %}
+
+{% block breadcrumbs %}
+<div class="breadcrumbs">
+    <a href="{% url 'admin:index' %}">Home</a> &rsaquo;
+    <a href="{% url 'admin:accounts_user_changelist' %}">Users</a> &rsaquo;
+    <a href="{{ change_url }}">{{ original }}</a> &rsaquo; {{ title }}
+</div>
+{% endblock %}
+
+{% block content %}
+<p>User: <strong>{{ original.get_display_name }}</strong> (@{{ original.username }})</p>
+{% if error %}
+<p class="errornote" role="alert">{{ error }}</p>
+{% elif action == "ban" %}
+    {% if active_ban %}
+    <p>This user already has an active ban. Another ban cannot be applied.</p>
+    {% else %}
+    <p>This will be offense {{ next_offense }}.</p>
+    {% if next_offense == 1 %}
+    <p>The ban will last exactly {{ duration_hours }} hours (5 days), starting when you confirm.</p>
+    {% else %}
+    <p>The ban will last indefinitely, until an admin lifts it.</p>
+    {% endif %}
+    <p>The user can browse and mark events as Interested. Other member submissions will be disabled.</p>
+    {% endif %}
+{% elif active_ban %}
+<p>Lift the active ban for offense {{ active_ban.offense_number }}?</p>
+<p>The ban history will remain. Any later ban will last indefinitely.</p>
+{% else %}
+<p>This user has no active ban to lift.</p>
+{% endif %}
+
+{% if confirmation_token %}
+<form method="post">
+    {% csrf_token %}
+    <input type="hidden" name="confirmation_token" value="{{ confirmation_token }}">
+    <div class="submit-row"><input type="submit" value="{{ title }}"></div>
+</form>
+{% endif %}
+<p><a href="{{ change_url }}">Return to user</a></p>
+{% endblock %}
