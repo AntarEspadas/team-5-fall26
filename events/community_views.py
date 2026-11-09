@@ -7,6 +7,8 @@ from django.urls import reverse
 from django.utils import timezone
 from django.views.decorators.http import require_POST
 
+from accounts.ban_responses import banned_response
+from accounts.ban_services import get_active_ban
 from accounts.models import User
 
 from .contact_services import create_contact_request
@@ -41,16 +43,21 @@ def get_open_event(event_id):
 @require_POST
 def toggle_event_interest(request, event_id):
     """Set, switch, or remove the current user's attendance intention."""
-    event = get_open_event(event_id)
-
-    if event is None:
-        return redirect(event_detail_url(event_id))
-
     # Keep compatibility with requests that do not specify a status.
     status = request.POST.get(
         "status",
         EventInterest.Status.INTERESTED,
     )
+
+    if (
+        status != EventInterest.Status.INTERESTED
+        and get_active_ban(request.user) is not None
+    ):
+        return banned_response(request)
+
+    event = get_open_event(event_id)
+    if event is None:
+        return redirect(event_detail_url(event_id))
 
     valid_statuses = {
         EventInterest.Status.INTERESTED,

@@ -2,8 +2,6 @@
 
 from django.utils.deprecation import MiddlewareMixin
 
-from events.models import EventInterest
-
 from .ban_responses import banned_response
 from .ban_services import get_active_ban
 
@@ -43,14 +41,8 @@ class BanMiddleware(MiddlewareMixin):
         if get_active_ban(request.user) is None:
             return None
 
-        # The same handler accepts registrations, so exempt only the value
-        # that it will interpret as Interested (including its legacy default).
-        if (
-            request.method == "POST"
-            and route == "toggle_event_interest"
-            and request.POST.get("status", EventInterest.Status.INTERESTED)
-            == EventInterest.Status.INTERESTED
-        ):
+        # This handler checks the ban itself and permits only Interested.
+        if request.method == "POST" and route == "toggle_event_interest":
             return None
         return banned_response(request)
 

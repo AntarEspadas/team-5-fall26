@@ -12,6 +12,8 @@ from django.utils import timezone
 from django.views.decorators.http import require_GET
 from django.views.generic import ListView
 
+from accounts.ban_responses import BAN_MESSAGE
+from accounts.ban_services import get_active_ban
 from accounts.models import User
 
 from .contact_services import create_contact_request
@@ -97,11 +99,28 @@ def message_user(request, user_id):
     if recipient.pk == request.user.pk:
         raise Http404("Conversation not found.")
 
+    active_ban = get_active_ban(request.user)
     if has_accepted_contact(request.user, recipient):
-        conversation, _ = Conversation.get_or_create_for_users(request.user, recipient)
-        return redirect("conversation", conversation_id=conversation.pk)
-    if not recipient.share_profile_with_attendees:
+        if active_ban is None:
+            conversation, _ = Conversation.get_or_create_for_users(
+                request.user, recipient
+            )
+        else:
+            user_one_id, user_two_id = sorted((request.user.pk, recipient.pk))
+            conversation = Conversation.objects.filter(
+                user_one_id=user_one_id, user_two_id=user_two_id
+            ).first()
+        if conversation is not None:
+            return redirect("conversation", conversation_id=conversation.pk)
+    elif not recipient.share_profile_with_attendees:
         raise Http404("Profile not found.")
+
+    if active_ban is not None:
+        return render(
+            request,
+            "events/message_user.html",
+            {"recipient": recipient, "ban_message": BAN_MESSAGE},
+        )
 
     shared_events = _shared_upcoming_events(request.user, recipient)
     pending_request = (

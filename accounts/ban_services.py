@@ -7,6 +7,7 @@ from django.db import transaction
 from django.db.models import Q
 from django.utils import timezone
 
+from .ban_responses import BAN_MESSAGE
 from .models import User, UserBan
 
 FIRST_BAN_DURATION = timedelta(hours=120)
@@ -23,6 +24,12 @@ def get_active_ban(user, *, at=None):
         .filter(Q(expires_at__isnull=True) | Q(expires_at__gt=at))
         .first()
     )
+
+
+def require_unbanned_user(user):
+    """Reject restricted service calls using the user's current ban state."""
+    if get_active_ban(user) is not None:
+        raise PermissionDenied(BAN_MESSAGE)
 
 
 def _authorized_admin(actor):
