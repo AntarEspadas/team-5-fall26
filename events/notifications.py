@@ -25,6 +25,27 @@ def interested_recipients(event):
     )
 
 
+def notify_event_interest(event, user, registered):
+    """Notify the event host when a user registers or unregisters."""
+    if event.host_id is None or event.host_id == user.pk:
+        return None
+
+    action = "registered for" if registered else "unregistered from"
+    subject = (
+        f"New attendee for {event.title}"
+        if registered
+        else f"Attendee update for {event.title}"
+    )
+    subject = Truncator(subject).chars(SUBJECT_MAX_LENGTH)
+    return Notification.objects.create(
+        recipient_id=event.host_id,
+        event=event,
+        notification_type=Notification.Type.ATTENDANCE,
+        subject=subject,
+        body=f"{user.get_display_name()} {action} {event.title}.",
+    )
+
+
 def notify_interested(event, subject, body, event_url):
     """Send a message to everyone interested in an event.
 

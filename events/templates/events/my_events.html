@@ -25,6 +25,7 @@
                 <li class="hosted-event">
                     {% include "events/_hosted_event_summary.html" %}
                     <p class="hosted-actions">
+                        <a href="{% url 'event_manage' event.pk %}">Manage</a>
                         <a href="{% url 'event_edit' event.pk %}">Edit</a>
                         <a class="hosted-cancel" href="{% url 'event_cancel' event.pk %}">Cancel</a>
                     </p>

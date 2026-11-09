@@ -7,6 +7,7 @@ from reports.views import report_event, report_post, report_reply
 from . import community_views
 from .views import (
     EventCreateView,
+    EventManageView,
     EventUpdateView,
     MyEventsView,
     cancel_event,
@@ -16,6 +17,7 @@ from .views import (
 urlpatterns = [
     path("new/", EventCreateView.as_view(), name="event_create"),
     path("mine/", MyEventsView.as_view(), name="my_events"),
+    path("<int:pk>/manage/", EventManageView.as_view(), name="event_manage"),
     path("<int:pk>/edit/", EventUpdateView.as_view(), name="event_edit"),
     path("<int:pk>/notify/", notify_attendees, name="event_notify"),
     path("<int:pk>/cancel/", cancel_event, name="event_cancel"),

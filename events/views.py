@@ -189,6 +189,51 @@ class MyEventsView(LoginRequiredMixin, TemplateView):
         return context
 
 
+class EventManageView(LoginRequiredMixin, DetailView):
+    """Let an event's host review attendees and registration activity."""
+
+    model = Event
+    template_name = "events/manage_event.html"
+    context_object_name = "event"
+
+    def get_queryset(self):
+        """Only return events owned by the signed-in user."""
+        return Event.objects.filter(host=self.request.user)
+
+    def get_context_data(self, **kwargs):
+        """Add the selected management tab and its event-specific data."""
+        context = super().get_context_data(**kwargs)
+        tab = self.request.GET.get("tab", "attendees")
+        if tab not in {"attendees", "notifications"}:
+            tab = "attendees"
+        context["active_tab"] = tab
+        context["attendees"] = (
+            EventInterest.objects.filter(event=self.object)
+            .exclude(user_id=self.object.host_id)
+            .select_related("user")
+        )
+        notifications = list(
+            self.object.notifications.filter(
+                recipient=self.request.user,
+                notification_type=Notification.Type.ATTENDANCE,
+            )
+        )
+        if tab == "notifications":
+            unread_ids = [
+                notification.pk
+                for notification in notifications
+                if notification.read_at is None
+            ]
+            if unread_ids:
+                read_at = timezone.now()
+                Notification.objects.filter(pk__in=unread_ids).update(read_at=read_at)
+                for notification in notifications:
+                    if notification.pk in unread_ids:
+                        notification.read_at = read_at
+        context["attendance_notifications"] = notifications
+        return context
+
+
 class NotificationListView(LoginRequiredMixin, ListView):
     """List contact requests first, newest first within each group.
 

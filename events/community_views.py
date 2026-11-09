@@ -19,7 +19,7 @@ from .models import (
     EventPost,
     Notification,
 )
-from .notifications import notify_contact_request
+from .notifications import notify_contact_request, notify_event_interest
 
 
 def event_detail_url(event_id):
@@ -72,8 +72,10 @@ def toggle_event_interest(request, event_id):
                 user=request.user,
                 status=status,
             )
+            notify_event_interest(event, request.user, registered=True)
         elif interest.status == status:
             interest.delete()
+            notify_event_interest(event, request.user, registered=False)
         else:
             interest.status = status
             interest.save(update_fields=["status"])

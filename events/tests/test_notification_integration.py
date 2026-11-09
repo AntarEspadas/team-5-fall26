@@ -157,20 +157,103 @@ class NotificationIntegrationTests(NotifyTestCase):
         self.client.force_login(self.fan)
         url = reverse("toggle_event_interest", args=[self.event.pk])
         self.client.post(url, {"status": EventInterest.Status.WANT_TO_ATTEND})
+        self.assertFalse(Notification.objects.exclude(pk=alert.pk).exists())
         self.assertEqual(
             EventInterest.objects.get(user=self.fan).status,
             EventInterest.Status.WANT_TO_ATTEND,
         )
         self.client.post(url, {"status": EventInterest.Status.INTERESTED})
+        self.assertFalse(Notification.objects.exclude(pk=alert.pk).exists())
         self.assertEqual(
             EventInterest.objects.get(user=self.fan).status,
             EventInterest.Status.INTERESTED,
         )
         self.client.post(url, {"status": EventInterest.Status.INTERESTED})
+        host_alert = Notification.objects.exclude(pk=alert.pk).get()
+        self.assertEqual(host_alert.recipient, self.host)
+        self.assertIn("unregistered from", host_alert.body)
         self.assertFalse(EventInterest.objects.filter(user=self.fan).exists())
         alert.refresh_from_db()
         self.assertIsNone(alert.read_at)
         self.assertEqual(alert.contact_request.status, ContactRequest.Status.PENDING)
+
+    def test_registration_notifies_host_in_app(self):
+        EventInterest.objects.filter(event=self.event, user=self.fan).delete()
+        self.client.force_login(self.fan)
+        response = self.client.post(
+            reverse("toggle_event_interest", args=[self.event.pk]),
+            {"status": EventInterest.Status.WANT_TO_ATTEND},
+        )
+
+        self.assertRedirects(response, self.detail_url)
+        alert = Notification.objects.get()
+        self.assertEqual(alert.recipient, self.host)
+        self.assertEqual(alert.event, self.event)
+        self.assertEqual(alert.notification_type, Notification.Type.ATTENDANCE)
+        self.assertIn("registered for", alert.body)
+        self.assertIsNone(alert.read_at)
+        self.assertEqual(mail.outbox, [])
+        self.client.force_login(self.host)
+        response = self.client.get(reverse("notifications"))
+        self.assertContains(response, alert.subject)
+        self.assertContains(response, alert.body)
+
+    def test_manage_event_tabs_show_attendees_and_attendance_activity(self):
+        registration = Notification.objects.create(
+            recipient=self.host,
+            event=self.event,
+            notification_type=Notification.Type.ATTENDANCE,
+            subject="New attendee for Sunset Yoga",
+            body="Fan registered for Sunset Yoga.",
+        )
+        Notification.objects.create(
+            recipient=self.host,
+            event=self.event,
+            subject="General update",
+            body="Not registration activity.",
+        )
+        url = reverse("event_manage", args=[self.event.pk])
+
+        attendees_response = self.client.get(url)
+        self.assertEqual(attendees_response.status_code, 200)
+        self.assertContains(attendees_response, "Attendees (2)")
+        self.assertEqual(attendees_response.context["active_tab"], "attendees")
+        self.assertEqual(
+            {
+                attendee.user.username
+                for attendee in attendees_response.context["attendees"]
+            },
+            {"fan", "second_fan"},
+        )
+        self.assertContains(
+            attendees_response,
+            'aria-labelledby="notifications-tab" hidden',
+            html=False,
+        )
+
+        notification_response = self.client.get(url, {"tab": "notifications"})
+        self.assertEqual(notification_response.context["active_tab"], "notifications")
+        self.assertContains(notification_response, "Fan registered for Sunset Yoga.")
+        self.assertContains(notification_response, registration.subject)
+        self.assertNotContains(notification_response, "Not registration activity.")
+        registration.refresh_from_db()
+        self.assertIsNotNone(registration.read_at)
+
+    def test_only_event_host_can_open_manage_page(self):
+        url = reverse("event_manage", args=[self.event.pk])
+        self.client.force_login(self.fan)
+        self.assertEqual(self.client.get(url).status_code, 404)
+        self.client.logout()
+        response = self.client.get(url)
+        self.assertEqual(response.status_code, 302)
+        self.assertIn(reverse("login"), response["Location"])
+
+    def test_host_does_not_receive_own_registration_alert(self):
+        self.client.post(
+            reverse("toggle_event_interest", args=[self.event.pk]),
+            {"status": EventInterest.Status.INTERESTED},
+        )
+        self.assertFalse(Notification.objects.exists())
 
     def test_invalid_intention_is_ignored(self):
         self.client.post(

@@ -541,6 +541,7 @@
             </p>
             {% if can_manage %}
                 <p class="detail-actions">
+                    <a class="detail-button" href="{% url 'event_manage' event.pk %}">Manage event</a>
                     <a class="detail-button" href="{% url 'event_edit' event.pk %}">Edit event</a>
                     <a class="detail-button danger-button" href="{% url 'event_cancel' event.pk %}">Cancel event</a>
                 </p>

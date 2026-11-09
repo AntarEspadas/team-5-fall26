@@ -1,0 +1,74 @@
+{% load static tz %}<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Manage {{ event.title }} | NYC Parks Events</title>
+    <link rel="stylesheet" href="{% static 'events/search.css' %}">
+    <link rel="stylesheet" href="{% static 'events/home.css' %}">
+    <link rel="stylesheet" href="{% static 'events/my_events.css' %}">
+    <link rel="stylesheet" href="{% static 'events/notifications.css' %}">
+    <link rel="stylesheet" href="{% static 'events/manage_event.css' %}">
+</head>
+<body>
+    <main class="manage-event-page">
+        <a class="search-back" href="{% url 'event_detail' event.pk %}">Back to event</a>
+        <h1>Manage event</h1>
+        <p class="manage-event-title">{{ event.title }}</p>
+
+        <nav class="manage-tabs" role="tablist" aria-label="Event management">
+            <a id="attendees-tab"
+               class="manage-tab{% if active_tab == 'attendees' %} is-active{% endif %}"
+               href="{% url 'event_manage' event.pk %}?tab=attendees"
+               role="tab"
+               aria-selected="{% if active_tab == 'attendees' %}true{% else %}false{% endif %}"
+               aria-controls="attendees-panel">Attendees ({{ attendees|length }})</a>
+            <a id="notifications-tab"
+               class="manage-tab{% if active_tab == 'notifications' %} is-active{% endif %}"
+               href="{% url 'event_manage' event.pk %}?tab=notifications"
+               role="tab"
+               aria-selected="{% if active_tab == 'notifications' %}true{% else %}false{% endif %}"
+               aria-controls="notifications-panel">Notifications ({{ attendance_notifications|length }})</a>
+        </nav>
+
+        <section id="attendees-panel" class="manage-panel" role="tabpanel" aria-labelledby="attendees-tab"{% if active_tab != "attendees" %} hidden{% endif %}>
+            <h2>Attendees</h2>
+            {% if attendees %}
+            <ul class="manage-list">
+                {% for attendee in attendees %}
+                <li class="manage-list-item">
+                    <div>
+                        <strong>{{ attendee.user.get_display_name }}</strong>
+                        <p class="manage-meta">{{ attendee.user.username }}</p>
+                    </div>
+                    <span class="manage-status">{{ attendee.get_status_display }}</span>
+                </li>
+                {% endfor %}
+            </ul>
+            {% else %}
+            <p class="empty-state">No one has registered for this event yet.</p>
+            {% endif %}
+        </section>
+        <section id="notifications-panel" class="manage-panel" role="tabpanel" aria-labelledby="notifications-tab"{% if active_tab != "notifications" %} hidden{% endif %}>
+            <h2>Registration notifications</h2>
+            {% if attendance_notifications %}
+            <ul class="notification-list">
+                {% for notification in attendance_notifications %}
+                <li class="notification{% if not notification.read_at %} is-new{% endif %}">
+                    <p class="notification-meta">
+                        {% if not notification.read_at %}<span class="count-pill">New</span>{% endif %}
+                        {% timezone "America/New_York" %}{{ notification.created_at|date:"M j, Y, g:i A" }}{% endtimezone %}
+                    </p>
+                    <h3>{{ notification.subject }}</h3>
+                    <p class="notification-body">{{ notification.body }}</p>
+                </li>
+                {% endfor %}
+            </ul>
+            {% else %}
+            <p class="empty-state">There are no registration notifications yet.</p>
+            {% endif %}
+        </section>
+    </main>
+    {% include "chatbot/widget.html" %}
+</body>
+</html>
