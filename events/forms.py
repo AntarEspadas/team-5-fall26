@@ -4,7 +4,7 @@ from django import forms
 from django.utils import timezone
 
 from .filters import CATEGORY_GROUPS, CATEGORY_SEPARATOR, NYC_TIMEZONE
-from .models import ContactRequest, Event, EventPost, EventReply
+from .models import ContactRequest, Event, EventPost, EventReply, Registration
 
 DATETIME_INPUT_FORMAT = "%Y-%m-%dT%H:%M"
 CATEGORY_LABELS = {slug: label for slug, label, _ in CATEGORY_GROUPS}
@@ -114,6 +114,27 @@ class NotifyAttendeesForm(forms.Form):
     subject = forms.CharField(label="Subject", max_length=200)
     message = forms.CharField(
         label="Message", max_length=5000, widget=forms.Textarea(attrs={"rows": 4})
+    )
+
+
+class PartySizeForm(forms.Form):
+    """Validate how many people a user is registering, including themselves.
+
+    A submission without a party size registers just the user, so the
+    one-click Register buttons elsewhere keep working.
+    """
+
+    party_size = forms.TypedChoiceField(
+        label="Party size",
+        choices=[(n, n) for n in range(1, Registration.MAX_PARTY_SIZE + 1)],
+        coerce=int,
+        required=False,
+        empty_value=1,
+        error_messages={
+            "invalid_choice": (
+                f"Choose a party size from 1 to {Registration.MAX_PARTY_SIZE}."
+            )
+        },
     )
 
 

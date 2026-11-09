@@ -2,7 +2,16 @@
 
 from django.contrib import admin
 
-from .models import Event, EventPost, EventReply, Notification
+from .models import Event, EventPost, EventReply, Notification, Registration
+
+
+@admin.register(Registration)
+class RegistrationAdmin(admin.ModelAdmin):
+    """Show who registered for which event and how many they are bringing."""
+
+    list_display = ("event", "user", "party_size", "created_at")
+    list_select_related = ("event", "user")
+    search_fields = ("event__title", "user__username")
 
 
 @admin.register(Notification)

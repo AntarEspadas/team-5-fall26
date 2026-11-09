@@ -104,7 +104,11 @@ class LandingViewTests(TestCase):
             response,
             f'href="{reverse("event_detail", args=[self.alpha_event.pk])}"',
         )
-        self.assertContains(response, '<button type="submit" class="register">')
+        beta_event = Event.objects.get(guid="b2")
+        register_url = reverse("event_detail", args=[beta_event.pk])
+        self.assertContains(
+            response, f'<a class="register" href="{register_url}#register">'
+        )
         self.assertContains(response, "Register")
         self.assertContains(response, "Stretch and breathe in the park.")
 

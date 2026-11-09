@@ -1,6 +1,7 @@
 """Data models for NYC Parks events imported from the city's open data feed."""
 
 from django.contrib.postgres.indexes import GinIndex
+from django.core.validators import MaxValueValidator, MinValueValidator
 from django.db import models
 from django.utils import timezone
 
@@ -176,7 +177,9 @@ class EventInterest(models.Model):
 
 
 class Registration(models.Model):
-    """Record a user's registration for an event."""
+    """Record a user's registration for an event and how many are coming."""
+
+    MAX_PARTY_SIZE = 10
 
     event = models.ForeignKey(
         Event,
@@ -187,6 +190,12 @@ class Registration(models.Model):
         "accounts.User",
         on_delete=models.CASCADE,
         related_name="event_registrations",
+    )
+    party_size = models.PositiveSmallIntegerField(
+        "party size",
+        default=1,
+        validators=[MinValueValidator(1), MaxValueValidator(MAX_PARTY_SIZE)],
+        help_text="How many people are coming, including the user.",
     )
     created_at = models.DateTimeField(auto_now_add=True)
 
