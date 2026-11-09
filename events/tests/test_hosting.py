@@ -106,6 +106,8 @@ class EventCreateViewTests(TestCase):
 
         detail = self.client.get(response.url)
         self.assertContains(detail, "Your event is posted.")
+        self.assertContains(detail, "Manage event")
+        self.assertContains(detail, reverse("event_manage", args=[event.pk]))
         self.assertContains(detail, "Hosted by <strong>River Yoga Collective</strong>")
         self.assertContains(detail, "(Brooklyn)")
         self.assertNotContains(self.client.get(response.url), "Your event is posted.")
