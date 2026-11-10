@@ -1,10 +1,11 @@
-"""Filters that narrow event listings by date range, borough, and category."""
+"""Filters that narrow event listings by date, time of day, borough, and category."""
 
 from datetime import datetime, time, timedelta
 from zoneinfo import ZoneInfo
 
 from django import forms
 from django.db.models import Q
+from django.db.models.functions import ExtractHour
 from django.utils import timezone
 
 NYC_TIMEZONE = ZoneInfo("America/New_York")
@@ -14,6 +15,14 @@ DATE_PRESETS = (
     ("weekend", "This weekend"),
     ("month", "This month"),
 )
+
+# Parts of the day by New York start hour: (slug, label, first hour, end hour).
+TIMES_OF_DAY = (
+    ("morning", "Morning", 0, 12),
+    ("afternoon", "Afternoon", 12, 17),
+    ("evening", "Evening", 17, 24),
+)
+TIME_HOURS = {slug: (first, end) for slug, _, first, end in TIMES_OF_DAY}
 
 # NYC Parks property IDs start with a borough letter, e.g. "B073" is in Brooklyn.
 BOROUGHS = (
@@ -174,6 +183,12 @@ class EventFilterForm(forms.Form):
         required=False,
         widget=forms.DateInput(attrs={"type": "date"}, format="%Y-%m-%d"),
     )
+    time = forms.ChoiceField(
+        label="Time of day",
+        choices=[("", "Any time")]
+        + [(slug, label) for slug, label, _, _ in TIMES_OF_DAY],
+        required=False,
+    )
     borough = forms.MultipleChoiceField(
         choices=[(slug, label) for slug, label, _ in BOROUGHS],
         required=False,
@@ -214,6 +229,8 @@ def filter_params(filters):
     for key in ("date_from", "date_to"):
         if filters.get(key):
             params.append((key, filters[key].isoformat()))
+    if filters.get("time"):
+        params.append(("time", filters["time"]))
     params.extend(("borough", slug) for slug in filters.get("borough", []))
     params.extend(("category", slug) for slug in filters.get("category", []))
     return params
@@ -222,8 +239,9 @@ def filter_params(filters):
 def filter_events(events, filters):
     """Narrow an event queryset to events matching every active filter.
 
-    Events count as being on a date range when they overlap it. Selecting
-    several boroughs or categories matches any of them.
+    Events count as being on a date range when they overlap it, and in a
+    time of day when they start during it in New York. Selecting several
+    boroughs or categories matches any of them.
     """
     start, end = filters.get("date_from"), filters.get("date_to")
     if start:
@@ -233,6 +251,11 @@ def filter_events(events, filters):
         )
     if end:
         events = events.filter(start_time__lt=start_of_day(end + timedelta(days=1)))
+    if filters.get("time"):
+        first, end_hour = TIME_HOURS[filters["time"]]
+        events = events.annotate(
+            nyc_start_hour=ExtractHour("start_time", tzinfo=NYC_TIMEZONE)
+        ).filter(nyc_start_hour__gte=first, nyc_start_hour__lt=end_hour)
     boroughs = Q()
     for slug in filters.get("borough", []):
         boroughs |= Q(borough=slug) | Q(park_ids__istartswith=BOROUGH_PREFIXES[slug])

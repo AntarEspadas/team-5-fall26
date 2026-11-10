@@ -1,4 +1,4 @@
-{% with date_from_count=form.date_from.value|yesno:"1,0" date_to_count=form.date_to.value|yesno:"1,0" borough_count=form.borough.value|default_if_none:""|length category_count=form.category.value|default_if_none:""|length %}
+{% with date_from_count=form.date_from.value|yesno:"1,0" date_to_count=form.date_to.value|yesno:"1,0" time_count=form.time.value|yesno:"1,0" borough_count=form.borough.value|default_if_none:""|length category_count=form.category.value|default_if_none:""|length %}
 <div class="filter-bar" role="group" aria-label="Filter events">
     <div class="filter-row">
         <div class="filter-presets">
@@ -13,7 +13,7 @@
         <summary class="filter-toggle">
             Filters
             {% if has_filters %}
-            <span class="filter-count">{{ date_from_count|add:date_to_count|add:borough_count|add:category_count }}</span>
+            <span class="filter-count">{{ date_from_count|add:date_to_count|add:time_count|add:borough_count|add:category_count }}</span>
             {% endif %}
         </summary>
 
@@ -25,6 +25,8 @@
                     {{ form.date_from }}
                     <label for="{{ form.date_to.id_for_label }}">{{ form.date_to.label }}</label>
                     {{ form.date_to }}
+                    <label for="{{ form.time.id_for_label }}">{{ form.time.label }}</label>
+                    {{ form.time }}
                 </div>
                 {{ form.date_from.errors }}
                 {{ form.date_to.errors }}

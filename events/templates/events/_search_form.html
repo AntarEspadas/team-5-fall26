@@ -9,8 +9,12 @@
                 <path d="m20 20-3.6-3.6"></path>
             </svg>
         </span>
-        <input id="event-search" type="search" name="q" value="{{ query|default:'' }}" placeholder="Search by activity, park, or location">
+        <input id="event-search" type="search" name="q" value="{{ query|default:'' }}" placeholder="{% if search_action %}Search by activity, park, or location{% else %}Try &ldquo;kids events in Brooklyn this weekend&rdquo;{% endif %}">
         <button type="submit">Search</button>
     </div>
+    {% if not search_action %}
+    {# Upcoming-event searches are read as plain language; this holds the words already on the page, so changing only the filters keeps them as they are. #}
+    <input type="hidden" name="nl" value="{{ query|default:'' }}">
+    {% endif %}
     {% include 'events/_filter_bar.html' with form=filter_form %}
 </form>
