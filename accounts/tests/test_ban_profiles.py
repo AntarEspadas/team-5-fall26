@@ -2,11 +2,13 @@
 
 from datetime import timedelta
 from unittest.mock import patch
+from zoneinfo import ZoneInfo
 
 from django.contrib.auth import SESSION_KEY
-from django.test import TestCase, override_settings
+from django.test import TestCase
 from django.urls import reverse
 from django.utils import timezone
+from django.utils.formats import date_format
 from django.utils.html import escape
 
 from accounts.ban_services import apply_ban, lift_ban
@@ -52,9 +54,9 @@ class BanProfileTests(TestCase):
         self.assertContains(response, 'type="file"')
         self.assertContains(response, "accounts/profile-photo-preview.js")
 
-    @override_settings(TIME_ZONE="America/New_York")
     def test_temporary_banner_has_accessible_status_and_expiration(self):
         ban, _ = apply_ban(self.admin, self.owner)
+        expiration = timezone.localtime(ban.expires_at, ZoneInfo("America/New_York"))
         for url in (self.profile_url, self.settings_url):
             with self.subTest(url=url):
                 response = self.client.get(url)
@@ -67,11 +69,12 @@ class BanProfileTests(TestCase):
                 self.assertContains(response, "Your account is banned")
                 self.assertContains(
                     response,
-                    f'datetime="{timezone.localtime(ban.expires_at).isoformat()}"',
+                    f'datetime="{expiration.isoformat()}"',
                 )
                 self.assertContains(
-                    response, timezone.localtime(ban.expires_at).strftime("%Z")
+                    response, date_format(expiration, "F j, Y, g:i A T")
                 )
+                self.assertContains(response, expiration.strftime("%Z"))
                 self.assertContains(response, "marking events as Interested")
                 self.assertContains(response, "including profile edits, are disabled")
                 self.assertNotContains(response, "indefinitely")
