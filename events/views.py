@@ -7,7 +7,7 @@ from django.contrib import messages
 from django.contrib.auth.decorators import login_required
 from django.contrib.auth.mixins import LoginRequiredMixin
 from django.db import transaction
-from django.db.models import Case, F, Value, When
+from django.db.models import Case, Exists, F, OuterRef, Value, When
 from django.http import Http404, QueryDict
 from django.shortcuts import get_object_or_404, redirect, render
 from django.urls import reverse
@@ -20,7 +20,6 @@ from django.views.generic import (
     TemplateView,
     UpdateView,
 )
-from django.db.models import Exists, OuterRef
 from django.utils.http import url_has_allowed_host_and_scheme
 
 from accounts.ban_services import get_active_ban
@@ -40,6 +39,7 @@ from .notifications import (
     change_notice,
     interested_recipients,
     notify_interested,
+    notify_registration_change,
 )
 from .search import search_events
 
@@ -212,6 +212,49 @@ class MyEventsView(LoginRequiredMixin, TemplateView):
         return context
 
 
+class EventManageView(LoginRequiredMixin, DetailView):
+    """Let an event's host review attendees and registration activity."""
+
+    model = Event
+    template_name = "events/manage_event.html"
+    context_object_name = "event"
+
+    def get_queryset(self):
+        """Only return events owned by the signed-in user."""
+        return Event.objects.filter(host=self.request.user)
+
+    def get_context_data(self, **kwargs):
+        """Add the selected management tab and its event-specific data."""
+        context = super().get_context_data(**kwargs)
+        tab = self.request.GET.get("tab", "attendees")
+        if tab not in {"attendees", "notifications"}:
+            tab = "attendees"
+        context["active_tab"] = tab
+        context["attendees"] = Registration.objects.filter(
+            event=self.object
+        ).select_related("user")
+        notifications = list(
+            self.object.notifications.filter(
+                recipient=self.request.user,
+                notification_type=Notification.Type.REGISTRATION,
+            )
+        )
+        if tab == "notifications":
+            unread_ids = [
+                notification.pk
+                for notification in notifications
+                if notification.read_at is None
+            ]
+            if unread_ids:
+                read_at = timezone.now()
+                Notification.objects.filter(pk__in=unread_ids).update(read_at=read_at)
+                for notification in notifications:
+                    if notification.pk in unread_ids:
+                        notification.read_at = read_at
+        context["registration_notifications"] = notifications
+        return context
+
+
 class NotificationListView(LoginRequiredMixin, ListView):
     """List contact requests first, newest first within each group.
 
@@ -279,10 +322,13 @@ def register_event(request, pk):
         )
         return redirect(next_url)
 
-    registration, created = Registration.objects.get_or_create(
-        event=event,
-        user=request.user,
-    )
+    with transaction.atomic():
+        registration, created = Registration.objects.get_or_create(
+            event=event,
+            user=request.user,
+        )
+        if created:
+            notify_registration_change(event, request.user, registered=True)
 
     if created:
         messages.success(
@@ -312,10 +358,13 @@ def cancel_registration(request, pk):
     ):
         next_url = reverse("event_detail", args=[event.pk])
 
-    deleted, _ = Registration.objects.filter(
-        event=event,
-        user=request.user,
-    ).delete()
+    with transaction.atomic():
+        deleted, _ = Registration.objects.filter(
+            event=event,
+            user=request.user,
+        ).delete()
+        if deleted:
+            notify_registration_change(event, request.user, registered=False)
 
     if deleted:
         messages.success(
