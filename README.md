@@ -114,9 +114,12 @@ and **iCalendar (Outlook and others)** open a `webcal://` link to
 `/events/<id>/calendar.ics`, an
 [iCalendar](https://en.wikipedia.org/wiki/ICalendar) file. The browser hands
 it to the device's calendar app (Calendar on iPhones, iPads, and Macs; Outlook
-on Windows), which subscribes to it instead of downloading anything. A
-**Download the .ics file** link under the options is a fallback for devices
-without a calendar app that handles webcal links.
+on Windows), which subscribes to it instead of downloading anything. The
+device decides which app gets webcal links: if Google Calendar is registered
+for them in Chrome, for example, they open Google Calendar. On a Mac, choose
+**Calendar → Settings → General → Default calendar app** to send them to
+Apple Calendar. A **Download the .ics file** link under the options is a
+fallback for devices that open the wrong app or none.
 
 A subscription shows up in the calendar app as its own calendar named after the
 event, and the app refreshes it about every 12 hours, so changes to the time or

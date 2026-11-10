@@ -1,8 +1,9 @@
 {% comment %}
 "Add to calendar" menu on the event detail page. Google Calendar opens a
 prefilled event. Apple Calendar and the iCalendar option open the visitor's
-calendar app through a webcal:// link to the .ics file; the file can also be
-downloaded for apps that don't handle webcal links.
+calendar app through a webcal:// link to the .ics file. Which app opens is
+the device's choice, so the file can also be downloaded, which Apple Calendar
+and most other apps open.
 {% endcomment %}
 {% url 'event_calendar' event.pk as calendar_file_url %}
 <details class="calendar-menu">
@@ -34,7 +35,7 @@ downloaded for apps that don't handle webcal links.
             </li>
         </ul>
         <p class="calendar-download">
-            Nothing opened?
+            Wrong app, or nothing opened?
             <a href="{{ calendar_file_url }}" download>Download the .ics file</a>
         </p>
     </div>
