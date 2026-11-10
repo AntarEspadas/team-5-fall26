@@ -31,8 +31,10 @@ from django.utils.http import (
 from .calendar_export import (
     can_add_to_calendar,
     google_calendar_url,
+    has_calendar_file,
     icalendar_text,
     ics_filename,
+    webcal_url,
 )
 from .filters import EventFilterForm, filter_events, filter_params
 from .forms import CancelEventForm, EventListingForm, NotifyAttendeesForm
@@ -394,13 +396,14 @@ def cancel_registration(request, pk):
 def event_calendar_file(request, pk):
     """Serve an event as an .ics file for Apple Calendar, Outlook, and others.
 
-    The file is shown inline, so iPhones and iPads offer to add the event to
-    Calendar right away, while other browsers download it. Events without a
-    start time, or that have ended or were cancelled, are not found.
+    The event page links here with ``webcal://``, so calendar apps subscribe
+    and keep refreshing this URL. The file therefore stays available after
+    the event ends, and cancelled events are marked cancelled. Only events
+    without a start time are not found.
     """
     event = get_object_or_404(Event, pk=pk)
-    if not can_add_to_calendar(event):
-        raise Http404("This event can't be added to a calendar.")
+    if not has_calendar_file(event):
+        raise Http404("This event has no date to add to a calendar.")
     event_url = request.build_absolute_uri(reverse("event_detail", args=[event.pk]))
     response = HttpResponse(
         icalendar_text(event, event_url),
@@ -461,11 +464,12 @@ class EventDetailView(DetailView):
         # Offer "Add to calendar" for open events that have a start time.
         context["calendar_available"] = can_add_to_calendar(event)
         if context["calendar_available"]:
+            build_url = self.request.build_absolute_uri
             context["google_calendar_url"] = google_calendar_url(
-                event,
-                self.request.build_absolute_uri(
-                    reverse("event_detail", args=[event.pk])
-                ),
+                event, build_url(reverse("event_detail", args=[event.pk]))
+            )
+            context["webcal_url"] = webcal_url(
+                build_url(reverse("event_calendar", args=[event.pk]))
             )
 
         # Get registrations for this event.

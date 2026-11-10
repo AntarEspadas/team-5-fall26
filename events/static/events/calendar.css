@@ -54,16 +54,20 @@
     width: max-content;
     min-width: 100%;
     max-width: min(320px, calc(100vw - 3rem));
-    margin: 0;
     padding: 4px;
-    list-style: none;
     border: 1px solid #d5ded7;
     border-radius: 8px;
     background: #fff;
     box-shadow: 0 4px 16px rgba(30, 65, 43, 0.15);
 }
 
-.calendar-menu-options a {
+.calendar-menu-options ul {
+    margin: 0;
+    padding: 0;
+    list-style: none;
+}
+
+.calendar-menu-options li a {
     display: block;
     padding: 10px 14px;
     border-radius: 6px;
@@ -71,14 +75,26 @@
     text-decoration: none;
 }
 
-.calendar-menu-options a:hover,
-.calendar-menu-options a:focus-visible {
+.calendar-menu-options li a:hover,
+.calendar-menu-options li a:focus-visible {
     background: #edf4ef;
 }
 
 .calendar-menu-options a:focus-visible {
     outline: 2px solid #237b53;
     outline-offset: -2px;
+}
+
+.calendar-download {
+    margin: 4px 0 0;
+    padding: 8px 14px 6px;
+    border-top: 1px solid #e3e9e4;
+    color: #5b6862;
+    font-size: 0.8rem;
+}
+
+.calendar-download a {
+    color: #1f6f4a;
 }
 
 .calendar-option-name {

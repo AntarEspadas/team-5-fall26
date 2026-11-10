@@ -14,8 +14,10 @@ from events.calendar_export import (
     escape_text,
     fold_line,
     google_calendar_url,
+    has_calendar_file,
     icalendar_text,
     ics_filename,
+    webcal_url,
 )
 from events.models import Event
 
@@ -69,6 +71,22 @@ class CalendarAvailabilityTests(TestCase):
 
         self.assertFalse(can_add_to_calendar(by_host))
         self.assertFalse(can_add_to_calendar(by_feed))
+
+    def test_file_stays_available_for_subscribed_apps(self):
+        """Ended and cancelled events keep their file; only undated ones don't."""
+        self.assertTrue(has_calendar_file(make_event("done", status="done")))
+        self.assertTrue(has_calendar_file(make_event("off", status="cancelled")))
+        self.assertFalse(has_calendar_file(make_event("tba", start_time=None)))
+
+    def test_webcal_links_hand_the_file_to_the_calendar_app(self):
+        self.assertEqual(
+            webcal_url("http://localhost:8000/events/7/calendar.ics"),
+            "webcal://localhost:8000/events/7/calendar.ics",
+        )
+        self.assertEqual(
+            webcal_url("https://parks.example.org/events/7/calendar.ics"),
+            "webcal://parks.example.org/events/7/calendar.ics",
+        )
 
 
 class GoogleCalendarLinkTests(TestCase):
@@ -162,12 +180,16 @@ class ICalendarFileTests(TestCase):
                 "PRODID:-//Team 5//NYC Parks Events//EN",
                 "CALSCALE:GREGORIAN",
                 "METHOD:PUBLISH",
+                "X-WR-CALNAME:Sunset Yoga",
+                "REFRESH-INTERVAL;VALUE=DURATION:PT12H",
+                "X-PUBLISHED-TTL:PT12H",
                 "BEGIN:VEVENT",
                 "UID:cal-1@nyc-parks-events",
                 "DTSTAMP:20990101T120000Z",
                 "DTSTART:20990115T140000Z",
                 "DTEND:20990115T153000Z",
                 "SUMMARY:Sunset Yoga",
+                "STATUS:CONFIRMED",
                 f"DESCRIPTION:Bring a mat.\\n\\nEvent page: {EVENT_URL}",
                 "LOCATION:Prospect Park Lakeside\\, Brooklyn",
                 f"URL:{EVENT_URL}",
@@ -176,6 +198,17 @@ class ICalendarFileTests(TestCase):
                 "",
             ],
         )
+
+    def test_cancelled_events_are_marked_for_subscribed_apps(self):
+        """Host cancellations get a title prefix; feed titles already say so."""
+        by_host = ics_lines(make_event("host", status=Event.Status.CANCELLED))
+        by_feed = ics_lines(make_event("feed", title="CANCELLED: Sunset Yoga"))
+
+        self.assertIn("SUMMARY:Cancelled: Sunset Yoga", by_host)
+        self.assertIn("X-WR-CALNAME:Cancelled: Sunset Yoga", by_host)
+        self.assertIn("STATUS:CANCELLED", by_host)
+        self.assertIn("SUMMARY:CANCELLED: Sunset Yoga", by_feed)
+        self.assertIn("STATUS:CANCELLED", by_feed)
 
     def test_every_line_ends_with_crlf(self):
         text = icalendar_text(make_event(description="One\nTwo"), EVENT_URL)
@@ -266,15 +299,19 @@ class AddToCalendarPageTests(TestCase):
         google_url = google_calendar_url(
             self.event, f"http://testserver{self.detail_url}"
         )
+        webcal = f"webcal://testserver{self.calendar_url}"
         self.assertTrue(response.context["calendar_available"])
         self.assertEqual(response.context["google_calendar_url"], google_url)
+        self.assertEqual(response.context["webcal_url"], webcal)
         self.assertContains(response, "Add to calendar")
         self.assertContains(response, f'href="{escape(google_url)}"')
         self.assertContains(response, "Google Calendar")
-        self.assertContains(response, f'<a href="{self.calendar_url}">')
+        # Apple Calendar and the iCalendar option open the calendar app.
+        self.assertContains(response, f'<a href="{webcal}">', count=2)
         self.assertContains(response, "Apple Calendar")
+        self.assertContains(response, "iCalendar (Outlook and others)")
+        # Browsers without a calendar app can still download the file.
         self.assertContains(response, f'<a href="{self.calendar_url}" download>')
-        self.assertContains(response, "iCalendar file (.ics)")
 
     def test_detail_page_hides_the_menu_when_the_event_cannot_be_added(self):
         events = {
@@ -289,6 +326,7 @@ class AddToCalendarPageTests(TestCase):
 
                 self.assertFalse(response.context["calendar_available"])
                 self.assertNotIn("google_calendar_url", response.context)
+                self.assertNotIn("webcal_url", response.context)
                 self.assertNotContains(response, "Add to calendar")
                 self.assertNotContains(
                     response, reverse("event_calendar", args=[event.pk])
@@ -307,18 +345,29 @@ class AddToCalendarPageTests(TestCase):
         self.assertIn("DTSTART:20990115T140000Z\r\n", body)
         self.assertIn(f"URL:http://testserver{self.detail_url}\r\n", body)
 
-    def test_ics_file_is_not_found_when_the_event_cannot_be_added(self):
-        events = [
-            make_event("tba", start_time=None),
-            make_event("done", status=Event.Status.DONE),
-            make_event("cancelled", status=Event.Status.CANCELLED),
-        ]
-        urls = [reverse("event_calendar", args=[event.pk]) for event in events]
-        urls.append(reverse("event_calendar", args=[999999999]))
+    def test_ics_file_stays_available_after_the_event_ends_or_is_cancelled(self):
+        """Subscribed calendar apps keep refreshing the file."""
+        done = make_event("done", status=Event.Status.DONE)
+        cancelled = make_event("cancelled", status=Event.Status.CANCELLED)
 
-        for url in urls:
-            with self.subTest(url):
-                self.assertEqual(self.client.get(url).status_code, 404)
+        done_response = self.client.get(reverse("event_calendar", args=[done.pk]))
+        cancelled_response = self.client.get(
+            reverse("event_calendar", args=[cancelled.pk])
+        )
+
+        self.assertEqual(done_response.status_code, 200)
+        self.assertIn("STATUS:CONFIRMED\r\n", done_response.content.decode())
+        self.assertEqual(cancelled_response.status_code, 200)
+        self.assertIn("STATUS:CANCELLED\r\n", cancelled_response.content.decode())
+
+    def test_ics_file_is_not_found_without_a_date_or_event(self):
+        undated = make_event("tba", start_time=None)
+
+        for pk in (undated.pk, 999999999):
+            with self.subTest(pk=pk):
+                response = self.client.get(reverse("event_calendar", args=[pk]))
+
+                self.assertEqual(response.status_code, 404)
 
     def test_ics_file_only_answers_safe_requests(self):
         self.assertEqual(self.client.post(self.calendar_url).status_code, 405)

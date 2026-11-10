@@ -1,6 +1,8 @@
 {% comment %}
 "Add to calendar" menu on the event detail page. Google Calendar opens a
-prefilled event; Apple Calendar and other apps import the .ics file.
+prefilled event. Apple Calendar and the iCalendar option open the visitor's
+calendar app through a webcal:// link to the .ics file; the file can also be
+downloaded for apps that don't handle webcal links.
 {% endcomment %}
 {% url 'event_calendar' event.pk as calendar_file_url %}
 <details class="calendar-menu">
@@ -10,24 +12,30 @@ prefilled event; Apple Calendar and other apps import the .ics file.
         </svg>
         Add to calendar
     </summary>
-    <ul class="calendar-menu-options" aria-label="Calendar options">
-        <li>
-            <a href="{{ google_calendar_url }}">
-                <span class="calendar-option-name">Google Calendar</span>
-                <span class="calendar-option-hint">Opens a prefilled event</span>
-            </a>
-        </li>
-        <li>
-            <a href="{{ calendar_file_url }}">
-                <span class="calendar-option-name">Apple Calendar</span>
-                <span class="calendar-option-hint">iPhone, iPad, or Mac</span>
-            </a>
-        </li>
-        <li>
-            <a href="{{ calendar_file_url }}" download>
-                <span class="calendar-option-name">iCalendar file (.ics)</span>
-                <span class="calendar-option-hint">Outlook and other calendar apps</span>
-            </a>
-        </li>
-    </ul>
+    <div class="calendar-menu-options">
+        <ul aria-label="Calendar options">
+            <li>
+                <a href="{{ google_calendar_url }}">
+                    <span class="calendar-option-name">Google Calendar</span>
+                    <span class="calendar-option-hint">Opens a prefilled event</span>
+                </a>
+            </li>
+            <li>
+                <a href="{{ webcal_url }}">
+                    <span class="calendar-option-name">Apple Calendar</span>
+                    <span class="calendar-option-hint">Opens Calendar on iPhone, iPad, or Mac</span>
+                </a>
+            </li>
+            <li>
+                <a href="{{ webcal_url }}">
+                    <span class="calendar-option-name">iCalendar (Outlook and others)</span>
+                    <span class="calendar-option-hint">Opens your default calendar app</span>
+                </a>
+            </li>
+        </ul>
+        <p class="calendar-download">
+            Nothing opened?
+            <a href="{{ calendar_file_url }}" download>Download the .ics file</a>
+        </p>
+    </div>
 </details>
