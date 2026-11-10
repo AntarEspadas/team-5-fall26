@@ -105,6 +105,26 @@ closed. Everyone who selected Interested or Want to Attend gets an email and
 a notification. **My events** (`/events/mine/`), linked in the header, lists a
 host's upcoming events and archives the cancelled and ended ones.
 
+## Adding events to a calendar
+
+Event pages have an **Add to calendar** menu under the date and time, for
+anyone, signed in or not. **Google Calendar** opens Google's new-event form
+filled in with the title, time, location, and description. **Apple Calendar**
+and **iCalendar file (.ics)** both use `/events/<id>/calendar.ics`, an
+[iCalendar](https://en.wikipedia.org/wiki/ICalendar) file that iPhones, iPads,
+and Macs open in Calendar and that Outlook and most other calendar apps import;
+the .ics option always downloads the file.
+
+Times are sent in UTC, so each calendar shows the event in the viewer's own time
+zone. Events without an end time are saved as one hour long. Descriptions end
+with a link back to the event page, and Google Calendar descriptions are cut to
+1,500 characters to keep the link short. The file gives each event a stable
+UID built from its `guid`, so apps that match on it update a saved event when
+the file is imported again instead of adding a copy. The menu is hidden, and
+the .ics file returns 404, for events with no date yet and for ended or
+cancelled events. The links and the file are built in
+`events/calendar_export.py`.
+
 ## Reporting events
 
 Every event page has a **Report event** button. Signed-in users can report

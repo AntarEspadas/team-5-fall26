@@ -12,6 +12,7 @@ from .views import (
     MyEventsView,
     cancel_event,
     cancel_registration,
+    event_calendar_file,
     notify_attendees,
     register_event,
     ArchivedEventsView,
@@ -25,6 +26,7 @@ urlpatterns = [
     path("<int:pk>/notify/", notify_attendees, name="event_notify"),
     path("<int:pk>/cancel/", cancel_event, name="event_cancel"),
     path("<int:pk>/register/", register_event, name="event_register"),
+    path("<int:pk>/calendar.ics", event_calendar_file, name="event_calendar"),
     path(
         "<int:pk>/cancel-registration/",
         cancel_registration,

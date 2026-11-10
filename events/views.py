@@ -8,11 +8,15 @@ from django.contrib.auth.decorators import login_required
 from django.contrib.auth.mixins import LoginRequiredMixin
 from django.db import transaction
 from django.db.models import Case, Exists, F, OuterRef, Value, When
-from django.http import Http404, QueryDict
+from django.http import Http404, HttpResponse, QueryDict
 from django.shortcuts import get_object_or_404, redirect, render
 from django.urls import reverse
 from django.utils import timezone
-from django.views.decorators.http import require_http_methods, require_POST
+from django.views.decorators.http import (
+    require_http_methods,
+    require_POST,
+    require_safe,
+)
 from django.views.generic import (
     CreateView,
     DetailView,
@@ -20,7 +24,16 @@ from django.views.generic import (
     TemplateView,
     UpdateView,
 )
-from django.utils.http import url_has_allowed_host_and_scheme
+from django.utils.http import (
+    content_disposition_header,
+    url_has_allowed_host_and_scheme,
+)
+from .calendar_export import (
+    can_add_to_calendar,
+    google_calendar_url,
+    icalendar_text,
+    ics_filename,
+)
 from .filters import EventFilterForm, filter_events, filter_params
 from .forms import CancelEventForm, EventListingForm, NotifyAttendeesForm
 from .models import (
@@ -377,6 +390,28 @@ def cancel_registration(request, pk):
     return redirect(next_url)
 
 
+@require_safe
+def event_calendar_file(request, pk):
+    """Serve an event as an .ics file for Apple Calendar, Outlook, and others.
+
+    The file is shown inline, so iPhones and iPads offer to add the event to
+    Calendar right away, while other browsers download it. Events without a
+    start time, or that have ended or were cancelled, are not found.
+    """
+    event = get_object_or_404(Event, pk=pk)
+    if not can_add_to_calendar(event):
+        raise Http404("This event can't be added to a calendar.")
+    event_url = request.build_absolute_uri(reverse("event_detail", args=[event.pk]))
+    response = HttpResponse(
+        icalendar_text(event, event_url),
+        content_type="text/calendar; charset=utf-8",
+    )
+    response["Content-Disposition"] = content_disposition_header(
+        False, ics_filename(event)
+    )
+    return response
+
+
 class EventDetailView(DetailView):
     """Display event details and its community content."""
 
@@ -422,6 +457,16 @@ class EventDetailView(DetailView):
 
         # Check whether this event accepts registrations on our platform.
         context["event_accepts_registration"] = event.is_open and not event.is_cancelled
+
+        # Offer "Add to calendar" for open events that have a start time.
+        context["calendar_available"] = can_add_to_calendar(event)
+        if context["calendar_available"]:
+            context["google_calendar_url"] = google_calendar_url(
+                event,
+                self.request.build_absolute_uri(
+                    reverse("event_detail", args=[event.pk])
+                ),
+            )
 
         # Get registrations for this event.
         registrations = Registration.objects.filter(event=event).select_related("user")
