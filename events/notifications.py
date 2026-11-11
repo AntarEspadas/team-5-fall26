@@ -25,24 +25,53 @@ def interested_recipients(event):
     )
 
 
-def notify_registration_change(event, user, registered):
-    """Notify the event host when a user registers or unregisters."""
+def party(size):
+    """Return e.g. "a party of 1" or "a party of 3"."""
+    return f"a party of {size}"
+
+
+def notify_registration_change(
+    event, user, registered, party_size=1, previous_size=None
+):
+    """Notify the event host when a user registers, unregisters, or
+    changes their party size.
+
+    Args:
+        event: the event the registration belongs to.
+        user: the user whose registration changed.
+        registered: True if the user is (still) registered, False if they
+            unregistered.
+        party_size: how many people the registration is for.
+        previous_size: the party size before a change, or None if the
+            user just registered or unregistered.
+
+    Returns:
+        Notification or None: None when there is no other host to tell.
+    """
     if event.host_id is None or event.host_id == user.pk:
         return None
 
-    action = "registered for" if registered else "unregistered from"
-    subject = (
-        f"New registration for {event.title}"
-        if registered
-        else f"Registration cancelled for {event.title}"
-    )
-    subject = Truncator(subject).chars(SUBJECT_MAX_LENGTH)
+    name = user.get_display_name()
+    if previous_size is not None:
+        subject = f"Party size changed for {event.title}"
+        body = (
+            f"{name} changed their party for {event.title} "
+            f"from {previous_size} to {party_size}."
+        )
+    elif registered:
+        subject = f"New registration for {event.title}"
+        body = f"{name} registered for {event.title}"
+        body += f" with {party(party_size)}." if party_size > 1 else "."
+    else:
+        subject = f"Registration cancelled for {event.title}"
+        body = f"{name} unregistered from {event.title}"
+        body += f" ({party(party_size)})." if party_size > 1 else "."
     return Notification.objects.create(
         recipient_id=event.host_id,
         event=event,
         notification_type=Notification.Type.REGISTRATION,
-        subject=subject,
-        body=f"{user.get_display_name()} {action} {event.title}.",
+        subject=Truncator(subject).chars(SUBJECT_MAX_LENGTH),
+        body=body,
     )
 
 

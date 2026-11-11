@@ -32,6 +32,10 @@
 
         <section id="attendees-panel" class="manage-panel" role="tabpanel" aria-labelledby="attendees-tab"{% if active_tab != "attendees" %} hidden{% endif %}>
             <h2>Attendees</h2>
+            <p class="manage-headcount">
+                <strong>{{ headcount }}</strong>
+                {% if headcount == 1 %}person{% else %}people{% endif %} coming in {{ attendees|length }} registration{{ attendees|length|pluralize }}.
+            </p>
             {% if attendees %}
             <ul class="manage-list">
                 {% for attendee in attendees %}
@@ -40,7 +44,7 @@
                         <strong>{{ attendee.user.get_display_name }}</strong>
                         <p class="manage-meta">{{ attendee.user.username }}</p>
                     </div>
-                    <span class="manage-status">Registered</span>
+                    <span class="manage-status">Party of {{ attendee.party_size }}</span>
                 </li>
                 {% endfor %}
             </ul>

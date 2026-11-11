@@ -1,0 +1,6 @@
+<label for="party-size">Party size <span class="muted">(including you)</span></label>
+<select id="party-size" name="party_size">
+    {% for size in party_size_choices %}
+    <option value="{{ size }}"{% if size == selected %} selected{% endif %}>{{ size }}</option>
+    {% endfor %}
+</select>
