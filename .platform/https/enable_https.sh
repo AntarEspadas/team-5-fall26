@@ -80,6 +80,12 @@ server {
 
     client_max_body_size 10m;
 
+    # Keep Elastic Beanstalk's access log and enhanced health log for HTTPS
+    # requests too, without its HTTP redirect. The wildcard matches nothing
+    # (and is not an error) when enhanced health reporting is turned off.
+    access_log /var/log/nginx/access.log main;
+    include $NGINX_DIR/conf.d/elasticbeanstalk/healthd*.conf;
+
     location /static/ {
         alias $STATIC_DIR/;
     }

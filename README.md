@@ -419,6 +419,9 @@ the environment's own address, so no load balancer or domain is needed.
 - **After each deployment:** the postdeploy hooks run
   `.platform/https/enable_https.sh`. It installs certbot, gets or renews the
   certificate, serves the site on port 443, and redirects HTTP to HTTPS.
+- **Logs and health:** HTTPS requests go to the same nginx access log and
+  enhanced health log as HTTP ones, so health metrics keep working after the
+  redirect.
 - **Certificate checks:** Let's Encrypt fetches files from
   `/.well-known/acme-challenge/` over plain HTTP, set up in
   `.platform/nginx/conf.d/elasticbeanstalk/acme_challenge.conf`.
