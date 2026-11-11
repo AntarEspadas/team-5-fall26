@@ -7,7 +7,7 @@ from django.contrib import messages
 from django.contrib.auth.decorators import login_required
 from django.contrib.auth.mixins import LoginRequiredMixin
 from django.db import transaction
-from django.db.models import Case, Exists, F, OuterRef, Value, When
+from django.db.models import Case, Exists, F, OuterRef, Sum, Value, When
 from django.http import Http404, HttpResponse, QueryDict
 from django.shortcuts import get_object_or_404, redirect, render
 from django.urls import reverse
@@ -40,7 +40,12 @@ from .calendar_export import (
     webcal_url,
 )
 from .filters import EventFilterForm, filter_events, filter_params
-from .forms import CancelEventForm, EventListingForm, NotifyAttendeesForm
+from .forms import (
+    CancelEventForm,
+    EventListingForm,
+    NotifyAttendeesForm,
+    PartySizeForm,
+)
 from .models import (
     ContactRequest,
     Event,
@@ -55,6 +60,7 @@ from .notifications import (
     interested_recipients,
     notify_interested,
     notify_registration_change,
+    party,
 )
 from .search import search_events
 
@@ -245,9 +251,13 @@ class EventManageView(LoginRequiredMixin, DetailView):
         if tab not in {"attendees", "notifications"}:
             tab = "attendees"
         context["active_tab"] = tab
-        context["attendees"] = Registration.objects.filter(
-            event=self.object
-        ).select_related("user")
+        attendees = Registration.objects.filter(event=self.object).select_related(
+            "user"
+        )
+        context["attendees"] = attendees
+        context["headcount"] = (
+            attendees.aggregate(total=Sum("party_size"))["total"] or 0
+        )
         notifications = list(
             self.object.notifications.filter(
                 recipient=self.request.user,
@@ -337,24 +347,46 @@ def register_event(request, pk):
         )
         return redirect(next_url)
 
+    form = PartySizeForm(request.POST)
+    if not form.is_valid():
+        messages.error(request, form.errors["party_size"][0])
+        return redirect(next_url)
+    party_size = form.cleaned_data["party_size"]
+    # One-click Register buttons send no party size; only the party size
+    # form can change an existing registration.
+    changing_size = "party_size" in request.POST
+
     with transaction.atomic():
-        registration, created = Registration.objects.get_or_create(
+        registration, created = Registration.objects.select_for_update().get_or_create(
             event=event,
             user=request.user,
+            defaults={"party_size": party_size},
         )
-        if created:
-            notify_registration_change(event, request.user, registered=True)
+        previous_size = registration.party_size
 
-    if created:
-        messages.success(
-            request,
-            "You have successfully registered for this event!",
-        )
-    else:
-        messages.info(
-            request,
-            "You are already registered for this event.",
-        )
+        if created:
+            notify_registration_change(
+                event, request.user, registered=True, party_size=party_size
+            )
+            if party_size == 1:
+                messages.success(request, "You're registered for this event.")
+            else:
+                messages.success(request, f"You're registered for {party(party_size)}.")
+        elif changing_size and party_size != previous_size:
+            registration.party_size = party_size
+            registration.save(update_fields=["party_size"])
+            notify_registration_change(
+                event,
+                request.user,
+                registered=True,
+                party_size=party_size,
+                previous_size=previous_size,
+            )
+            messages.success(request, f"Party size updated to {party_size}.")
+        elif changing_size:
+            messages.info(request, f"Your party size is already {party_size}.")
+        else:
+            messages.info(request, "You are already registered for this event.")
 
     return redirect(next_url)
 
@@ -374,14 +406,22 @@ def cancel_registration(request, pk):
         next_url = reverse("event_detail", args=[event.pk])
 
     with transaction.atomic():
-        deleted, _ = Registration.objects.filter(
-            event=event,
-            user=request.user,
-        ).delete()
-        if deleted:
-            notify_registration_change(event, request.user, registered=False)
+        registration = (
+            Registration.objects.select_for_update()
+            .filter(event=event, user=request.user)
+            .first()
+        )
+        if registration:
+            registration.delete()
+            if event.is_open:
+                notify_registration_change(
+                    event,
+                    request.user,
+                    registered=False,
+                    party_size=registration.party_size,
+                )
 
-    if deleted:
+    if registration:
         messages.success(
             request,
             "Your registration has been cancelled.",
@@ -498,6 +538,15 @@ class EventDetailView(DetailView):
         )
 
         context["user_is_registered"] = current_registration is not None
+        context["current_registration"] = current_registration
+        context["party_size_choices"] = range(1, Registration.MAX_PARTY_SIZE + 1)
+
+        # Only the host sees the headcount; party sizes are on the manage page.
+        context["is_host"] = is_authenticated and event.host_id == user.pk
+        if context["is_host"]:
+            context["headcount"] = (
+                registrations.aggregate(total=Sum("party_size"))["total"] or 0
+            )
 
         # Only logged-in users who are not the host can register.
         context["can_register"] = (

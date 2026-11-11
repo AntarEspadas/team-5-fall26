@@ -470,6 +470,45 @@
         font-style: italic;
     }
 
+    .party-size-form {
+        display: flex;
+        flex-wrap: wrap;
+        align-items: center;
+        gap: 0.5rem;
+    }
+
+    .register-toggle summary {
+        list-style: none;
+    }
+
+    .register-toggle summary::-webkit-details-marker {
+        display: none;
+    }
+
+    .register-toggle[open] summary {
+        display: none;
+    }
+
+    .party-size-form select {
+        min-height: 2.5rem;
+        padding: 0.4rem 0.6rem;
+        border: 1px solid #c7d2cb;
+        border-radius: 8px;
+        font: inherit;
+    }
+
+    .host-registrations {
+        margin: 1rem 0;
+        padding: 1rem;
+        border: 1px solid #d9e1da;
+        border-radius: 8px;
+        background: #f6faf7;
+    }
+
+    .host-registrations h3 {
+        margin-top: 0;
+    }
+
     .cancelled-banner {
         padding: 0.75rem;
         border: 1px solid #e4b4b4;
@@ -621,11 +660,24 @@
                 {% if user.is_authenticated %}
                     {% if event.host_id != user.pk %}
                         {% if user_is_registered %}
-                            <p class="status-message">
-                                You are registered for this event.
+                            <p class="status-message" id="register">
+                                You are registered for this event{% if current_registration.party_size > 1 %} with a party of {{ current_registration.party_size }}{% endif %}.
                             </p>
 
-                            {% if not viewer_banned %}<form
+                            {% if not viewer_banned %}
+                            <form
+                                class="party-size-form"
+                                method="post"
+                                action="{% url 'event_register' event.pk %}"
+                            >
+                                {% csrf_token %}
+                                {% include "events/_party_size_select.html" with selected=current_registration.party_size %}
+                                <button class="detail-button secondary-button" type="submit">
+                                    Update party size
+                                </button>
+                            </form>
+
+                            <form
                                 method="post"
                                 action="{% url 'event_cancel_registration' event.pk %}"
                             >
@@ -639,15 +691,20 @@
                             </form>{% endif %}
 
                         {% elif can_register %}
-                            <form
-                                method="post"
-                                action="{% url 'event_register' event.pk %}"
-                            >
-                                {% csrf_token %}
-                                <button class="detail-button" type="submit">
-                                    Register for Event
-                                </button>
-                            </form>
+                            <details class="register-toggle" id="register">
+                                <summary class="detail-button">Register for Event</summary>
+                                <form
+                                    class="party-size-form"
+                                    method="post"
+                                    action="{% url 'event_register' event.pk %}"
+                                >
+                                    {% csrf_token %}
+                                    {% include "events/_party_size_select.html" with selected=1 %}
+                                    <button class="detail-button" type="submit">
+                                        Confirm registration
+                                    </button>
+                                </form>
+                            </details>
                         {% endif %}
                     {% endif %}
                 {% else %}
@@ -835,6 +892,18 @@
             </div>
         {% else %}
             <p>No public profiles are available in this group yet.</p>
+        {% endif %}
+
+        {% if is_host %}
+            <section class="host-registrations" aria-labelledby="host-registrations-heading">
+                <h3 id="host-registrations-heading">Your headcount</h3>
+                <p>
+                    <strong>{{ headcount }}</strong>
+                    {% if headcount == 1 %}person{% else %}people{% endif %} coming in {{ registered_count }} registration{{ registered_count|pluralize }}.
+                    Only you can see party sizes.
+                </p>
+                <p><a href="{% url 'event_manage' event.pk %}">See each party on the Manage event page</a></p>
+            </section>
         {% endif %}
 
         <h3>Registered Attendees ({{ registered_count }})</h3>
@@ -1086,5 +1155,23 @@
     </section>
 
     {% include "chatbot/widget.html" %}
+
+    <script>
+        (function () {
+            var toggle = document.querySelector("details.register-toggle");
+            if (!toggle) {
+                return;
+            }
+            toggle.addEventListener("toggle", function () {
+                if (toggle.open) {
+                    toggle.querySelector("select").focus();
+                }
+            });
+            // Cards link here with #register, so open the picker straight away.
+            if (window.location.hash === "#register") {
+                toggle.open = true;
+            }
+        })();
+    </script>
 </body>
 </html>

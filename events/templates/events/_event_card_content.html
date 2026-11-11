@@ -93,15 +93,10 @@
         </form>
 
     {% elif event.is_open and user.is_authenticated %}
-        <form method="post"
-              action="{% url 'event_register' event.pk %}"
-              class="event-register-form">
-            {% csrf_token %}
-            <input type="hidden" name="next" value="{{ request.get_full_path }}">
-            <button type="submit" class="register">
-                Register
-            </button>
-        </form>
+        {# Registering happens on the event page so users can pick a party size. #}
+        <a class="register" href="{% url 'event_detail' event.pk %}#register">
+            Register
+        </a>
 
     {% elif event.is_open %}
         <a class="register"
