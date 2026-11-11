@@ -1,0 +1,110 @@
+/* "Add to calendar" menu on the event detail page. */
+
+.calendar-menu {
+    position: relative;
+    display: inline-block;
+    margin: 0.25rem 0 0.75rem;
+}
+
+.calendar-menu > summary {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.5rem;
+    padding: 0.55rem 0.9rem;
+    border: 1px solid #1f6f4a;
+    border-radius: 8px;
+    background: #fff;
+    color: #1f6f4a;
+    font-weight: 600;
+    cursor: pointer;
+    list-style: none;
+    user-select: none;
+}
+
+.calendar-menu > summary::-webkit-details-marker {
+    display: none;
+}
+
+.calendar-menu > summary::after {
+    content: "\25BE";
+    display: inline-block;
+    transition: transform 0.15s ease;
+}
+
+.calendar-menu[open] > summary::after {
+    transform: rotate(180deg);
+}
+
+.calendar-menu > summary:hover,
+.calendar-menu[open] > summary {
+    background: #edf4ef;
+}
+
+.calendar-menu > summary:focus-visible {
+    outline: 2px solid #237b53;
+    outline-offset: 2px;
+}
+
+.calendar-menu-options {
+    position: absolute;
+    top: calc(100% + 6px);
+    left: 0;
+    z-index: 30;
+    box-sizing: border-box;
+    width: max-content;
+    min-width: 100%;
+    max-width: min(320px, calc(100vw - 3rem));
+    padding: 4px;
+    border: 1px solid #d5ded7;
+    border-radius: 8px;
+    background: #fff;
+    box-shadow: 0 4px 16px rgba(30, 65, 43, 0.15);
+}
+
+.calendar-menu-options ul {
+    margin: 0;
+    padding: 0;
+    list-style: none;
+}
+
+.calendar-menu-options li a {
+    display: block;
+    padding: 10px 14px;
+    border-radius: 6px;
+    color: #24352c;
+    text-decoration: none;
+}
+
+.calendar-menu-options li a:hover,
+.calendar-menu-options li a:focus-visible {
+    background: #edf4ef;
+}
+
+.calendar-menu-options a:focus-visible {
+    outline: 2px solid #237b53;
+    outline-offset: -2px;
+}
+
+.calendar-download {
+    margin: 4px 0 0;
+    padding: 8px 14px 6px;
+    border-top: 1px solid #e3e9e4;
+    color: #5b6862;
+    font-size: 0.8rem;
+}
+
+.calendar-download a {
+    color: #1f6f4a;
+}
+
+.calendar-option-name {
+    display: block;
+    font-weight: 600;
+}
+
+.calendar-option-hint {
+    display: block;
+    margin-top: 2px;
+    color: #5b6862;
+    font-size: 0.85rem;
+}

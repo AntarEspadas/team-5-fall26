@@ -1,0 +1,42 @@
+{% comment %}
+"Add to calendar" menu on the event detail page. Google Calendar opens a
+prefilled event. Apple Calendar and the iCalendar option open the visitor's
+calendar app through a webcal:// link to the .ics file. Which app opens is
+the device's choice, so the file can also be downloaded, which Apple Calendar
+and most other apps open.
+{% endcomment %}
+{% url 'event_calendar' event.pk as calendar_file_url %}
+<details class="calendar-menu">
+    <summary>
+        <svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true" focusable="false">
+            <path fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" d="M8 3v3m8-3v3M4 10h16M6 5h12a2 2 0 0 1 2 2v11a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V7a2 2 0 0 1 2-2Zm6 8v4m-2-2h4"/>
+        </svg>
+        Add to calendar
+    </summary>
+    <div class="calendar-menu-options">
+        <ul aria-label="Calendar options">
+            <li>
+                <a href="{{ google_calendar_url }}">
+                    <span class="calendar-option-name">Google Calendar</span>
+                    <span class="calendar-option-hint">Opens a prefilled event</span>
+                </a>
+            </li>
+            <li>
+                <a href="{{ webcal_url }}">
+                    <span class="calendar-option-name">Apple Calendar</span>
+                    <span class="calendar-option-hint">Opens Calendar on iPhone, iPad, or Mac</span>
+                </a>
+            </li>
+            <li>
+                <a href="{{ webcal_url }}">
+                    <span class="calendar-option-name">iCalendar (Outlook and others)</span>
+                    <span class="calendar-option-hint">Opens your default calendar app</span>
+                </a>
+            </li>
+        </ul>
+        <p class="calendar-download">
+            Wrong app, or nothing opened?
+            <a href="{{ calendar_file_url }}" download>Download the .ics file</a>
+        </p>
+    </div>
+</details>

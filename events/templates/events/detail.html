@@ -8,7 +8,9 @@
     <link rel="stylesheet" href="{% static 'events/cards.css' %}">
     <link rel="stylesheet" href="{% static 'events/search.css' %}">
     <link rel="stylesheet" href="{% static 'reports/menus.css' %}">
+    <link rel="stylesheet" href="{% static 'events/calendar.css' %}">
     <script src="{% static 'reports/menus.js' %}" defer></script>
+    <script src="{% static 'events/calendar-menu.js' %}" defer></script>
 
 
 <style>
@@ -601,6 +603,10 @@
                 {% endif %}
             {% endtimezone %}
         </div>
+
+        {% if calendar_available %}
+            {% include "events/_add_to_calendar.html" %}
+        {% endif %}
 
         {% if event.location or event.park_names %}
             <p class="detail-meta">

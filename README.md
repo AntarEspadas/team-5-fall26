@@ -105,21 +105,6 @@ closed. Everyone who selected Interested or Want to Attend gets an email and
 a notification. **My events** (`/events/mine/`), linked in the header, lists a
 host's upcoming events and archives the cancelled and ended ones.
 
-## Registering with a party size
-
-The **Register** button on event cards opens the event page, where users pick
-a party size (1 to 10, including themselves) before registering. While the
-event is open, registered users can change their party size or cancel. Their
-party size also appears under **Registered Events** on My events.
-
-Hosts get one in-app registration notification when someone registers,
-changes their party size, or cancels; these also appear on the **Manage event**
-page. Only the host sees party sizes: their event page shows the headcount
-("5 people coming in 2 registrations"), and the Manage event page's Attendees
-tab lists each registrant's party. Everyone else still sees the number of
-registrations. Registrations made before this feature count as a party of 1
-(migration `0015`).
-
 ## Reporting events
 
 Every event page has a **Report event** button. Signed-in users can report
