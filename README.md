@@ -438,6 +438,37 @@ default VPC, create one in the AWS VPC console (Actions → Create default VPC).
 Uploaded profile photos are stored on the instance and are lost when it is
 replaced.
 
+### HTTPS
+
+Browsers only allow the microphone, and so voice chat, on HTTPS pages. The
+single instance serves HTTPS itself, with a free Let's Encrypt certificate for
+the environment's own address, so no load balancer or domain is needed.
+
+- **Configuration:** `.ebextensions/https.config` opens port 443 and sets
+  `HTTPS_DOMAIN`, the address the certificate is for. Change it for another
+  environment, or set it to an empty value to serve plain HTTP only.
+- **After each deployment:** the postdeploy hooks run
+  `.platform/https/enable_https.sh`. It installs certbot, gets or renews the
+  certificate, serves the site on port 443, and redirects HTTP to HTTPS.
+- **Logs and health:** HTTPS requests go to the same nginx access log and
+  enhanced health log as HTTP ones, so health metrics keep working after the
+  redirect.
+- **Certificate checks:** Let's Encrypt fetches files from
+  `/.well-known/acme-challenge/` over plain HTTP, set up in
+  `.platform/nginx/conf.d/elasticbeanstalk/acme_challenge.conf`.
+- **Renewal:** a systemd timer runs certbot twice a day, and certbot only
+  renews when the certificate is close to expiring.
+- **Failures:** if a step fails, the script logs why in
+  `/var/log/eb-hooks.log` and the site stays on plain HTTP; deployments never
+  fail because of HTTPS. If renewing fails while the current certificate is
+  still valid, HTTPS keeps using it. A replaced instance gets a new
+  certificate on its first deployment.
+- **Django:** nginx tells Django that requests arrived over HTTPS, which
+  `SECURE_PROXY_SSL_HEADER` already trusts in production.
+- **Google sign-in:** add
+  `https://<HTTPS_DOMAIN>/accounts/google/login/callback/` to the Google OAuth
+  client's authorized redirect URIs, since sign-in now returns over HTTPS.
+
 ## Google sign-in (issue #29)
 
 Google sign-in is available alongside the existing username/email + password
