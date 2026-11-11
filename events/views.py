@@ -62,6 +62,7 @@ from .notifications import (
     notify_registration_change,
     party,
 )
+from .natural_search import MAX_PROMPT_LENGTH, describe_search, natural_search_url
 from .search import search_events
 
 UPCOMING_EVENT_LIMIT = 20
@@ -700,6 +701,7 @@ class EventSearchMixin:
         form = EventFilterForm(self.request.GET)
         is_valid = form.is_valid()
         filters = form.cleaned_data
+        self.filters = filters
 
         self.filter_params = filter_params(filters)
 
@@ -785,7 +787,12 @@ class ArchivedEventsView(
 
 
 class SearchView(EventSearchMixin, ListView):
-    """Let any visitor search and filter upcoming events."""
+    """Let any visitor search and filter upcoming events.
+
+    Searches typed in plain language, such as "kids events in Brooklyn this
+    weekend", are redirected to the keywords and filters they describe, and
+    the results page shows how the search was read.
+    """
 
     template_name = "events/search.html"
     context_object_name = "events"
@@ -801,3 +808,19 @@ class SearchView(EventSearchMixin, ListView):
     )
     empty_without_filters = True
     clear_filters_url_name = "landing"
+
+    def get(self, request, *args, **kwargs):
+        """Send a plain-language search to the filters it describes."""
+        target = natural_search_url(request)
+        if target:
+            return redirect(target)
+        return super().get(request, *args, **kwargs)
+
+    def get_context_data(self, **kwargs):
+        """Explain how a plain-language search was read."""
+        context = super().get_context_data(**kwargs)
+        asked = " ".join(self.request.GET.get("asked", "").split())
+        if asked:
+            context["asked"] = asked[:MAX_PROMPT_LENGTH]
+            context["understood"] = describe_search(self.query, self.filters)
+        return context

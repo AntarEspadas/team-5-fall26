@@ -395,3 +395,57 @@ class FilteredSearchViewTests(TestCase):
 
         self.assertContains(response, "Enter a search term or choose a filter")
         self.assertEqual(list(response.context["events"]), [])
+
+
+class TimeOfDayFilterTests(TestCase):
+    """The time-of-day filter uses each event's New York start hour."""
+
+    def setUp(self):
+        self.morning = make_event("morning", start_time=at(15, 11).replace(minute=59))
+        self.noon = make_event("noon", start_time=at(15, 12))
+        self.late_afternoon = make_event(
+            "late-afternoon", start_time=at(15, 16).replace(minute=59)
+        )
+        self.evening = make_event("evening", start_time=at(15, 17))
+        make_event("undated")
+
+    def filtered(self, time):
+        form = EventFilterForm({"time": time})
+        self.assertTrue(form.is_valid(), form.errors)
+        return set(filter_events(Event.objects.all(), form.cleaned_data))
+
+    def test_each_part_of_the_day_matches_its_start_hours(self):
+        self.assertEqual(self.filtered("morning"), {self.morning})
+        self.assertEqual(self.filtered("afternoon"), {self.noon, self.late_afternoon})
+        self.assertEqual(self.filtered("evening"), {self.evening})
+
+    def test_any_time_keeps_every_event(self):
+        self.assertEqual(len(self.filtered("")), 5)
+
+    def test_unknown_times_are_rejected(self):
+        form = EventFilterForm({"time": "midnight"})
+
+        self.assertFalse(form.is_valid())
+        self.assertIn("time", form.errors)
+
+    def test_time_is_kept_between_dates_and_boroughs(self):
+        form = EventFilterForm(
+            {"date_from": "2099-01-15", "time": "evening", "borough": ["queens"]}
+        )
+        self.assertTrue(form.is_valid())
+
+        self.assertEqual(
+            filter_params(form.cleaned_data),
+            [("date_from", "2099-01-15"), ("time", "evening"), ("borough", "queens")],
+        )
+
+    def test_filter_bar_shows_and_counts_the_time(self):
+        response = self.client.get(
+            reverse("search"), {"time": "morning", "borough": "brooklyn"}
+        )
+
+        self.assertContains(response, '<select name="time" id="filter-time">')
+        self.assertContains(
+            response, '<option value="morning" selected>Morning</option>'
+        )
+        self.assertContains(response, '<span class="filter-count">2</span>')

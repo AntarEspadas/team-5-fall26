@@ -15,6 +15,15 @@
     </header>
     {% include 'events/_search_form.html' %}
     <main>
+        {% if asked and understood %}
+        <section class="understood" aria-label="How your search was read">
+            <p>Searching for <q>{{ asked }}</q> as</p>
+            <ul class="understood-terms">
+                {% for term in understood %}<li>{{ term }}</li>{% endfor %}
+            </ul>
+            <a href="?q={{ asked|urlencode }}">Search for these exact words instead</a>
+        </section>
+        {% endif %}
         {% if query or has_filters %}
         <h2 class="search-heading">{% if query %}Results for &ldquo;{{ query }}&rdquo;{% else %}Filtered upcoming events{% endif %}</h2>
         {% if events %}

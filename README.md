@@ -69,12 +69,43 @@ automatically maintains the index when events are imported or edited; no
 separate indexing command is needed. Result cards link to `/events/{id}`;
 event detail pages are a future feature and currently return 404.
 
+### Plain-language search
+
+The search box on the home and search pages also understands plain language,
+such as *kids events in the Bronx this weekend* or *fitness in Brooklyn on
+Saturday morning*. What it recognizes becomes filters:
+
+- **Dates:** today, tonight, tomorrow, this or next weekend, week, or month,
+  weekdays, *in March*, and dates such as *Nov 20* or *11/20*.
+- **Times of day:** morning, afternoon, evening, night, or clock times.
+- **Boroughs.**
+- **Audiences and broad kinds of event:** kids and families, seniors, fitness,
+  sports, arts, music, nature, history, and education.
+
+Filler such as *show me*, *things to do*, or *free*, and generic words such as
+*classes*, are dropped, and the remaining words are the search terms. The page
+then redirects to that filtered search, so the filter bar shows the filters
+and they can be changed. A summary above the results shows how the search was
+read, with a link to search for the exact words instead. When no event matches
+every remaining word, events matching any of them are shown. Quoted phrases,
+`OR`, and exclusions are kept as typed.
+
+When `GEMINI_API_KEY` is set, searches of three or more words are read by
+Gemini instead, so other phrasings and languages work too (*actividades de
+naturaleza en Staten Island este fin de semana*). If Gemini is unavailable, the
+built-in rules in `events/natural_search.py` are used. Only words newly typed
+into the search box are read this way: plain `/search?q=...` links, pagination,
+and changing only the filters stay exact keyword searches. The archive search
+is always a keyword search.
+
 ## Event filters
 
-A filter bar under the search box narrows results by date, borough, and
-category, with or without a search term. Different filters must all match;
-choosing several boroughs or categories matches any of them. Dates use New
-York time, and an event matches a date range when it overlaps it. The
+A filter bar under the search box narrows results by date, time of day,
+borough, and category, with or without a search term. Different filters must
+all match; choosing several boroughs or categories matches any of them. Dates
+and times use New York time, and an event matches a date range when it
+overlaps it. **Time of day** keeps events that start in the morning (before
+noon), afternoon (noon to 5 PM), or evening (5 PM or later). The
 **Today**, **This weekend**, and **This month** buttons fill in the dates.
 
 For feed events, boroughs come from the first letter of the NYC Parks

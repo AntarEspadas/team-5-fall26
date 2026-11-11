@@ -186,6 +186,44 @@ img {
     text-decoration: underline;
 }
 
+/* How a plain-language search was read, e.g. "Kids & Family · Brooklyn". */
+.understood {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 8px 12px;
+    padding: 14px 18px;
+    background: var(--surface);
+    border: 1px solid var(--line);
+    border-radius: var(--radius-card);
+}
+
+.understood p {
+    margin: 0;
+    color: var(--muted);
+}
+
+.understood-terms {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    margin: 0;
+    padding: 0;
+    list-style: none;
+}
+
+.understood-terms li {
+    padding: 4px 12px;
+    border-radius: var(--radius-pill);
+    background: var(--chip);
+    font-weight: 600;
+}
+
+.understood a {
+    color: var(--leaf);
+    font-size: 0.95rem;
+}
+
 .search-heading {
     margin: 32px 0 4px;
     font-size: 1.35rem;
