@@ -28,6 +28,9 @@ from django.utils.http import (
     content_disposition_header,
     url_has_allowed_host_and_scheme,
 )
+
+from accounts.ban_services import get_active_ban
+
 from .calendar_export import (
     can_add_to_calendar,
     google_calendar_url,
@@ -450,11 +453,13 @@ class EventDetailView(DetailView):
         )
 
         # Control whether users can interact with the event.
-        context["can_interact"] = (
+        context["can_mark_interest"] = (
             is_authenticated and event.is_open and not event.is_cancelled
         )
+        unbanned = get_active_ban(user) is None
+        context["can_interact"] = context["can_mark_interest"] and unbanned
         context["can_manage"] = (
-            is_authenticated and event.host_id == user.pk and event.is_open
+            is_authenticated and unbanned and event.host_id == user.pk and event.is_open
         )
         context["host_cancelled"] = event.is_cancelled
 
@@ -497,6 +502,7 @@ class EventDetailView(DetailView):
         # Only logged-in users who are not the host can register.
         context["can_register"] = (
             is_authenticated
+            and unbanned
             and context["event_accepts_registration"]
             and event.host_id != user.pk
             and current_registration is None

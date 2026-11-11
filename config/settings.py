@@ -69,6 +69,7 @@ MIDDLEWARE = [
     "django.middleware.common.CommonMiddleware",
     "django.middleware.csrf.CsrfViewMiddleware",
     "django.contrib.auth.middleware.AuthenticationMiddleware",
+    "accounts.middleware.BanMiddleware",
     "allauth.account.middleware.AccountMiddleware",
     # Our custom sliding session middleware: refresh 48h timer on every user activity
     "accounts.middleware.SlidingSessionMiddleware",
@@ -93,6 +94,7 @@ TEMPLATES = [
                 "django.template.context_processors.request",
                 "django.contrib.auth.context_processors.auth",
                 "django.contrib.messages.context_processors.messages",
+                "accounts.context_processors.ban_status",
                 "events.context_processors.notifications",
                 "chatbot.context_processors.chatbot",
             ],

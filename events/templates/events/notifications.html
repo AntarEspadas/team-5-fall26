@@ -13,6 +13,7 @@
         <a class="search-back" href="{% url 'landing' %}">Back to home</a>
         <a class="search-back" href="{% url 'inbox' %}">Messages</a>
         <h1>Notifications</h1>
+        {% include "accounts/_submission_notice.html" %}
 
         {% if notifications %}
         <ul class="notification-list">
@@ -29,7 +30,7 @@
                 <p>From <a href="{% url 'public_profile' username=contact_request.sender.username %}">{{ contact_request.sender.get_display_name }}</a></p>
                 <p class="notification-body">{{ notification.body }}</p>
                 <p class="notification-status">Status: {{ contact_request.get_status_display }}</p>
-                {% if contact_request.status == "pending" %}
+                {% if contact_request.status == "pending" and not viewer_banned %}
                 <div class="notification-actions">
                     <form method="post" action="{% url 'respond_to_contact_request' contact_request.pk 'accept' %}">
                         {% csrf_token %}

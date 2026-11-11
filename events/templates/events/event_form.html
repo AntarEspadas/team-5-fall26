@@ -20,7 +20,8 @@
         <p class="event-form-intro">Share your event so people can discover it alongside NYC Parks events. Times are in New York time.</p>
         {% endif %}
 
-        <form class="event-form" method="post">
+        {% include "accounts/_submission_notice.html" %}
+        {% if not viewer_banned %}<form class="event-form" method="post">
             {% csrf_token %}
             {% if form.non_field_errors %}<div class="form-errors">{{ form.non_field_errors }}</div>{% endif %}
             {% for field in form %}
@@ -51,7 +52,7 @@
                 <a href="{% url 'landing' %}">Cancel</a>
                 {% endif %}
             </div>
-        </form>
+        </form>{% endif %}
     </main>
     {% include "chatbot/widget.html" %}
 </body>

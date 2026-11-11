@@ -625,7 +625,7 @@
                                 You are registered for this event.
                             </p>
 
-                            <form
+                            {% if not viewer_banned %}<form
                                 method="post"
                                 action="{% url 'event_cancel_registration' event.pk %}"
                             >
@@ -636,7 +636,7 @@
                                 >
                                     Cancel Registration
                                 </button>
-                            </form>
+                            </form>{% endif %}
 
                         {% elif can_register %}
                             <form
@@ -666,12 +666,13 @@
                 </a>
             {% endif %}
 
-            <a
+            {% if not viewer_banned %}<a
                 class="detail-button secondary-button"
                 href="{% url 'event_report' event.pk %}"
             >
                 Report event
             </a>
+            {% endif %}
         </div>
     </main>
 
@@ -734,7 +735,7 @@
         <p>
             Attendees who share their profiles can be explored below.
         </p>
-        {% if can_interact %}
+        {% if can_mark_interest %}
             <div class="community-actions">
                 <form
                     method="post"
@@ -918,7 +919,7 @@
                             <p>{{ contact_request.message }}</p>
                         {% endif %}
 
-                        <div class="community-actions">
+                        {% if not viewer_banned %}<div class="community-actions">
                             <form
                                 method="post"
                                 action="{% url 'respond_to_contact_request' contact_request.pk 'accept' %}"
@@ -941,7 +942,7 @@
                                     Decline
                                 </button>
                             </form>
-                        </div>
+                        </div>{% endif %}
                     </article>
                 {% endfor %}
             </div>
@@ -960,6 +961,8 @@
 
         {% if host_cancelled %}
             <p>This event was cancelled, so new comments are closed.</p>
+        {% elif viewer_banned %}
+            <p role="status">{{ ban_message }}</p>
         {% elif user.is_authenticated %}
             <form
                 class="community-form"
@@ -999,7 +1002,7 @@
                     <div class="reportable-heading">
                         <h3>{{ post.author.get_display_name }}</h3>
 
-                        {% if post.author_id != user.pk %}
+                        {% if post.author_id != user.pk and not viewer_banned %}
                             {% url 'event_post_report' post.pk as report_url %}
                             {% include 'reports/_report_menu.html' with report_url=report_url menu_label="Comment actions" only %}
                         {% endif %}
@@ -1020,7 +1023,7 @@
                         <div class="reply" id="reply-{{ reply.pk }}">
                             <div class="reportable-heading">
                                 <strong>{{ reply.author.get_display_name }}</strong>
-                                {% if reply.author_id != user.pk %}
+                                {% if reply.author_id != user.pk and not viewer_banned %}
                                     {% url 'event_reply_report' reply.pk as report_url %}
                                     {% include 'reports/_report_menu.html' with report_url=report_url menu_label="Reply actions" only %}
                                 {% endif %}
@@ -1036,7 +1039,7 @@
                         <p class="empty-message">No replies yet.</p>
                     {% endfor %}
 
-                    {% if user.is_authenticated and not host_cancelled %}
+                    {% if user.is_authenticated and not host_cancelled and not viewer_banned %}
                         <details class="reply-form">
                             <summary>Reply to this comment</summary>
 
@@ -1067,7 +1070,7 @@
                                 </div>
                             </form>
                         </details>
-                    {% elif not host_cancelled %}
+                    {% elif not user.is_authenticated and not host_cancelled %}
                         <p>
                             <a href="{% url 'login' %}?next={{ request.path|urlencode }}">
                                 Log in

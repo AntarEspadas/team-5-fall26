@@ -1,0 +1,16 @@
+{% extends "accounts/base.html" %}
+
+{% block title %}Action unavailable | NYC Parks Events{% endblock %}
+
+{% block content %}
+  <h1>Action unavailable while banned</h1>
+  <p>{{ ban_message }}</p>
+  <div class="actions">
+    <a class="button" href="{% url 'landing' %}">Browse events</a>
+    <a class="button" href="{% url 'public_profile' user.username %}">View your profile</a>
+    <form method="post" action="{% url 'logout' %}">
+      {% csrf_token %}
+      <button class="button" type="submit">Log out</button>
+    </form>
+  </div>
+{% endblock %}

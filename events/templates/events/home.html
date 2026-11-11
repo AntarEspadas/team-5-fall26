@@ -33,7 +33,7 @@
 
             {% if user.is_authenticated %}
             <nav class="topbar-nav" aria-label="Account">
-                <a class="nav-link" href="{% url 'event_create' %}">Post an event</a>
+                {% if not viewer_banned %}<a class="nav-link" href="{% url 'event_create' %}">Post an event</a>{% endif %}
                 <a class="nav-link" href="{% url 'my_events' %}">My events</a>
 
                 {% with unread=unread_message_count %}
