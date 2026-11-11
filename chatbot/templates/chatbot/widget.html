@@ -1,4 +1,4 @@
-{% if chatbot_enabled %}{% load static %}
+{% if chatbot_enabled and not viewer_banned %}{% load static %}
 <link rel="stylesheet" href="{% static 'chatbot/chatbot.css' %}">
 <div
     class="pa-root"

@@ -2,6 +2,7 @@
 
 from django.db import transaction
 
+from accounts.ban_services import require_unbanned_user
 from accounts.models import ContactPermission, User
 
 from .models import ContactRequest, Conversation, Event, EventInterest
@@ -16,17 +17,18 @@ def create_contact_request(
     notification_sender=notify_contact_request,
 ):
     """Create one eligible event contact request, or return an existing one."""
-    if (
-        event.status != Event.Status.UPCOMING
-        or sender.pk == recipient.pk
-        or not recipient.share_profile_with_attendees
-        or not EventInterest.objects.filter(event=event, user=sender).exists()
-        or not EventInterest.objects.filter(event=event, user=recipient).exists()
-    ):
-        return None, False
-
     with transaction.atomic():
         User.objects.select_for_update(no_key=True).get(pk=sender.pk)
+        require_unbanned_user(sender)
+        if (
+            event.status != Event.Status.UPCOMING
+            or sender.pk == recipient.pk
+            or not recipient.share_profile_with_attendees
+            or not EventInterest.objects.filter(event=event, user=sender).exists()
+            or not EventInterest.objects.filter(event=event, user=recipient).exists()
+        ):
+            return None, False
+
         existing = (
             ContactRequest.objects.filter(
                 event=event,

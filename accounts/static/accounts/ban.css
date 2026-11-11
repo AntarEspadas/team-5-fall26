@@ -1,0 +1,30 @@
+.ban-banner {
+    margin: 0 0 1.5rem;
+    padding: 1rem 1.25rem;
+    border: 2px solid #b7791f;
+    border-radius: 8px;
+    background: #fff4ce;
+    color: #663c00;
+    line-height: 1.6;
+    overflow-wrap: anywhere;
+}
+
+.ban-banner h2 {
+    margin: 0 0 0.5rem;
+    font-size: 1.2rem;
+}
+
+.ban-banner p {
+    margin: 0.5rem 0 0;
+}
+
+.settings-readonly dt {
+    margin-top: 1rem;
+    font-weight: 600;
+}
+
+.settings-readonly dd {
+    margin: 0.25rem 0 0;
+    white-space: pre-line;
+    overflow-wrap: anywhere;
+}

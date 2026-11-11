@@ -8,6 +8,7 @@ from django.db.models import Q
 from django.utils import timezone
 from django.utils.text import Truncator
 
+from accounts.ban_services import require_unbanned_user
 from events.models import Notification
 
 from . import gemini
@@ -79,6 +80,7 @@ def answer_inquiry(inquiry, answer, answered_by):
     The answer is translated into the asker's language when needed. Returns
     False when someone else already answered the question.
     """
+    require_unbanned_user(answered_by)
     if not Inquiry.objects.filter(pk=inquiry.pk, status=Inquiry.Status.OPEN).exists():
         return False
     translated = ""

@@ -20,7 +20,12 @@
         </ul>
         {% endif %}
 
-        {% if pending_request %}
+        {% if viewer_banned %}
+        <section class="contact-pending" role="status">
+            <p>{{ ban_message }}</p>
+            <p>You can read existing conversations from your <a href="{% url 'inbox' %}">Messages</a>.</p>
+        </section>
+        {% elif pending_request %}
         <section class="contact-pending">
             {% if pending_request.sender_id == request.user.pk %}
             <p>Your contact request for <strong>{{ pending_request.event.title }}</strong> is awaiting a response. You can message {{ recipient.get_display_name }} after they accept.</p>
