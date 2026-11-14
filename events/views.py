@@ -65,6 +65,7 @@ from .notifications import (
 )
 from .natural_search import MAX_PROMPT_LENGTH, describe_search, natural_search_url
 from .search import search_events
+from .similar_interests import find_similar_interest_users
 
 UPCOMING_EVENT_LIMIT = 20
 SEARCH_PAGE_SIZE = 20
@@ -628,6 +629,20 @@ class EventDetailView(DetailView):
         ]
 
         context["attendees"] = attendees
+
+        # Discover only opted-in profiles for active, related events.
+        context["can_explore_similar_interests"] = (
+            is_authenticated
+            and unbanned
+            and event.is_open
+            and not event.is_cancelled
+            and bool(event.categories)
+        )
+        context["similar_interest_users"] = (
+            find_similar_interest_users(event, viewer=user)
+            if context["can_explore_similar_interests"]
+            else []
+        )
 
         # Event discussion posts and replies.
         context["posts"] = (

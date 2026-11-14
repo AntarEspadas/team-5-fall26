@@ -15,7 +15,8 @@ from django.urls import reverse_lazy
 from django.utils import timezone
 from django.views.generic import CreateView, DetailView, UpdateView
 
-from events.models import ContactRequest, Event
+from events.models import ContactRequest, Event, EventInterest
+from events.similar_interests import public_match_for_event
 from .ban_services import get_active_ban
 from .forms import AccountSettingsForm, LoginForm, RegistrationForm
 
@@ -127,8 +128,27 @@ class PublicProfileView(LoginRequiredMixin, DetailView):
                 context["profile_ban"] is None
                 and (has_pending_request or has_shared_upcoming_event)
             )
+            # Only show a verified related label when the viewer actually
+            # marked the source event as Interested, and the profile owner
+            # still allows similar-event discovery.
+            related_label = None
+            from_event = self.request.GET.get("from_event", "")
+            if from_event.isascii() and from_event.isdecimal() and len(from_event) < 18:
+                event = Event.objects.filter(pk=int(from_event)).first()
+                if event is not None:
+                    viewer_interested = EventInterest.objects.filter(
+                        event=event,
+                        user=self.request.user,
+                        status=EventInterest.Status.INTERESTED,
+                    ).exists()
+                    if viewer_interested:
+                        related_label = public_match_for_event(
+                            event, profile_user, self.request.user
+                        )
+            context["similar_interest_label"] = related_label
         else:
             context["can_message"] = False
+            context["similar_interest_label"] = None
 
         # No past_events or attendance statistics are added
         # because actual attendance data has not been confirmed.

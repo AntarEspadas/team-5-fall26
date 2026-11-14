@@ -553,3 +553,26 @@ through Google's hosted consent page, not by collecting Google passwords.
 
 Local and CI tests don't need real Google credentials. Run
 `python manage.py test accounts.tests.test_google_sso` for the focused tests.
+
+
+## Discover people interested in similar events (#54)
+
+Event pages can suggest members who have marked **other upcoming events** as
+Interested when the public categories match or belong to the same existing
+category group. The section only shows public profile links and a general
+category label, not a user's email or the title of their other event.
+
+Discovery is **off by default**. Members must enable both profile sharing and
+the separate similar-event discovery setting in Account Settings. Recommendations
+also require both people to have a currently selected matching topic under
+**My Interests**, relevant to the event categories. Deselecting a shared topic
+removes the recommendation on the next page load, and reselecting it can restore
+the match. The separate direct-contact preference does not control discovery.
+Opting out of profile sharing or discovery also hides a member immediately.
+Banned or inactive members, past/cancelled events, and members already on the
+current event's Interested or registration lists are not suggested. Signed-out and banned viewers cannot browse these
+suggestions. Public profiles only show a related-interest explanation when the
+viewer actually follows the referenced event and the owner is still opted in.
+
+This PR is only about **finding people**. Changes to contact requests and
+messaging will be reviewed separately.

@@ -1065,6 +1065,30 @@
         {% else %}
             <p>No one has registered for this event yet.</p>
         {% endif %}
+
+        {% if can_explore_similar_interests %}
+            <h3>People with Similar Interests</h3>
+            <p class="muted">
+                Find people interested in related events, even if they are not
+                attending this one. Only members who opted in appear here.
+            </p>
+            {% if similar_interest_users %}
+                <div class="contact-request-list">
+                    {% for suggestion in similar_interest_users %}
+                        <article class="contact-request-card">
+                            <h4>
+                                <a href="{% url 'public_profile' username=suggestion.user.username %}?from_event={{ event.pk }}">
+                                    {{ suggestion.user.get_display_name }}
+                                </a>
+                            </h4>
+                            <p>Related event category: {{ suggestion.shared_interest }}</p>
+                        </article>
+                    {% endfor %}
+                </div>
+            {% else %}
+                <p class="muted">No similar public profiles are available yet.</p>
+            {% endif %}
+        {% endif %}
     </section>
 
     <!-- Incoming contact requests -->
