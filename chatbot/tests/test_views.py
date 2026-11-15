@@ -193,6 +193,13 @@ class WidgetTests(ChatTestCase):
         self.assertContains(response, "chatbot/chatbot.js")
         self.assertContains(response, "What events am I going to?")
 
+    def test_widget_has_no_footnote_disclaimer(self):
+        """The panel ends at the message box, with no disclaimer under it."""
+        response = self.client.get(reverse("login"))
+        self.assertContains(response, 'id="parks-assistant"')
+        self.assertNotContains(response, "AI answers can be wrong")
+        self.assertNotContains(response, "pa-footnote")
+
 
 @ENABLED
 class ChatVoiceTests(ChatTestCase):
@@ -573,9 +580,6 @@ class SafetyAndFallbackTests(ChatTestCase):
         )
         prompt = generate.call_args.args[0]["systemInstruction"]["parts"][0]["text"]
         self.assertIn("Admin email: help@example.com", prompt)
-        page = self.client.get(reverse("login"))
-        self.assertContains(page, "email the site admin at")
-        self.assertContains(page, "mailto:help@example.com")
 
     def test_prompt_never_promises_a_person_will_follow_up(self):
         with mock.patch(GENERATE, return_value=text_response("Hi")) as generate:
