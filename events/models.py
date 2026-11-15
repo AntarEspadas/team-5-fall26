@@ -148,7 +148,7 @@ class SearchHistory(models.Model):
         on_delete=models.CASCADE,
         related_name="event_search_history",
     )
-    query = models.CharField(max_length=300)
+    query = models.CharField(max_length=300, blank=True)
     filters = models.JSONField(default=dict, blank=True)
     created_at = models.DateTimeField(auto_now_add=True)
 

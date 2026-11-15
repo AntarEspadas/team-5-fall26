@@ -829,7 +829,7 @@ class SearchView(EventSearchMixin, ListView):
         events = super().get_queryset()
         if (
             self.request.user.is_authenticated
-            and self.query
+            and (self.query or self.filter_params)
             and "page" not in self.request.GET
         ):
             record_search(

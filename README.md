@@ -106,7 +106,11 @@ page. Recommendations use normalized search terms and selected borough,
 category, and time filters from the most recent 10 searches. Only searches
 from the last 30 days are used, and at most 50 records are stored per account.
 Search history is private to the account and can be cleared from the home page.
-Anonymous searches and date ranges are not stored.
+Anonymous searches and date ranges are not stored. Searches that contain only
+borough, category, or time filters still contribute to recommendations,
+including plain-language prompts interpreted entirely as filters. Multiple
+dated listings for the same titled event at the same venue share one
+recommendation slot.
 Recommendations include upcoming matching events that the user has not already
 registered for or marked as interested in; the direct search results are
 unchanged.

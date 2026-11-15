@@ -12,7 +12,6 @@ from .search import search_events
 SEARCH_HISTORY_DAYS = 30
 MAX_SEARCH_HISTORY = 50
 RECOMMENDATION_HISTORY_LIMIT = 10
-RECOMMENDATION_CANDIDATE_LIMIT = 20
 RECOMMENDATION_LIMIT = 5
 PERSONALIZATION_FILTERS = {"time", "borough", "category"}
 
@@ -20,8 +19,6 @@ PERSONALIZATION_FILTERS = {"time", "borough", "category"}
 def record_search(user, query, filter_pairs):
     """Store a normalized search for an authenticated user and bound retention."""
     normalized_query = " ".join(query.split()).casefold()[:300]
-    if not normalized_query:
-        return
 
     filters = defaultdict(list)
     for key, value in filter_pairs:
@@ -30,6 +27,8 @@ def record_search(user, query, filter_pairs):
     normalized_filters = dict(filters)
     if "time" in normalized_filters:
         normalized_filters["time"] = normalized_filters["time"][0]
+    if not normalized_query and not normalized_filters:
+        return
 
     history = SearchHistory.objects.filter(user=user)
     cutoff = timezone.now() - timedelta(days=SEARCH_HISTORY_DAYS)
@@ -87,16 +86,19 @@ def recommended_events(user, limit=RECOMMENDATION_LIMIT):
     scores = defaultdict(float)
     for history_position, search in enumerate(history):
         filtered = filter_events(eligible, search.filters)
-        matches = search_events(filtered, search.query)[:RECOMMENDATION_CANDIDATE_LIMIT]
+        if search.query:
+            matches = search_events(filtered, search.query)
+        else:
+            matches = filtered.order_by("start_time", "pk")
         recency_weight = 1 / (history_position + 1)
-        for result_position, event in enumerate(matches):
+        for result_position, event in enumerate(matches.iterator(chunk_size=200)):
             scores[event.pk] += recency_weight / (result_position + 1)
 
     if not scores:
         return []
 
     events = Event.objects.filter(pk__in=scores).in_bulk()
-    ordered = sorted(
+    ranked = sorted(
         events.values(),
         key=lambda event: (
             -scores[event.pk],
@@ -105,4 +107,31 @@ def recommended_events(user, limit=RECOMMENDATION_LIMIT):
             event.pk,
         ),
     )
-    return ordered[:limit]
+    recommendations = []
+    seen_series = set()
+    for event in ranked:
+        series = _event_series_key(event)
+        if series in seen_series:
+            continue
+        seen_series.add(series)
+        recommendations.append(event)
+        if len(recommendations) == limit:
+            break
+    return recommendations
+
+
+def _event_series_key(event):
+    """Group dated instances of the same titled event at the same venue."""
+    venue = event.location or event.park_names
+    if not venue:
+        return ("event", event.pk)
+
+    def normalize(value):
+        return " ".join(value.split()).casefold()
+
+    return (
+        normalize(event.title),
+        normalize(venue),
+        normalize(event.categories),
+        event.host_id,
+    )
