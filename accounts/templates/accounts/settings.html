@@ -291,7 +291,8 @@
 
       <p class="section-description">
         Select the activities and topics you enjoy.
-        Your choices will appear on your public profile.
+        Your choices appear on your public profile and help find people
+        with similar event interests. Updating them also updates suggestions.
       </p>
 
       <div class="settings-field interest-options">
@@ -338,6 +339,30 @@
         {% if form.share_profile_with_attendees.errors %}
           <div class="field-errors">
             {{ form.share_profile_with_attendees.errors }}
+          </div>
+        {% endif %}
+      </div>
+
+      <div class="settings-field">
+        <label
+          class="privacy-option"
+          for="{{ form.discoverable_for_similar_events.id_for_label }}"
+        >
+          {{ form.discoverable_for_similar_events }}
+          <span>
+            <span class="option-title">
+              Show my public profile for similar events
+            </span>
+            <span class="option-description">
+              People browsing related events may see your public profile
+              when your saved interests match theirs. This also requires
+              profile sharing above. You can turn it off anytime.
+            </span>
+          </span>
+        </label>
+        {% if form.discoverable_for_similar_events.errors %}
+          <div class="field-errors">
+            {{ form.discoverable_for_similar_events.errors }}
           </div>
         {% endif %}
       </div>

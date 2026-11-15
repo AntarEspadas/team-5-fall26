@@ -112,19 +112,21 @@ class LandingViewTests(TestCase):
         self.assertContains(response, "Register")
         self.assertContains(response, "Stretch and breathe in the park.")
 
-    def test_images_use_the_stored_url_or_a_placeholder(self):
-        """Events with an image link to it; the rest fall back to a placeholder."""
+    def test_images_use_the_stored_url_or_a_category_illustration(self):
+        """Events with an image link to it; the rest show an illustration."""
         self.client.login(username="alice", password="pass12345")
 
         response = self.client.get(reverse("landing"))
-        placeholder = "/static/events/no-image.svg"
+        fitness = "/static/events/categories/fitness.webp"
+        park = "/static/events/categories/park.webp"
 
         self.assertContains(
             response,
             'src="https://example.org/img/yoga.png"',
         )
-        self.assertContains(response, f'data-placeholder="{placeholder}"')
-        self.assertContains(response, f'src="{placeholder}"')
+        self.assertContains(response, f'data-placeholder="{fitness}"')
+        self.assertContains(response, f'src="{park}"')
+        self.assertContains(response, f'data-placeholder="{park}"')
 
     def test_empty_state_message_is_shown_without_events(self):
         """A brand-new install explains that no events are synced yet."""
@@ -632,7 +634,8 @@ class EventDetailViewTests(TestCase):
         self.assertContains(response, "Event With Missing Information")
         self.assertContains(response, "To be announced")
         self.assertContains(response, "No description is available for this event.")
-        self.assertContains(response, 'alt="No image available"')
+        self.assertContains(response, 'src="/static/events/categories/park.webp"')
+        self.assertContains(response, 'alt=""')
         self.assertNotContains(response, ">Register</a>")
         self.assertNotContains(response, ">Official Event Page</a>")
 

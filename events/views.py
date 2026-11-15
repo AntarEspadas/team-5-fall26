@@ -7,7 +7,7 @@ from django.contrib import messages
 from django.contrib.auth.decorators import login_required
 from django.contrib.auth.mixins import LoginRequiredMixin
 from django.db import transaction
-from django.db.models import Case, Exists, F, OuterRef, Sum, Value, When
+from django.db.models import Case, Exists, F, OuterRef, Q, Sum, Value, When
 from django.http import Http404, HttpResponse, QueryDict
 from django.shortcuts import get_object_or_404, redirect, render
 from django.urls import reverse
@@ -30,6 +30,7 @@ from django.utils.http import (
 )
 
 from accounts.ban_services import get_active_ban
+from accounts.models import UserBan
 
 from .calendar_export import (
     can_add_to_calendar,
@@ -66,6 +67,7 @@ from .notifications import (
 from .natural_search import MAX_PROMPT_LENGTH, describe_search, natural_search_url
 from .recommendations import record_search, recommended_events
 from .search import search_events
+from .similar_interests import find_similar_interest_users
 
 UPCOMING_EVENT_LIMIT = 20
 SEARCH_PAGE_SIZE = 20
@@ -568,31 +570,46 @@ class EventDetailView(DetailView):
         if context["can_manage"]:
             context["recipient_count"] = interested_recipients(event).count()
 
-        # Find contact requests sent by the current user.
+        # Contact requests are per pair of users, even if they began at
+        # another event or the current viewer was the recipient.
         request_by_recipient = {}
 
         if is_authenticated:
             requests = (
                 ContactRequest.objects.filter(
-                    event=event,
-                    sender=user,
+                    Q(sender=user) | Q(recipient=user),
+                    status__in=(
+                        ContactRequest.Status.PENDING,
+                        ContactRequest.Status.ACCEPTED,
+                    ),
                 )
-                .exclude(status=ContactRequest.Status.DECLINED)
-                .order_by("-created_at")
+                .select_related("event")
+                .order_by("-created_at", "-pk")
             )
 
             for contact_request in requests:
-                request_by_recipient.setdefault(
-                    contact_request.recipient_id,
-                    contact_request,
+                other_user_id = (
+                    contact_request.recipient_id
+                    if contact_request.sender_id == user.pk
+                    else contact_request.sender_id
                 )
+                request_by_recipient.setdefault(other_user_id, contact_request)
 
         # Include all users who have chosen to share their profiles.
         # Do not exclude the current user: their avatar should also move
         # between the two groups when they change their intention.
+        # Do not offer new contact requests to recipients with active bans.
+        active_bans = UserBan.objects.filter(
+            user_id=OuterRef("user_id"),
+            lifted_at__isnull=True,
+        )
+        active_bans = active_bans.filter(
+            Q(expires_at__isnull=True) | Q(expires_at__gt=timezone.now())
+        )
         visible_interests = (
             interests.filter(user__share_profile_with_attendees=True)
             .select_related("user")
+            .annotate(recipient_banned=Exists(active_bans))
             .order_by("user__display_name", "user__username")
         )
 
@@ -601,6 +618,7 @@ class EventDetailView(DetailView):
                 "user": interest.user,
                 "status": interest.status,
                 "contact_request": request_by_recipient.get(interest.user_id),
+                "recipient_banned": interest.recipient_banned,
             }
             for interest in visible_interests
         ]
@@ -613,6 +631,20 @@ class EventDetailView(DetailView):
         ]
 
         context["attendees"] = attendees
+
+        # Discover only opted-in profiles for active, related events.
+        context["can_explore_similar_interests"] = (
+            is_authenticated
+            and unbanned
+            and event.is_open
+            and not event.is_cancelled
+            and bool(event.categories)
+        )
+        context["similar_interest_users"] = (
+            find_similar_interest_users(event, viewer=user)
+            if context["can_explore_similar_interests"]
+            else []
+        )
 
         # Event discussion posts and replies.
         context["posts"] = (
