@@ -6,13 +6,13 @@ from django.db import migrations, models
 class Migration(migrations.Migration):
 
     dependencies = [
-        ('events', '0016_searchhistory'),
+        ("events", "0016_searchhistory"),
     ]
 
     operations = [
         migrations.AlterField(
-            model_name='searchhistory',
-            name='query',
+            model_name="searchhistory",
+            name="query",
             field=models.CharField(blank=True, max_length=300),
         ),
     ]

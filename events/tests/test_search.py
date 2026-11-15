@@ -443,9 +443,7 @@ class RecommendationViewTests(TestCase):
             history.filters,
             {"borough": ["brooklyn"], "category": ["fitness"]},
         )
-        recommendations = self.client.get(reverse("landing")).context[
-            "recommendations"
-        ]
+        recommendations = self.client.get(reverse("landing")).context["recommendations"]
         self.assertEqual(recommendations, [fitness])
 
     def test_plain_language_filter_prompt_is_saved_after_redirect(self):
@@ -483,8 +481,7 @@ class RecommendationViewTests(TestCase):
                 location="Riverside Park",
                 park_names="Riverside Park",
                 categories="Fitness",
-                start_time=datetime(2099, 1, 20, 9, tzinfo=NYC)
-                + timedelta(days=index),
+                start_time=datetime(2099, 1, 20, 9, tzinfo=NYC) + timedelta(days=index),
             )
         other_yoga = make_event(
             "yoga-other-series",
