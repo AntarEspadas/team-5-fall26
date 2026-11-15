@@ -122,6 +122,11 @@ CATEGORY_NAMES = {
     for slug, label, names in CATEGORY_GROUPS
 }
 
+# The group each feed category name or group label belongs to.
+CATEGORY_SLUGS = {
+    name: slug for slug, names in CATEGORY_NAMES.items() for name in names
+}
+
 # Categories are stored as one string, e.g. "Art | Games".
 CATEGORY_SEPARATOR = " | "
 

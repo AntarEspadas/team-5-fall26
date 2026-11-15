@@ -4,8 +4,8 @@
 <a class="event-detail-link" href="{% url 'event_detail' event.pk %}" tabindex="-1" aria-hidden="true">
 {% endif %}
 <img class="event-thumb"
-     data-placeholder="{% static 'events/no-image.svg' %}"
-     src="{% if event.image_url %}{{ event.image_url }}{% else %}{% static 'events/no-image.svg' %}{% endif %}"
+     data-placeholder="{% static event.category_image %}"
+     src="{% if event.image_url %}{{ event.image_url }}{% else %}{% static event.category_image %}{% endif %}"
      alt=""
      loading="lazy"
      onerror="this.onerror=null;this.src=this.dataset.placeholder">

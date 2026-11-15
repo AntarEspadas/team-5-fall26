@@ -20,6 +20,10 @@
             <p>{{ ban_message }}</p>
             <p>You can read existing conversations from your <a href="{% url 'inbox' %}">Messages</a>.</p>
         </section>
+        {% elif recipient_banned %}
+        <section class="contact-pending" role="status">
+            <p>Contact requests are currently unavailable for this member.</p>
+        </section>
         {% elif pending_request %}
         <section class="contact-pending">
             {% if pending_request.sender_id == request.user.pk %}

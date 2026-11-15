@@ -122,12 +122,9 @@
         }
     }
 
-    /* Events without a photo get a short strip, not a full banner. */
-    .detail-image.is-placeholder {
-        max-height: 120px;
-        object-fit: contain;
-        padding: 1rem 0;
-        background: #e7ede6;
+    /* A category illustration stands in for a missing photo with a shorter banner. */
+    .detail-image.is-illustration {
+        max-height: 240px;
     }
 
     .detail-meta {
@@ -650,11 +647,11 @@
         {% endif %}
 
         <img
-            class="detail-image{% if not event.image_url %} is-placeholder{% endif %}"
-            src="{% if event.image_url %}{{ event.image_url }}{% else %}{% static 'events/no-image.svg' %}{% endif %}"
-            data-placeholder="{% static 'events/no-image.svg' %}"
-            alt="{% if event.image_url %}Image for {{ event.title }}{% else %}No image available{% endif %}"
-            onerror="this.onerror=null;this.src=this.dataset.placeholder;this.classList.add('is-placeholder')"
+            class="detail-image{% if not event.image_url %} is-illustration{% endif %}"
+            src="{% if event.image_url %}{{ event.image_url }}{% else %}{% static event.category_image %}{% endif %}"
+            data-placeholder="{% static event.category_image %}"
+            alt="{% if event.image_url %}Image for {{ event.title }}{% endif %}"
+            onerror="this.onerror=null;this.src=this.dataset.placeholder;this.alt='';this.classList.add('is-illustration')"
         >
 
         <h1>{{ event.title }}</h1>
@@ -1073,6 +1070,30 @@
             </div>
         {% else %}
             <p>No one has registered for this event yet.</p>
+        {% endif %}
+
+        {% if can_explore_similar_interests %}
+            <h3>People with Similar Interests</h3>
+            <p class="muted">
+                Find people interested in related events, even if they are not
+                attending this one. Only members who opted in appear here.
+            </p>
+            {% if similar_interest_users %}
+                <div class="contact-request-list">
+                    {% for suggestion in similar_interest_users %}
+                        <article class="contact-request-card">
+                            <h4>
+                                <a href="{% url 'public_profile' username=suggestion.user.username %}?from_event={{ event.pk }}">
+                                    {{ suggestion.user.get_display_name }}
+                                </a>
+                            </h4>
+                            <p>Related event category: {{ suggestion.shared_interest }}</p>
+                        </article>
+                    {% endfor %}
+                </div>
+            {% else %}
+                <p class="muted">No similar public profiles are available yet.</p>
+            {% endif %}
         {% endif %}
     </section>
 

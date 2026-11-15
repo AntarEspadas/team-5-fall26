@@ -92,12 +92,12 @@ class EventPageLayoutTests(TestCase):
             self.assertIn(reverse(name, args=[self.event.pk]), panel)
 
     def test_banner_shrinks_without_a_photo(self):
-        """Events with no photo get the short placeholder strip."""
+        """Events with no photo get a shorter illustration banner."""
         plain = self.client.get(reverse("event_detail", args=[self.plain.pk]))
-        self.assertContains(plain, 'class="detail-image is-placeholder"')
+        self.assertContains(plain, 'class="detail-image is-illustration"')
         photo = self.client.get(reverse("event_detail", args=[self.event.pk]))
         self.assertContains(photo, 'class="detail-image"')
-        self.assertNotContains(photo, 'class="detail-image is-placeholder"')
+        self.assertNotContains(photo, 'class="detail-image is-illustration"')
 
     def test_registering_from_panel_keeps_layout(self):
         """Registering through the panel shows the registered state there."""

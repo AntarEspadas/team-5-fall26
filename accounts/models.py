@@ -96,6 +96,14 @@ class User(AbstractUser):
             "your public profile information."
         ),
     )
+    discoverable_for_similar_events = models.BooleanField(
+        "appear in similar-event suggestions",
+        default=False,
+        help_text=(
+            "Allow your public profile to appear to people browsing other "
+            "events with similar activities. Requires profile sharing to be on."
+        ),
+    )
 
     objects = AccountManager()
 

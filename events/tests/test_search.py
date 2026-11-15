@@ -298,15 +298,16 @@ class SearchViewTests(TestCase):
         for response in (anonymous, signed_in, registered):
             self.assertEqual(nested_in_links(response), [])
 
-    def test_undated_cards_use_park_names_and_placeholder_images(self):
+    def test_undated_cards_use_park_names_and_illustrations(self):
         """Optional event fields have the same fallbacks as landing cards."""
         make_event("undated", title="Yoga", park_names="Central Park")
         response = self.client.get(reverse("search"), {"q": "yoga"})
+        park = "/static/events/categories/park.webp"
 
         self.assertContains(response, "Date to be announced")
         self.assertContains(response, "Central Park")
-        self.assertContains(response, 'src="/static/events/no-image.svg"')
-        self.assertContains(response, 'data-placeholder="/static/events/no-image.svg"')
+        self.assertContains(response, f'src="{park}"')
+        self.assertContains(response, f'data-placeholder="{park}"')
 
     def test_pagination_preserves_encoded_queries_and_does_not_drop_matches(self):
         """Visitors can reach matches beyond the first page with reserved text."""
