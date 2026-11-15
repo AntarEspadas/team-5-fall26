@@ -422,6 +422,12 @@
 
                 <p class="profile-username">@{{ profile_user.username }}</p>
 
+                {% if similar_interest_label %}
+                    <p class="profile-privacy-note">
+                        Related event interest: <strong>{{ similar_interest_label }}</strong>
+                    </p>
+                {% endif %}
+
                 {% if profile_user.pronouns %}
                     <span class="profile-pronouns">{{ profile_user.pronouns }}</span>
                 {% endif %}

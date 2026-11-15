@@ -39,7 +39,15 @@ def _shared_events(first_user, second_user):
 
 def _shared_upcoming_events(first_user, second_user):
     """Return shared events that still accept new contact requests."""
-    return _shared_events(first_user, second_user).filter(status=Event.Status.UPCOMING)
+    shared_events = _shared_events(first_user, second_user).filter(
+        status=Event.Status.UPCOMING
+    )
+    # Use the same model rules as create_contact_request. In particular,
+    # status alone can be stale and feed cancellations appear in the title.
+    eligible_ids = [
+        event.pk for event in shared_events if event.is_open and not event.is_cancelled
+    ]
+    return shared_events.filter(pk__in=eligible_ids)
 
 
 def _message_data(message):
@@ -122,6 +130,13 @@ def message_user(request, user_id):
             {"recipient": recipient, "ban_message": BAN_MESSAGE},
         )
 
+    if get_active_ban(recipient) is not None:
+        return render(
+            request,
+            "events/message_user.html",
+            {"recipient": recipient, "recipient_banned": True},
+        )
+
     shared_events = _shared_upcoming_events(request.user, recipient)
     pending_request = (
         ContactRequest.objects.filter(status=ContactRequest.Status.PENDING)
@@ -147,10 +162,13 @@ def message_user(request, user_id):
                 form.cleaned_data["message"],
             )
             if contact_request is None:
-                messages.error(
-                    request,
-                    "Choose an upcoming event that you both are interested in.",
-                )
+                if get_active_ban(recipient) is not None:
+                    error = (
+                        "Contact requests are currently unavailable for this member."
+                    )
+                else:
+                    error = "Choose an upcoming event that you both are interested in."
+                messages.error(request, error)
                 return redirect("message_user", user_id=recipient.pk)
             if contact_request.status == ContactRequest.Status.ACCEPTED:
                 conversation, _ = Conversation.get_or_create_for_users(

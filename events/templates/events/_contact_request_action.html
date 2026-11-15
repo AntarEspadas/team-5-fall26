@@ -4,13 +4,21 @@
     {% elif attendee.contact_request %}
         <p class="status-message">
             {% if attendee.contact_request.status == "pending" %}
-                Contact request sent &mdash; awaiting response.
+                {% if attendee.contact_request.sender_id == user.pk %}
+                    Your contact request about {{ attendee.contact_request.event.title }} is awaiting a response.
+                {% else %}
+                    {{ attendee.user.get_display_name }} sent you a contact request about {{ attendee.contact_request.event.title }}.
+                    <a href="{% url 'notifications' %}">Respond in notifications</a>.
+                {% endif %}
             {% else %}
                 Contact request accepted.
+                <a href="{% url 'message_user' attendee.user.pk %}">Open messages</a>.
             {% endif %}
         </p>
     {% elif viewer_banned %}
         <p class="attendee-contact-note">Contact requests are disabled while your account is banned.</p>
+    {% elif attendee.recipient_banned %}
+        <p class="attendee-contact-note">Contact requests are currently unavailable for this member.</p>
     {% elif can_interact and user_has_interest %}
         <form method="post" action="{% url 'send_contact_request' event.pk attendee.user.pk %}">
             {% csrf_token %}
