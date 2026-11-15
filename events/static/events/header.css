@@ -560,6 +560,23 @@
         top: 64px;
         right: 16px;
         left: 16px;
+        display: flex;
+        flex-direction: column;
         width: auto;
+        /* Stay above the tab bar; the list scrolls, See all stays visible. */
+        max-height: calc(100vh - 64px - 76px - env(safe-area-inset-bottom));
+        max-height: calc(100dvh - 64px - 76px - env(safe-area-inset-bottom));
+    }
+
+    .site-header .bell-body {
+        flex: 1 1 auto;
+        min-height: 0;
+        overflow-y: auto;
+        overscroll-behavior: contain;
+    }
+
+    .site-header .bell-head,
+    .site-header .bell-all {
+        flex: none;
     }
 }

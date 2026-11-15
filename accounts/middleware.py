@@ -31,6 +31,9 @@ class BanMiddleware(MiddlewareMixin):
         }
     )
 
+    # POST endpoints that only mark the member's own items read.
+    read_routes = frozenset({"notification_bell"})
+
     def process_view(self, request, view_func, view_args, view_kwargs):
         if request.method in self.safe_methods or not request.user.is_authenticated:
             return None
@@ -43,6 +46,8 @@ class BanMiddleware(MiddlewareMixin):
 
         # This handler checks the ban itself and permits only Interested.
         if request.method == "POST" and route == "toggle_event_interest":
+            return None
+        if request.method == "POST" and route in self.read_routes:
             return None
         return banned_response(request)
 
