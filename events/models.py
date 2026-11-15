@@ -1,5 +1,7 @@
 """Data models for NYC Parks events imported from the city's open data feed."""
 
+from datetime import datetime, time, timedelta
+
 from django.contrib.postgres.indexes import GinIndex
 from django.core.validators import MaxValueValidator, MinValueValidator
 from django.db import models
@@ -121,6 +123,22 @@ class Event(models.Model):
                 nyc_today()
             )
         return False
+
+    @property
+    def ended_at(self):
+        """Return the moment the event counts as over, or None without times.
+
+        Matches ``has_ended``: the end time when there is one, otherwise
+        midnight in New York after the day the event starts.
+        """
+        if self.end_time:
+            return self.end_time
+        if self.start_time:
+            start_day = timezone.localtime(self.start_time, NYC_TIMEZONE).date()
+            return datetime.combine(
+                start_day + timedelta(days=1), time.min, tzinfo=NYC_TIMEZONE
+            )
+        return None
 
     @property
     def rating_window_open(self):

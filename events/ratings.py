@@ -17,10 +17,11 @@ LATEST_COMMENTS = 5
 def rating_closes_at(event):
     """Return when ratings stop being accepted for an ended event.
 
-    The window runs from the event's end time, or from its start time when
-    the event has no end time. Events with neither never close.
+    The window runs from when the event counts as over (see
+    ``Event.ended_at``): its end time, or midnight in New York after its
+    start date when it has no end time. Events with neither never close.
     """
-    ended_at = event.end_time or event.start_time
+    ended_at = event.ended_at
     if ended_at is None:
         return None
     return ended_at + RATING_WINDOW

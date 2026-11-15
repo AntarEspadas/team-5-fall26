@@ -1,6 +1,6 @@
 """Tests for rating an event's host once the event is over (#128)."""
 
-from datetime import timedelta
+from datetime import datetime, timedelta
 from unittest import mock
 
 from django.contrib.admin.sites import site
@@ -11,6 +11,7 @@ from django.urls import reverse
 from django.utils import timezone
 
 from accounts.models import UserBan
+from events.filters import NYC_TIMEZONE
 from events.forms import HostRatingForm
 from events.models import Event, HostRating, Registration
 from events.ratings import (
@@ -88,10 +89,30 @@ class RatingRuleTests(RatingTestCase):
             rating_closes_at(self.event), self.event.end_time + RATING_WINDOW
         )
 
-    def test_window_falls_back_to_start_time(self):
-        """Without an end time, the window runs from the start time."""
-        event = make_event(self.host, "no-end", end_time=None)
-        self.assertEqual(rating_closes_at(event), event.start_time + RATING_WINDOW)
+    def test_window_runs_from_effective_end_without_end_time(self):
+        """Without an end time, the window runs from midnight after the start day.
+
+        That's when ``has_ended`` first counts the event as over, so a
+        morning event isn't short-changed by most of a day.
+        """
+        start = datetime(2026, 5, 3, 9, 0, tzinfo=NYC_TIMEZONE)
+        event = make_event(self.host, "no-end", start_time=start, end_time=None)
+        midnight_after = datetime(2026, 5, 4, 0, 0, tzinfo=NYC_TIMEZONE)
+        self.assertEqual(event.ended_at, midnight_after)
+        self.assertEqual(rating_closes_at(event), midnight_after + RATING_WINDOW)
+
+    def test_morning_event_without_end_time_open_on_day_fourteen(self):
+        """Ratings stay open late on day 14 for an event with only a start time."""
+        start = datetime(2026, 5, 3, 9, 0, tzinfo=NYC_TIMEZONE)
+        event = make_event(self.host, "morning", start_time=start, end_time=None)
+        Registration.objects.create(event=event, user=self.attendee)
+        late_day_14 = datetime(2026, 5, 17, 20, 0, tzinfo=NYC_TIMEZONE)
+        with mock.patch("django.utils.timezone.now", return_value=late_day_14):
+            self.assertTrue(rating_window_open(event))
+            self.assertIsNone(rating_block_reason(event, self.attendee))
+        day_after = datetime(2026, 5, 18, 0, 1, tzinfo=NYC_TIMEZONE)
+        with mock.patch("django.utils.timezone.now", return_value=day_after):
+            self.assertFalse(rating_window_open(event))
 
     def test_window_never_closes_without_any_time(self):
         """Events with no times at all have no closing date."""
@@ -498,12 +519,29 @@ class ProfileRatingTests(RatingTestCase):
         self.url = reverse("public_profile", args=["alex"])
 
     def test_new_host(self):
-        """With fewer than three ratings, the profile says "New host"."""
+        """Below three ratings the average says "New host", but comments show.
+
+        Only the average waits for three raters; the comment is shown
+        without its stars so it can't stand in for the hidden average.
+        """
         self.rate(self.attendee, self.event, 1, "Too early to tell")
         response = self.client.get(self.url)
         self.assertContains(response, 'id="host-ratings"')
         self.assertContains(response, "New host.")
-        self.assertNotContains(response, "Too early to tell")
+        self.assertContains(response, "Too early to tell")
+        html = response.content.decode()
+        section = html[html.index('id="host-ratings"') :]
+        self.assertNotIn("out of 5 stars", section)
+
+    def test_party_registration_counts_as_one_rating(self):
+        """A registration for a group still gives the host one rating and comment."""
+        Registration.objects.filter(event=self.event, user=self.attendee).update(
+            party_size=4
+        )
+        self.rate(self.attendee, self.event, 5, "Great for the whole family")
+        response = self.client.get(self.url)
+        self.assertContains(response, "1 rating<")
+        self.assertContains(response, "Great for the whole family")
 
     def test_average_and_comments_without_names(self):
         """Three ratings show the average and comments, but not who wrote them."""

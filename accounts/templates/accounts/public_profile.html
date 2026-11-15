@@ -534,12 +534,12 @@
                 </p>
             {% endif %}
 
-            {% if host_rating.show_average and host_comments %}
+            {% if host_comments %}
                 <ul class="host-comment-list">
                     {% for rating in host_comments %}
                         <li class="host-comment" id="rating-{{ rating.pk }}">
                             <div class="host-comment-head">
-                                <span class="rate-stars-readonly" aria-label="{{ rating.stars }} out of 5 stars">{% for n in "12345" %}<span{% if forloop.counter <= rating.stars %} class="on"{% endif %} aria-hidden="true">★</span>{% endfor %}</span>
+                                {% if host_rating.show_average %}<span class="rate-stars-readonly" aria-label="{{ rating.stars }} out of 5 stars">{% for n in "12345" %}<span{% if forloop.counter <= rating.stars %} class="on"{% endif %} aria-hidden="true">★</span>{% endfor %}</span>{% endif %}
                                 <span>{{ rating.event.title }} · {{ rating.updated_at|date:"M Y" }}</span>
                             </div>
                             <p>{{ rating.comment }}</p>
