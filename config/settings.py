@@ -280,8 +280,8 @@ GEMINI_LIVE_SOCKET_URL = (
     "v1alpha.GenerativeService.BidiGenerateContentConstrained"
 )
 
-# Staff who receive questions the assistant could not answer about NYC Parks
-# feed events (hosted events go to their host). Comma-separated emails.
+# Site staff (Django MANAGERS), as comma-separated emails. The first one is
+# the assistant's default support address.
 MANAGERS = [
     (email.strip(), email.strip())
     for email in os.environ.get("CHATBOT_MANAGER_EMAILS", "").split(",")

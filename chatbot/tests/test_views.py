@@ -1,4 +1,4 @@
-"""Tests for the chat endpoints, the widget, and the Questions page."""
+"""Tests for the chat endpoints and the widget."""
 
 import json
 from unittest import mock
@@ -12,7 +12,7 @@ from django.urls import reverse
 
 from chatbot import assistant, gemini, views
 from chatbot.admin import ChatLogAdmin, InquiryAdmin
-from chatbot.inquiries import answer_inquiry, create_inquiry
+from chatbot.inquiries import answer_inquiry
 from chatbot.models import FAQ, ChatLog, Inquiry
 from chatbot.tests.helpers import call_response, make_event, make_user, text_response
 from events.models import Notification
@@ -246,7 +246,7 @@ class HistoryAndResetTests(ChatTestCase):
     """History restores the chat and delivers managers' answers once."""
 
     def test_answers_are_delivered_into_the_chat_once(self):
-        anonymous = create_inquiry(None, "Dogs allowed?")
+        anonymous = Inquiry.objects.create(question="Dogs allowed?")
         session = self.client.session
         session[assistant.INQUIRIES_KEY] = [anonymous.pk]
         session.save()
@@ -266,7 +266,7 @@ class HistoryAndResetTests(ChatTestCase):
 
     def test_signed_in_users_get_answers_from_any_session(self):
         user = make_user("asker")
-        inquiry = create_inquiry(user, "Parking?")
+        inquiry = Inquiry.objects.create(user=user, question="Parking?")
         answer_inquiry(inquiry, "Street parking only.", make_user("staff"))
         self.client.force_login(user)
         data = self.client.get(reverse("chatbot:history")).json()
@@ -281,50 +281,28 @@ class HistoryAndResetTests(ChatTestCase):
         self.assertEqual(self.client.session[assistant.HISTORY_KEY], [])
 
 
-class InquiryPageTests(TestCase):
-    """Hosts answer questions about their events; staff answer all."""
+class AnswerInquiryTests(TestCase):
+    """Answers to old forwarded questions reach the asker in their language."""
 
     @classmethod
     def setUpTestData(cls):
         cls.host = make_user("host")
-        cls.staff = make_user("staff", is_staff=True)
         cls.asker = make_user("asker")
         cls.event = make_event("host-1", "Kite Day", host=cls.host)
-        cls.hosted = create_inquiry(
-            cls.asker,
-            "¿Hay baños?",
+        cls.hosted = Inquiry.objects.create(
+            user=cls.asker,
+            event=cls.event,
+            question="¿Hay baños?",
             question_english="Are there restrooms?",
             language="Spanish",
-            event=cls.event,
         )
-        cls.general = create_inquiry(None, "Is the site free?")
-
-    def test_login_required(self):
-        response = self.client.get(reverse("chatbot:inquiries"))
-        self.assertEqual(response.status_code, 302)
-
-    def test_hosts_see_questions_about_their_events(self):
-        self.client.force_login(self.host)
-        response = self.client.get(reverse("chatbot:inquiries"))
-        self.assertContains(response, "Are there restrooms?")
-        self.assertContains(response, "Asked in Spanish")
-        self.assertNotContains(response, "Is the site free?")
-
-    def test_staff_see_everything(self):
-        self.client.force_login(self.staff)
-        response = self.client.get(reverse("chatbot:inquiries"))
-        self.assertContains(response, "Are there restrooms?")
-        self.assertContains(response, "Is the site free?")
 
     def test_answering_translates_and_notifies_the_asker(self):
-        self.client.force_login(self.host)
-        url = reverse("chatbot:answer_inquiry", args=[self.hosted.pk])
-        mail.outbox.clear()
         with mock.patch(
             "chatbot.gemini.translate", return_value="Sí, junto al lago."
         ) as translate:
-            response = self.client.post(url, {"answer": "Yes, by the lake."})
-        self.assertRedirects(response, reverse("chatbot:inquiries"))
+            answered = answer_inquiry(self.hosted, "Yes, by the lake.", self.host)
+        self.assertTrue(answered)
         translate.assert_called_once_with("Yes, by the lake.", "Spanish")
         self.hosted.refresh_from_db()
         self.assertEqual(self.hosted.status, Inquiry.Status.ANSWERED)
@@ -332,22 +310,7 @@ class InquiryPageTests(TestCase):
         notification = Notification.objects.get(recipient=self.asker)
         self.assertIn("Sí, junto al lago.", notification.body)
         self.assertEqual(mail.outbox[0].to, ["asker@example.com"])
-
-        response = self.client.post(url, {"answer": "Again"}, follow=True)
-        self.assertContains(response, "already answered")
-        response = self.client.get(reverse("chatbot:inquiries"))
-        self.assertContains(response, "Answer from host")
-
-    def test_empty_answers_are_rejected(self):
-        self.client.force_login(self.host)
-        url = reverse("chatbot:answer_inquiry", args=[self.hosted.pk])
-        response = self.client.post(url, {"answer": "  "}, follow=True)
-        self.assertContains(response, "Write an answer")
-
-    def test_other_users_cannot_answer(self):
-        self.client.force_login(self.asker)
-        url = reverse("chatbot:answer_inquiry", args=[self.hosted.pk])
-        self.assertEqual(self.client.post(url, {"answer": "Hi"}).status_code, 404)
+        self.assertFalse(answer_inquiry(self.hosted, "Again", self.host))
 
     def test_translation_failures_still_send_the_answer(self):
         with mock.patch("chatbot.gemini.translate", side_effect=gemini.GeminiError):
@@ -355,9 +318,18 @@ class InquiryPageTests(TestCase):
         self.hosted.refresh_from_db()
         self.assertEqual(self.hosted.answer_for_asker, "Yes.")
 
+    def test_questions_page_is_removed(self):
+        self.client.force_login(make_user("staff", is_staff=True))
+        for url in (
+            "/assistant/inquiries/",
+            f"/assistant/inquiries/{self.hosted.pk}/answer/",
+        ):
+            self.assertEqual(self.client.get(url).status_code, 404)
+            self.assertEqual(self.client.post(url, {"answer": "Hi"}).status_code, 404)
+
 
 class InquiryAdminTests(TestCase):
-    """Answering in the admin sends the answer like the Questions page."""
+    """Answering in the admin sends the answer to the asker."""
 
     def setUp(self):
         self.admin = InquiryAdmin(Inquiry, AdminSite())
@@ -367,7 +339,7 @@ class InquiryAdminTests(TestCase):
 
     def test_no_adding_and_answer_on_save(self):
         self.assertFalse(self.admin.has_add_permission(self.request))
-        inquiry = create_inquiry(None, "Open late?")
+        inquiry = Inquiry.objects.create(question="Open late?")
         self.assertEqual(str(inquiry), "Open late?")
         inquiry.answer = " Until 9 PM. "
         self.admin.save_model(self.request, inquiry, None, True)

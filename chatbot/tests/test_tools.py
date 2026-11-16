@@ -1,10 +1,8 @@
 """Tests for the database tools the assistant calls."""
 
 from django.contrib.auth.models import AnonymousUser
-from django.core import mail
-from django.test import SimpleTestCase, TestCase, override_settings
+from django.test import SimpleTestCase, TestCase
 
-from chatbot.inquiries import create_inquiry
 from chatbot.tools import DECLARATIONS, Toolbox, borough_label, event_status
 from chatbot.tests.helpers import make_event, make_user
 from events.models import (
@@ -154,43 +152,6 @@ class MyActivityToolTests(TestCase):
         self.assertEqual(result["unread_messages"], 1)
         self.assertEqual(result["pending_contact_requests"], 1)
         self.assertEqual(result["settings"]["contact_permission"], "Require approval")
-
-
-@override_settings(MANAGERS=[("Staff", "staff@example.com")])
-class CreateInquiryTests(TestCase):
-    """Questions saved for managers notify the host and email staff."""
-
-    def test_question_about_a_hosted_event_notifies_its_host(self):
-        host = make_user("host")
-        asker = make_user("asker")
-        event = make_event("host-2", "Kite Day", host=host)
-        inquiry = create_inquiry(
-            asker,
-            "¿Hay estacionamiento?",
-            question_english="Is there parking?",
-            language="Spanish",
-            event=event,
-        )
-        self.assertEqual((inquiry.user, inquiry.event), (asker, event))
-        notification = Notification.objects.get(recipient=host)
-        self.assertIn("Is there parking?", notification.body)
-        self.assertIn("¿Hay estacionamiento?", notification.body)
-        self.assertEqual(
-            sorted(m.to[0] for m in mail.outbox),
-            ["host@example.com", "staff@example.com"],
-        )
-
-    def test_question_without_an_event_goes_to_staff(self):
-        inquiry = create_inquiry(None, "Are dogs allowed?")
-        self.assertIsNone(inquiry.event)
-        self.assertFalse(Notification.objects.exists())
-        self.assertEqual([m.to for m in mail.outbox], [["staff@example.com"]])
-
-    def test_hosts_asking_about_their_own_event_are_not_notified(self):
-        host = make_user("host")
-        event = make_event("host-3", "Own Event", host=host)
-        create_inquiry(host, "Q?", event=event)
-        self.assertFalse(Notification.objects.exists())
 
 
 class NoHandoffTests(SimpleTestCase):

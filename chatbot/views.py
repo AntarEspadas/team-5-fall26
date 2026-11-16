@@ -1,4 +1,4 @@
-"""Endpoints for the chat widget and the event managers' Questions page."""
+"""Endpoints for the chat widget."""
 
 import json
 import logging
@@ -6,11 +6,8 @@ import time
 from functools import wraps
 
 from django.conf import settings
-from django.contrib import messages
-from django.contrib.auth.decorators import login_required
 from django.core.cache import cache
 from django.http import Http404, JsonResponse
-from django.shortcuts import get_object_or_404, redirect, render
 from django.utils import timezone
 from django.views.decorators.http import require_GET, require_POST
 
@@ -24,8 +21,7 @@ from .assistant import (
     run_live_tool,
     save_voice_turn,
 )
-from .forms import AnswerInquiryForm
-from .inquiries import answer_inquiry, inquiries_managed_by, undelivered_answers
+from .inquiries import undelivered_answers
 from .logs import record_chat
 from .models import ChatLog, Inquiry
 
@@ -53,8 +49,6 @@ RATE_WINDOW_SECONDS = 60
 VOICE_CALL_SCOPE = "voice-call:"
 VOICE_CALL_RATE_LIMIT = 60
 VOICE_CALL_IP_RATE_LIMIT = 240
-# Answered questions listed under the open ones on the Questions page.
-ANSWERED_SHOWN = 20
 
 UNAVAILABLE = "The assistant is unavailable right now. Please try again in a moment."
 BUSY = "The assistant is very busy right now. Please try again in a minute."
@@ -322,37 +316,3 @@ def chat_reset(request):
     """Start a new conversation; answers to earlier questions still arrive."""
     request.session["chatbot_history"] = []
     return JsonResponse({"messages": []})
-
-
-@login_required
-def inquiry_list(request):
-    """List open questions the user can answer, then recent answers."""
-    inquiries = inquiries_managed_by(request.user)
-    return render(
-        request,
-        "chatbot/inquiries.html",
-        {
-            "open_inquiries": inquiries.filter(status=Inquiry.Status.OPEN).order_by(
-                "created_at", "pk"
-            ),
-            "answered_inquiries": inquiries.filter(
-                status=Inquiry.Status.ANSWERED
-            ).order_by("-answered_at", "-pk")[:ANSWERED_SHOWN],
-            "form": AnswerInquiryForm(),
-        },
-    )
-
-
-@login_required
-@require_POST
-def answer_inquiry_view(request, pk):
-    """Save a manager's answer and send it to whoever asked."""
-    inquiry = get_object_or_404(inquiries_managed_by(request.user), pk=pk)
-    form = AnswerInquiryForm(request.POST)
-    if not form.is_valid():
-        messages.error(request, "Write an answer before sending.")
-    elif answer_inquiry(inquiry, form.cleaned_data["answer"], request.user):
-        messages.success(request, "Answer sent.")
-    else:
-        messages.info(request, "This question was already answered.")
-    return redirect("chatbot:inquiries")
