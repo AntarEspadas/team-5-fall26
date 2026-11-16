@@ -133,7 +133,12 @@ class PublicProfileView(LoginRequiredMixin, DetailView):
             # still allows similar-event discovery.
             related_label = None
             from_event = self.request.GET.get("from_event", "")
-            if from_event.isascii() and from_event.isdecimal() and len(from_event) < 18:
+            if (
+                get_active_ban(self.request.user) is None
+                and from_event.isascii()
+                and from_event.isdecimal()
+                and len(from_event) < 18
+            ):
                 event = Event.objects.filter(pk=int(from_event)).first()
                 if event is not None:
                     viewer_interested = EventInterest.objects.filter(
