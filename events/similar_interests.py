@@ -40,24 +40,23 @@ INTEREST_EVENT_CATEGORIES = {
 }
 
 
-def shares_selected_interest(source_tags, other_categories, viewer, member):
-    """Confirm a saved interest still belongs to both people and both events."""
+def selected_interest_label(source_tags, other_categories, viewer, member):
+    """Return a match label supported by one currently shared saved interest."""
     if viewer is None or not viewer.is_authenticated:
-        return False
+        return None
 
     shared_choices = set(viewer.interests or []) & set(member.interests or [])
-    if not shared_choices:
-        return False
-
-    source_names = {tag.casefold() for tag in source_tags}
-    other_names = {tag.casefold() for tag in category_tags(other_categories)}
-    for choice in shared_choices:
+    other_tags = category_tags(other_categories)
+    for choice in sorted(shared_choices):
         categories = {
             name.casefold() for name in INTEREST_EVENT_CATEGORIES.get(choice, ())
         }
-        if source_names & categories and other_names & categories:
-            return True
-    return False
+        source_matches = [tag for tag in source_tags if tag.casefold() in categories]
+        other_matches = [tag for tag in other_tags if tag.casefold() in categories]
+        label = shared_interest_label(source_matches, " | ".join(other_matches))
+        if label is not None:
+            return label
+    return None
 
 
 def available_event(event):
@@ -146,10 +145,10 @@ def public_match_for_event(event, recipient, viewer):
         related_event = interest.event
         if not available_event(related_event):
             continue
-        label = shared_interest_label(source_tags, related_event.categories)
-        if label and shares_selected_interest(
+        label = selected_interest_label(
             source_tags, related_event.categories, viewer, recipient
-        ):
+        )
+        if label is not None:
             return label
     return None
 
@@ -214,10 +213,10 @@ def find_similar_interest_users(event, viewer=None, limit=DEFAULT_SUGGESTION_LIM
     for interest in candidates.iterator(chunk_size=200):
         if interest.user_id in seen_users or not available_event(interest.event):
             continue
-        label = shared_interest_label(tags, interest.event.categories)
-        if label is None or not shares_selected_interest(
+        label = selected_interest_label(
             tags, interest.event.categories, viewer, interest.user
-        ):
+        )
+        if label is None:
             continue
         seen_users.add(interest.user_id)
         suggestions.append({"user": interest.user, "shared_interest": label})
