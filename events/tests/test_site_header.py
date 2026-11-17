@@ -112,6 +112,12 @@ class SiteHeaderTests(TestCase):
             'aria-current="page"',
         )
 
+    def test_my_events_intro_has_no_post_link(self):
+        """Posting is offered in the header only, not in the My Events intro."""
+        response = self.client.get(reverse("my_events"))
+        self.assertNotContains(response, "Post a new event")
+        self.assertContains(response, "Post an event")
+
     def test_banned_member_cannot_see_post_link(self):
         """The Post an event link is hidden from banned members."""
         with mock.patch(
