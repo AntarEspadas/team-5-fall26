@@ -119,6 +119,34 @@ class SimilarInterestDiscoveryTests(TestCase):
             "Basketball/Netball",
         )
 
+    def test_multicategory_match_only_labels_the_selected_topic(self):
+        """Do not show Gardening as a match between two sports-only members."""
+        source = make_event("mixed-source", "Gardening | Sports")
+        related = make_event("mixed-related", "Gardening | Football")
+        member = make_user("mixedmember")
+        EventInterest.objects.create(user=member, event=related)
+        EventInterest.objects.create(user=self.viewer, event=source)
+        self.client.force_login(self.viewer)
+
+        suggestions = self.suggestions(event=source)
+        match = next(item for item in suggestions if item["user"] == member)
+        self.assertEqual(match["shared_interest"], "Sports")
+        response = self.client.get(
+            reverse("public_profile", args=[member.username]),
+            {"from_event": source.pk},
+        )
+        self.assertEqual(response.context["similar_interest_label"], "Sports")
+
+    def test_categories_cannot_borrow_an_unselected_exact_match(self):
+        """A category overlap must itself be supported by a shared choice."""
+        source = make_event("mixed-unrelated-source", "Gardening | Football")
+        related = make_event("mixed-unrelated-target", "Gardening | Fitness")
+        member = make_user("mixedunrelated")
+        EventInterest.objects.create(user=member, event=related)
+
+        suggestions = self.suggestions(event=source)
+        self.assertNotIn(member, [item["user"] for item in suggestions])
+
     def test_unrelated_categories_do_not_match(self):
         person = make_user("gardener")
         EventInterest.objects.create(user=person, event=self.other_topic)
