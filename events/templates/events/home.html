@@ -37,6 +37,34 @@
         {% include 'events/_search_form.html' %}
 
         {% if user.is_authenticated %}
+        {% if has_search_history %}
+        <section class="events-section" aria-labelledby="recommendations-heading">
+            <div class="section-head">
+                <h2 id="recommendations-heading">Recommended for you</h2>
+                <form method="post" action="{% url 'clear_search_history' %}">
+                    {% csrf_token %}
+                    <button class="section-link" type="submit">Clear search history</button>
+                </form>
+            </div>
+            <p class="archived-description">
+                Based on your recent searches. Your search history is private to your account.
+            </p>
+            {% if recommendations %}
+            <ul class="event-grid">
+                {% for event in recommendations %}
+                <li class="event">
+                    {% include 'events/_event_card_content.html' with link_to_source=True %}
+                </li>
+                {% endfor %}
+            </ul>
+            {% else %}
+            <p class="empty-state">
+                No upcoming events match your recent searches yet.
+            </p>
+            {% endif %}
+        </section>
+        {% endif %}
+
         <section class="events-section" aria-labelledby="events-heading">
             <div class="section-head">
                 <h2 id="events-heading">Upcoming events</h2>

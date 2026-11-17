@@ -1,12 +1,13 @@
 """Contact request delivery, resolution, ordering, and transaction tests."""
 
+from django.contrib.messages.storage.fallback import FallbackStorage
+from django.contrib.sessions.middleware import SessionMiddleware
 from concurrent.futures import ThreadPoolExecutor
 from datetime import timedelta
 from threading import Barrier
 from unittest.mock import patch
 
 from django.contrib.auth import get_user_model
-from django.contrib.messages.storage.fallback import FallbackStorage
 from django.core import mail
 from django.db import close_old_connections, connections
 from django.http import Http404
@@ -412,6 +413,10 @@ class ConcurrentContactNotificationTests(TransactionTestCase):
             close_old_connections()
             try:
                 request = RequestFactory().post("/")
+
+                SessionMiddleware(lambda req: None).process_request(request)
+                request._messages = FallbackStorage(request)
+
                 request.user = get_user_model().objects.get(pk=user_id)
                 request.session = {}
                 request._messages = FallbackStorage(request)

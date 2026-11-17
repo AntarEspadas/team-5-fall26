@@ -2,6 +2,7 @@
 
 import time
 from django.conf import settings
+from django.contrib import messages
 from django.contrib.auth import get_user_model
 from django.contrib.auth import views as auth_views
 from django.contrib.auth.mixins import LoginRequiredMixin
@@ -140,7 +141,12 @@ class PublicProfileView(LoginRequiredMixin, DetailView):
             # still allows similar-event discovery.
             related_label = None
             from_event = self.request.GET.get("from_event", "")
-            if from_event.isascii() and from_event.isdecimal() and len(from_event) < 18:
+            if (
+                get_active_ban(self.request.user) is None
+                and from_event.isascii()
+                and from_event.isdecimal()
+                and len(from_event) < 18
+            ):
                 event = Event.objects.filter(pk=int(from_event)).first()
                 if event is not None:
                     viewer_interested = EventInterest.objects.filter(
@@ -293,6 +299,8 @@ class CustomLoginView(LoginView):
 
         # 48h sliding session expiry
         self.request.session.set_expiry(SESSION_LIFESPAN_SECONDS)
+
+        messages.success(self.request, "Welcome back! You are now logged in.")
         return super().form_valid(form)
 
     def form_invalid(self, form):

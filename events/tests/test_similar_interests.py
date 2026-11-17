@@ -119,6 +119,34 @@ class SimilarInterestDiscoveryTests(TestCase):
             "Basketball/Netball",
         )
 
+    def test_multicategory_match_only_labels_the_selected_topic(self):
+        """Do not show Gardening as a match between two sports-only members."""
+        source = make_event("mixed-source", "Gardening | Sports")
+        related = make_event("mixed-related", "Gardening | Football")
+        member = make_user("mixedmember")
+        EventInterest.objects.create(user=member, event=related)
+        EventInterest.objects.create(user=self.viewer, event=source)
+        self.client.force_login(self.viewer)
+
+        suggestions = self.suggestions(event=source)
+        match = next(item for item in suggestions if item["user"] == member)
+        self.assertEqual(match["shared_interest"], "Sports")
+        response = self.client.get(
+            reverse("public_profile", args=[member.username]),
+            {"from_event": source.pk},
+        )
+        self.assertEqual(response.context["similar_interest_label"], "Sports")
+
+    def test_categories_cannot_borrow_an_unselected_exact_match(self):
+        """A category overlap must itself be supported by a shared choice."""
+        source = make_event("mixed-unrelated-source", "Gardening | Football")
+        related = make_event("mixed-unrelated-target", "Gardening | Fitness")
+        member = make_user("mixedunrelated")
+        EventInterest.objects.create(user=member, event=related)
+
+        suggestions = self.suggestions(event=source)
+        self.assertNotIn(member, [item["user"] for item in suggestions])
+
     def test_unrelated_categories_do_not_match(self):
         person = make_user("gardener")
         EventInterest.objects.create(user=person, event=self.other_topic)
@@ -397,6 +425,37 @@ class SimilarInterestDiscoveryTests(TestCase):
         self.runner.save(update_fields=["discoverable_for_similar_events"])
         response = self.client.get(url, {"from_event": self.event.pk})
         self.assertNotContains(response, "Related event interest:")
+
+    def test_banned_viewer_cannot_use_saved_profile_referral(self):
+        """A direct referral URL must honor the event page's ban restriction."""
+        EventInterest.objects.create(event=self.event, user=self.viewer)
+        self.client.force_login(self.viewer)
+        profile_url = reverse("public_profile", args=[self.runner.username])
+        detail_url = reverse("event_detail", args=[self.event.pk])
+        referral = {"from_event": self.event.pk}
+        self.assertContains(
+            self.client.get(profile_url, referral), "Related event interest:"
+        )
+
+        ban = UserBan.objects.create(
+            user=self.viewer,
+            issued_by=self.runner,
+            offense_number=1,
+            expires_at=timezone.now() + timedelta(days=5),
+        )
+        self.assertNotContains(
+            self.client.get(detail_url), "People with Similar Interests"
+        )
+        response = self.client.get(profile_url, referral)
+        self.assertEqual(response.status_code, 200)
+        self.assertIsNone(response.context["similar_interest_label"])
+        self.assertNotContains(response, "Related event interest:")
+
+        ban.lifted_at = timezone.now()
+        ban.save(update_fields=["lifted_at"])
+        self.assertContains(
+            self.client.get(profile_url, referral), "Related event interest:"
+        )
 
     def test_banned_members_not_exposed_and_lifted_bans_restore_discovery(self):
         """Hide actively banned users, but honor expiration and lifting."""

@@ -221,6 +221,7 @@ def conversation(request, conversation_id):
             if request.headers.get("x-requested-with") == "XMLHttpRequest":
                 message.sender = request.user
                 return JsonResponse({"message": _message_data(message)})
+            messages.success(request, "Message sent.")
             return redirect("conversation", conversation_id=thread.pk)
         if request.headers.get("x-requested-with") == "XMLHttpRequest":
             return JsonResponse(
