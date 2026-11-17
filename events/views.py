@@ -60,6 +60,7 @@ from .models import (
     EventPost,
     Notification,
     Registration,
+    SearchHistory,
 )
 from .notifications import (
     cancel_notice,
@@ -70,6 +71,7 @@ from .notifications import (
     party,
 )
 from .natural_search import MAX_PROMPT_LENGTH, describe_search, natural_search_url
+from .recommendations import record_search, recommended_events
 from .search import search_events
 from .similar_interests import find_similar_interest_users
 
@@ -722,11 +724,20 @@ class LandingView(TemplateView):
 
         context["events"] = []
         context["archived_events"] = []
+        context["recommendations"] = []
+        context["has_search_history"] = False
         if self.request.user.is_authenticated:
+            context["has_search_history"] = SearchHistory.objects.filter(
+                user=self.request.user
+            ).exists()
+            context["recommendations"] = recommended_events(self.request.user)
+
             # Upcoming events, soonest first.
-            context["events"] = self.with_registration(upcoming).order_by(
-                *upcoming_order
-            )[:UPCOMING_EVENT_LIMIT]
+            context["events"] = self.with_registration(
+                upcoming.exclude(
+                    pk__in=[event.pk for event in context["recommendations"]]
+                )
+            ).order_by(*upcoming_order)[:UPCOMING_EVENT_LIMIT]
 
             # Recently completed events, newest first.
             archived = self.with_registration(
@@ -865,6 +876,21 @@ class SearchView(EventSearchMixin, ListView):
     empty_without_filters = True
     clear_filters_url_name = "landing"
 
+    def get_queryset(self):
+        """Record a signed-in search once, without tracking pagination."""
+        events = super().get_queryset()
+        if (
+            self.request.user.is_authenticated
+            and (self.query or self.filter_params)
+            and "page" not in self.request.GET
+        ):
+            record_search(
+                self.request.user,
+                self.query,
+                self.filter_params,
+            )
+        return events
+
     def get(self, request, *args, **kwargs):
         """Send a plain-language search to the filters it describes."""
         target = natural_search_url(request)
@@ -880,3 +906,11 @@ class SearchView(EventSearchMixin, ListView):
             context["asked"] = asked[:MAX_PROMPT_LENGTH]
             context["understood"] = describe_search(self.query, self.filters)
         return context
+
+
+@login_required
+@require_POST
+def clear_search_history(request):
+    """Delete the current user's stored event searches."""
+    SearchHistory.objects.filter(user=request.user).delete()
+    return redirect("landing")

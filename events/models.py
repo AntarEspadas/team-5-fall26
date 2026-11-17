@@ -166,6 +166,31 @@ class Event(models.Model):
         return self.title.lstrip().upper().startswith(("CANCELLED", "CANCELED"))
 
 
+class SearchHistory(models.Model):
+    """A signed-in user's recent normalized event searches."""
+
+    user = models.ForeignKey(
+        "accounts.User",
+        on_delete=models.CASCADE,
+        related_name="event_search_history",
+    )
+    query = models.CharField(max_length=300, blank=True)
+    filters = models.JSONField(default=dict, blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ["-created_at", "-pk"]
+        indexes = [
+            models.Index(
+                fields=["user", "-created_at"],
+                name="searchhist_user_recent",
+            ),
+        ]
+
+    def __str__(self):
+        return f"{self.user}: {self.query}"
+
+
 class EventInterest(models.Model):
     """Record a user's attendance intention for an event."""
 
