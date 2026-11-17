@@ -201,7 +201,7 @@ class SearchViewTests(TestCase):
                 self.assertContains(response, 'type="search" name="q"')
                 self.assertContains(response, '<button type="submit">Search</button>')
                 if not signed_in:
-                    self.assertContains(response, "Please log in")
+                    self.assertContains(response, "Log in or sign up")
                     self.assertNotContains(response, self.yoga.title)
 
     def test_missing_or_whitespace_queries_show_a_prompt(self):

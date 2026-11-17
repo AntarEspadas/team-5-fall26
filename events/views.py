@@ -40,7 +40,13 @@ from .calendar_export import (
     ics_filename,
     webcal_url,
 )
-from .filters import EventFilterForm, filter_events, filter_params
+from .filters import (
+    EventFilterForm,
+    filter_events,
+    filter_params,
+    nyc_today,
+    preset_range,
+)
 from .forms import (
     CancelEventForm,
     EventListingForm,
@@ -71,6 +77,9 @@ UPCOMING_EVENT_LIMIT = 20
 SEARCH_PAGE_SIZE = 20
 NOTIFICATION_PAGE_SIZE = 20
 ARCHIVED_EVENT_PREVIEW_LIMIT = 3
+
+# This weekend's events shown on the home page to every visitor.
+WEEKEND_EVENT_LIMIT = 8
 ARCHIVED_EVENT_PAGE_SIZE = 20
 
 
@@ -666,58 +675,68 @@ class EventDetailView(DetailView):
 
 
 class LandingView(TemplateView):
-    """Render the landing page with upcoming and archived events for signed-in visitors.
+    """Render the home page.
 
-    Anonymous visitors see the same page with the login prompt, matching the
-    behaviour the accounts tests expect, but no event lists.
+    Every visitor sees this weekend's events. Signed-in visitors also get their
+    personal sections: upcoming events with registration badges, plans, and
+    archived events. Signed-out visitors get a prompt to log in or sign up.
     """
 
     template_name = "events/home.html"
 
+    def with_registration(self, events):
+        """Mark the events the signed-in visitor has registered for."""
+        if not self.request.user.is_authenticated:
+            return events
+        return events.annotate(
+            user_is_registered=Exists(
+                Registration.objects.filter(
+                    event_id=OuterRef("pk"),
+                    user=self.request.user,
+                )
+            )
+        )
+
     def get_context_data(self, **kwargs):
-        """Add upcoming events, archived events, and an empty filter bar."""
+        """Add this weekend's events and, when signed in, the personal lists."""
         context = super().get_context_data(**kwargs)
         context["filter_form"] = EventFilterForm()
+        upcoming = Event.objects.filter(status=Event.Status.UPCOMING)
+        upcoming_order = (
+            F("start_time").asc(nulls_last=True),
+            "end_time",
+            "title",
+        )
+
+        weekend_start, weekend_end = preset_range("weekend", nyc_today())
+        weekend = filter_events(
+            upcoming,
+            {"date_from": weekend_start, "date_to": weekend_end},
+        )
+        context["weekend_start"] = weekend_start
+        context["weekend_end"] = weekend_end
+        context["weekend_url"] = reverse("search") + "?when=weekend"
+        context["weekend_events"] = self.with_registration(weekend).order_by(
+            *upcoming_order
+        )[:WEEKEND_EVENT_LIMIT]
+
         context["events"] = []
         context["archived_events"] = []
         if self.request.user.is_authenticated:
             # Upcoming events, soonest first.
-            context["events"] = (
-                Event.objects.filter(
-                    status=Event.Status.UPCOMING,
-                )
-                .annotate(
-                    user_is_registered=Exists(
-                        Registration.objects.filter(
-                            event_id=OuterRef("pk"),
-                            user=self.request.user,
-                        )
-                    )
-                )
-                .order_by(
-                    F("start_time").asc(nulls_last=True),
-                    "end_time",
-                    "title",
-                )[:UPCOMING_EVENT_LIMIT]
-            )
+            context["events"] = self.with_registration(upcoming).order_by(
+                *upcoming_order
+            )[:UPCOMING_EVENT_LIMIT]
 
             # Recently completed events, newest first.
-            context["archived_events"] = (
+            archived = self.with_registration(
                 Event.objects.filter(status=Event.Status.DONE)
-                .annotate(
-                    user_is_registered=Exists(
-                        Registration.objects.filter(
-                            event_id=OuterRef("pk"),
-                            user=self.request.user,
-                        )
-                    )
-                )
-                .order_by(
-                    F("start_time").desc(nulls_last=True),
-                    "-end_time",
-                    "-title",
-                )[:ARCHIVED_EVENT_PREVIEW_LIMIT]
+            ).order_by(
+                F("start_time").desc(nulls_last=True),
+                "-end_time",
+                "-title",
             )
+            context["archived_events"] = archived[:ARCHIVED_EVENT_PREVIEW_LIMIT]
 
         return context
 
