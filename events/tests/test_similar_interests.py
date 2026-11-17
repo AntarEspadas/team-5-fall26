@@ -426,6 +426,37 @@ class SimilarInterestDiscoveryTests(TestCase):
         response = self.client.get(url, {"from_event": self.event.pk})
         self.assertNotContains(response, "Related event interest:")
 
+    def test_banned_viewer_cannot_use_saved_profile_referral(self):
+        """A direct referral URL must honor the event page's ban restriction."""
+        EventInterest.objects.create(event=self.event, user=self.viewer)
+        self.client.force_login(self.viewer)
+        profile_url = reverse("public_profile", args=[self.runner.username])
+        detail_url = reverse("event_detail", args=[self.event.pk])
+        referral = {"from_event": self.event.pk}
+        self.assertContains(
+            self.client.get(profile_url, referral), "Related event interest:"
+        )
+
+        ban = UserBan.objects.create(
+            user=self.viewer,
+            issued_by=self.runner,
+            offense_number=1,
+            expires_at=timezone.now() + timedelta(days=5),
+        )
+        self.assertNotContains(
+            self.client.get(detail_url), "People with Similar Interests"
+        )
+        response = self.client.get(profile_url, referral)
+        self.assertEqual(response.status_code, 200)
+        self.assertIsNone(response.context["similar_interest_label"])
+        self.assertNotContains(response, "Related event interest:")
+
+        ban.lifted_at = timezone.now()
+        ban.save(update_fields=["lifted_at"])
+        self.assertContains(
+            self.client.get(profile_url, referral), "Related event interest:"
+        )
+
     def test_banned_members_not_exposed_and_lifted_bans_restore_discovery(self):
         """Hide actively banned users, but honor expiration and lifting."""
         member_ban = UserBan.objects.create(
