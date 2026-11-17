@@ -2,6 +2,7 @@
 
 import time
 from django.conf import settings
+from django.contrib import messages
 from django.contrib.auth import get_user_model
 from django.contrib.auth import views as auth_views
 from django.contrib.auth.mixins import LoginRequiredMixin
@@ -286,6 +287,8 @@ class CustomLoginView(LoginView):
 
         # 48h sliding session expiry
         self.request.session.set_expiry(SESSION_LIFESPAN_SECONDS)
+
+        messages.success(self.request, "Welcome back! You are now logged in.")
         return super().form_valid(form)
 
     def form_invalid(self, form):
