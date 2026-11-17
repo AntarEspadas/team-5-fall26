@@ -12,6 +12,7 @@ from .views import (
     MyEventsView,
     cancel_event,
     cancel_registration,
+    clear_search_history,
     event_calendar_file,
     notify_attendees,
     register_event,
@@ -19,6 +20,11 @@ from .views import (
 )
 
 urlpatterns = [
+    path(
+        "search-history/clear/",
+        clear_search_history,
+        name="clear_search_history",
+    ),
     path("new/", EventCreateView.as_view(), name="event_create"),
     path("mine/", MyEventsView.as_view(), name="my_events"),
     path("<int:pk>/manage/", EventManageView.as_view(), name="event_manage"),
