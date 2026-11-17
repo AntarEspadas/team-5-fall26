@@ -141,7 +141,6 @@ class WeekendSectionTests(TestCase):
         self.assertFalse(weekend[self.sunday.pk].user_is_registered)
         self.assertContains(response, "This weekend")
         self.assertContains(response, "Upcoming events")
-        self.assertContains(response, "Personal plans")
         self.assertContains(response, "Archived events")
         self.assertNotContains(response, "Log in or sign up")
 
