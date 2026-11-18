@@ -9,7 +9,7 @@ from django.urls import reverse
 from django.views.decorators.http import require_http_methods
 
 from events.conversation_services import get_accessible_conversation
-from events.models import Event, EventPost, EventReply
+from events.models import Event, EventPost, EventReply, HostRating
 
 from .forms import ReportForm
 from .models import Report
@@ -21,6 +21,7 @@ TARGET_LABELS = {
     Report.Kind.REPLY: "reply",
     Report.Kind.USER: "user",
     Report.Kind.PROFILE: "profile",
+    Report.Kind.RATING: "rating",
 }
 
 
@@ -57,6 +58,26 @@ def report_reply(request, reply_id):
         EventReply.objects.select_related("post__event", "author"), pk=reply_id
     )
     return _report_comment(request, Report.Kind.REPLY, reply, reply.post.event)
+
+
+@login_required
+@require_http_methods(["GET", "POST"])
+def report_rating(request, rating_id):
+    """Report a host rating's comment without revealing who wrote it."""
+    rating = get_object_or_404(
+        HostRating.objects.select_related("event", "host").exclude(comment=""),
+        pk=rating_id,
+    )
+    if rating.rater_id == request.user.pk:
+        raise Http404("Rating not found.")
+    return _report(
+        request,
+        kind=Report.Kind.RATING,
+        target=rating,
+        subject=f"A rating of {rating.host.get_display_name()}",
+        back_url=reverse("public_profile", args=[rating.host.username]),
+        back_label="profile",
+    )
 
 
 def _report_comment(request, kind, comment, event):

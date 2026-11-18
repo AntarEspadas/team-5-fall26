@@ -17,6 +17,7 @@ class Report(models.Model):
         REPLY = "reply", "Reply"
         USER = "user", "User"
         PROFILE = "profile", "Profile"
+        RATING = "rating", "Host rating"
 
     class Reason(models.TextChoices):
         SPAM_SCAM = "spam_scam", "Spam or scam"
@@ -50,6 +51,13 @@ class Report(models.Model):
     )
     reported_reply = models.ForeignKey(
         "events.EventReply",
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="reports",
+    )
+    reported_rating = models.ForeignKey(
+        "events.HostRating",
         on_delete=models.SET_NULL,
         null=True,
         blank=True,
@@ -108,6 +116,11 @@ class Report(models.Model):
                 fields=["reporter", "reported_reply"],
                 condition=models.Q(kind="reply", resolved_at__isnull=True),
                 name="unique_unresolved_reply_report",
+            ),
+            models.UniqueConstraint(
+                fields=["reporter", "reported_rating"],
+                condition=models.Q(kind="rating", resolved_at__isnull=True),
+                name="unique_unresolved_rating_report",
             ),
             models.UniqueConstraint(
                 fields=["reporter", "reported_user"],

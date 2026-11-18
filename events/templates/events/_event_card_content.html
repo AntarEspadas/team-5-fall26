@@ -63,9 +63,16 @@
         </span>
 
     {% elif event.has_ended or event.status == "done" %}
+        {% if user.is_authenticated and event.user_is_registered and not event.user_rated_host and event.host_id != user.pk and event.rating_window_open %}
+        {# Attendees go to the event page to rate its host. #}
+        <a class="register" href="{% url 'event_detail' event.pk %}#rate-host">
+            Rate
+        </a>
+        {% else %}
         <span class="register is-cancelled" aria-disabled="true">
             Ended
         </span>
+        {% endif %}
 
     {% elif link_to_source and event.registration_url %}
         <a class="register"

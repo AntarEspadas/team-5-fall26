@@ -17,6 +17,7 @@ from django.utils import timezone
 from django.views.generic import CreateView, DetailView, UpdateView
 
 from events.models import ContactRequest, Event, EventInterest
+from events.ratings import host_rating_summary, latest_host_comments
 from events.similar_interests import public_match_for_event
 from .ban_services import get_active_ban
 from .forms import AccountSettingsForm, LoginForm, RegistrationForm
@@ -83,6 +84,12 @@ class PublicProfileView(LoginRequiredMixin, DetailView):
         context = super().get_context_data(**kwargs)
         profile_user = self.object
         context["profile_ban"] = get_active_ban(profile_user)
+
+        # Ratings from attendees of events this member hosted.
+        context["is_host"] = profile_user.hosted_events.exists()
+        if context["is_host"]:
+            context["host_rating"] = host_rating_summary(profile_user)
+            context["host_comments"] = latest_host_comments(profile_user)
 
         # Upcoming events the member marked as Interested.
         context["upcoming_events"] = (
