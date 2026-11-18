@@ -195,6 +195,35 @@ class Event(models.Model):
         return self.title.lstrip().upper().startswith(("CANCELLED", "CANCELED"))
 
 
+class FavoriteEvent(models.Model):
+    """An event privately saved by one user for later."""
+
+    user = models.ForeignKey(
+        "accounts.User",
+        on_delete=models.CASCADE,
+        related_name="favorite_events",
+    )
+    event = models.ForeignKey(
+        Event,
+        on_delete=models.CASCADE,
+        related_name="favorites",
+    )
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ["-created_at", "-pk"]
+        constraints = [
+            models.UniqueConstraint(
+                fields=["user", "event"],
+                name="unique_user_favorite_event",
+            ),
+        ]
+
+    def __str__(self):
+        """Identify this saved event."""
+        return f"{self.user} saved {self.event}"
+
+
 class SearchHistory(models.Model):
     """A signed-in user's recent normalized event searches."""
 
