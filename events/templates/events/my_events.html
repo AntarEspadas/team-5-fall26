@@ -140,7 +140,7 @@
         {% include "accounts/_submission_notice.html" %}
 
         <p class="my-events-intro">
-            Manage the events you host and the events you attend.
+            Manage the events you host, attend, and save for later.
             {% if not viewer_banned %}<a href="{% url 'event_create' %}">Post a new event</a>{% endif %}
             &middot;
             <a href="{% url 'chatbot:inquiries' %}">
@@ -161,9 +161,9 @@
                     class="my-events-tab"
                     id="hosted-tab"
                     role="tab"
-                    aria-selected="true"
+                    aria-selected="{% if favorites_tab_active %}false{% else %}true{% endif %}"
                     aria-controls="hosted-panel"
-                    tabindex="0"
+                    tabindex="{% if favorites_tab_active %}-1{% else %}0{% endif %}"
                 >
                     Hosted / Archived / Cancelled
                 </button>
@@ -179,6 +179,17 @@
                 >
                     Attended
                 </button>
+                <button
+                    type="button"
+                    class="my-events-tab"
+                    id="favorites-tab"
+                    role="tab"
+                    aria-selected="{% if favorites_tab_active %}true{% else %}false{% endif %}"
+                    aria-controls="favorites-panel"
+                    tabindex="{% if favorites_tab_active %}0{% else %}-1{% endif %}"
+                >
+                    Favorites
+                </button>
             </div>
 
             <!-- The paper page -->
@@ -190,6 +201,7 @@
                     id="hosted-panel"
                     role="tabpanel"
                     aria-labelledby="hosted-tab"
+                    {% if favorites_tab_active %}hidden{% endif %}
                 >
 
                     <section aria-labelledby="upcoming-heading">
@@ -308,6 +320,49 @@
 
                 </div>
 
+                <div
+                    class="my-events-panel"
+                    id="favorites-panel"
+                    role="tabpanel"
+                    aria-labelledby="favorites-tab"
+                    {% if not favorites_tab_active %}hidden{% endif %}
+                >
+                    <section aria-labelledby="favorites-heading">
+                        <h2 id="favorites-heading">Favorite Events</h2>
+                        <p class="panel-description">
+                            Events you saved for later, newest saves first.
+                            Your favorites are private and do not register you for events.
+                        </p>
+                        {% if favorite_events %}
+                            <ul class="hosted-list">
+                                {% for favorite in favorite_events %}
+                                    {% with event=favorite.event %}
+                                        <li class="hosted-event">
+                                            {% include "events/_hosted_event_summary.html" %}
+                                            {% if event.is_cancelled %}
+                                                <p class="hosted-label">Event cancelled</p>
+                                            {% elif event.has_ended %}
+                                                <p class="hosted-label">Event ended</p>
+                                            {% endif %}
+                                            {% if not viewer_banned %}
+                                                <form class="hosted-actions" method="post"
+                                                    action="{% url 'event_favorite' event.pk %}">
+                                                    {% csrf_token %}
+                                                    <input type="hidden" name="source" value="favorites">
+                                                    <button class="btn-ghost" type="submit"
+                                                        name="action" value="remove">Remove from favorites</button>
+                                                </form>
+                                            {% endif %}
+                                        </li>
+                                    {% endwith %}
+                                {% endfor %}
+                            </ul>
+                        {% else %}
+                            <p class="empty-state">You have not saved any favorites yet.</p>
+                            <a href="{% url 'landing' %}">Explore events</a>
+                        {% endif %}
+                    </section>
+                </div>
             </div>
         </div>
 

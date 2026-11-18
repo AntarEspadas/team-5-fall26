@@ -16,6 +16,7 @@ from .views import (
     event_calendar_file,
     notify_attendees,
     register_event,
+    set_event_favorite,
     ArchivedEventsView,
 )
 
@@ -27,6 +28,7 @@ urlpatterns = [
     ),
     path("new/", EventCreateView.as_view(), name="event_create"),
     path("mine/", MyEventsView.as_view(), name="my_events"),
+    path("<int:pk>/favorite/", set_event_favorite, name="event_favorite"),
     path("<int:pk>/manage/", EventManageView.as_view(), name="event_manage"),
     path("<int:pk>/edit/", EventUpdateView.as_view(), name="event_edit"),
     path("<int:pk>/notify/", notify_attendees, name="event_notify"),

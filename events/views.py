@@ -52,6 +52,7 @@ from .models import (
     Event,
     EventInterest,
     EventPost,
+    FavoriteEvent,
     Notification,
     Registration,
     SearchHistory,
@@ -206,12 +207,12 @@ def cancel_event(request, pk):
 
 
 class MyEventsView(LoginRequiredMixin, TemplateView):
-    """List the events a user posted: upcoming ones, then archived ones."""
+    """List a user's hosted, registered, and privately saved events."""
 
     template_name = "events/my_events.html"
 
     def get_context_data(self, **kwargs):
-        """Show hosted events and events the user registered for."""
+        """Show the user's hosted, registered and favorite events."""
         context = super().get_context_data(**kwargs)
         user = self.request.user
         events = list(
@@ -235,7 +236,37 @@ class MyEventsView(LoginRequiredMixin, TemplateView):
                 "event__title",
             )
         )
+        context["favorite_events"] = (
+            FavoriteEvent.objects.filter(user=user).select_related("event")
+        )
+        context["favorites_tab_active"] = self.request.GET.get("tab") == "favorites"
         return context
+
+
+@login_required
+@require_POST
+def set_event_favorite(request, pk):
+    """Save or remove only the signed-in user's own favorite."""
+    event = get_object_or_404(Event, pk=pk)
+    detail_url = reverse("event_detail", args=[pk])
+    destination = (
+        reverse("my_events") + "?tab=favorites"
+        if request.POST.get("source") == "favorites"
+        else detail_url
+    )
+    action = request.POST.get("action")
+    if action == "remove":
+        FavoriteEvent.objects.filter(user=request.user, event=event).delete()
+        messages.success(request, "Removed from your favorites.")
+    elif action == "save":
+        if not event.is_open or event.is_cancelled:
+            messages.error(request, "This event is no longer available to save.")
+        else:
+            FavoriteEvent.objects.get_or_create(user=request.user, event=event)
+            messages.success(request, "Added to your favorites.")
+    else:
+        messages.error(request, "Choose Save or Remove to update your favorites.")
+    return redirect(destination)
 
 
 class EventManageView(LoginRequiredMixin, DetailView):
@@ -508,6 +539,14 @@ class EventDetailView(DetailView):
         )
         unbanned = get_active_ban(user) is None
         context["can_interact"] = context["can_mark_interest"] and unbanned
+        context["is_favorite"] = (
+            is_authenticated and FavoriteEvent.objects.filter(
+                user=user, event=event
+            ).exists()
+        )
+        context["can_save_favorite"] = (
+            is_authenticated and unbanned and event.is_open and not event.is_cancelled
+        )
         context["can_manage"] = (
             is_authenticated and unbanned and event.host_id == user.pk and event.is_open
         )

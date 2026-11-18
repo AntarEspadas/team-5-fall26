@@ -799,6 +799,26 @@
                 {% endif %}
             {% endif %}
 
+            {% if not viewer_banned and is_favorite or can_save_favorite %}
+                <form method="post" action="{% url 'event_favorite' event.pk %}">
+                    {% csrf_token %}
+                    <button class="detail-button secondary-button" type="submit"
+                        name="action" value="{% if is_favorite %}remove{% else %}save{% endif %}">
+                        {% if is_favorite %}♥ Remove from favorites{% else %}♡ Save to favorites{% endif %}
+                    </button>
+                </form>
+            {% elif is_favorite %}
+                <p>Saved to your favorites.</p>
+            {% elif not user.is_authenticated and event.is_open and not event.is_cancelled %}
+                <a class="detail-button secondary-button"
+                    href="{% url 'login' %}?next={{ request.path|urlencode }}">
+                    Log in to save to favorites
+                </a>
+            {% endif %}
+            {% if is_favorite %}
+                <a href="{% url 'my_events' %}?tab=favorites">View my favorites</a>
+            {% endif %}
+
             {% if calendar_available %}
                 {% include "events/_add_to_calendar.html" %}
             {% endif %}
