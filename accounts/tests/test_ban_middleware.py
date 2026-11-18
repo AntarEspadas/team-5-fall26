@@ -161,7 +161,6 @@ class BanMiddlewareTests(TestCase):
             ("event_reply_report", [self.reply.pk], report),
             ("profile_report", [self.peer.username], report),
             ("conversation_report", [self.thread.pk], report),
-            ("chatbot:answer_inquiry", [self.inquiry.pk], {"answer": "At the gate"}),
             (
                 "toggle_event_interest",
                 [self.event.pk],

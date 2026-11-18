@@ -1,10 +1,12 @@
 """Tests for the shared site header shown on every page."""
 
+import re
 from datetime import datetime
 from unittest import mock
 from zoneinfo import ZoneInfo
 
 from django.contrib.auth import get_user_model
+from django.template.loader import render_to_string
 from django.test import TestCase
 from django.urls import reverse
 
@@ -103,6 +105,34 @@ class SiteHeaderTests(TestCase):
                 self.assertContains(response, "notification-count-badge")
                 self.assertContains(response, "Messages, 1 new")
 
+    def assert_icons_sized(self, html):
+        """Each inline icon carries its own width and height.
+
+        Without them an SVG fills its container whenever header.css is
+        missing or stale, which blew the bell up to the width of the page.
+        """
+        icons = re.findall(r"<svg\b[^>]*>", html)
+        self.assertTrue(icons)
+        for tag in icons:
+            with self.subTest(tag=tag):
+                self.assertRegex(tag, r'\swidth="\d+"')
+                self.assertRegex(tag, r'\sheight="\d+"')
+
+    def test_header_icons_have_a_fixed_size(self):
+        """The bell and tab bar icons stay small even without the CSS."""
+        for url in self.page_urls():
+            with self.subTest(url=url):
+                html = self.client.get(url).content.decode()
+                start = html.index('<header class="topbar site-header">')
+                end = html.index("events/bell.js")
+                self.assert_icons_sized(html[start:end])
+
+    def test_toast_icon_has_a_fixed_size(self):
+        """Toast icons stay small even without the CSS."""
+        message = mock.Mock(level_tag="success", __str__=lambda self: "Saved")
+        html = render_to_string("events/_toasts.html", {"messages": [message]})
+        self.assert_icons_sized(html)
+
     def test_current_page_is_highlighted(self):
         """The link for the page being viewed is marked as current."""
         response = self.client.get(reverse("my_events"))
@@ -111,6 +141,12 @@ class SiteHeaderTests(TestCase):
             f'class="nav-link active" href="{reverse("my_events")}" '
             'aria-current="page"',
         )
+
+    def test_my_events_intro_has_no_post_link(self):
+        """Posting is offered in the header only, not in the My Events intro."""
+        response = self.client.get(reverse("my_events"))
+        self.assertNotContains(response, "Post a new event")
+        self.assertContains(response, "Post an event")
 
     def test_banned_member_cannot_see_post_link(self):
         """The Post an event link is hidden from banned members."""

@@ -14,7 +14,17 @@
             {% endwith %}
 
             {% with unread=unread_notification_count %}
-            <a class="nav-link{% if page == 'notifications' %} active{% endif %}" href="{% url 'notifications' %}" aria-label="Notifications{% if unread %}, {{ unread }} new{% endif %}"{% if page == 'notifications' %} aria-current="page"{% endif %}>Notifications{% if unread %} <span class="count-pill notification-count-badge">{{ unread }} new</span>{% endif %}</a>
+            <details class="bell-menu{% if page == 'notifications' %} active{% endif %}" data-bell-url="{% url 'notification_bell' %}">
+                <summary class="bell-toggle" aria-label="Notifications{% if unread %}, {{ unread }} new{% endif %}">
+                    <svg viewBox="0 0 24 24" width="22" height="22" aria-hidden="true"><path d="M12 22a2.5 2.5 0 0 0 2.45-2h-4.9A2.5 2.5 0 0 0 12 22zm7-6V11a7 7 0 0 0-5-6.71V3a2 2 0 0 0-4 0v1.29A7 7 0 0 0 5 11v5l-2 2v1h18v-1z"/></svg>
+                    {% if unread %}<span class="bell-badge notification-count-badge">{{ unread }}</span>{% endif %}
+                </summary>
+                <div class="bell-panel" role="region" aria-label="Latest notifications">
+                    <p class="bell-head">Notifications</p>
+                    <div class="bell-body" data-bell-body aria-live="polite"><p class="bell-empty">Loading…</p></div>
+                    <a class="bell-all" href="{% url 'notifications' %}">See all notifications</a>
+                </div>
+            </details>
             {% endwith %}
 
             <details class="account-menu">
@@ -41,24 +51,25 @@
 {% if user.is_authenticated %}
 <nav class="tabbar" aria-label="Main (mobile)">
     <a class="tab{% if page == 'landing' %} active{% endif %}" href="{% url 'landing' %}"{% if page == 'landing' %} aria-current="page"{% endif %}>
-        <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 11.5 12 4l9 7.5V20a1 1 0 0 1-1 1h-5v-6H9v6H4a1 1 0 0 1-1-1z"/></svg><span>Home</span>
+        <svg viewBox="0 0 24 24" width="24" height="24" aria-hidden="true"><path d="M3 11.5 12 4l9 7.5V20a1 1 0 0 1-1 1h-5v-6H9v6H4a1 1 0 0 1-1-1z"/></svg><span>Home</span>
     </a>
     {% if not viewer_banned %}<a class="tab{% if page == 'event_create' %} active{% endif %}" href="{% url 'event_create' %}"{% if page == 'event_create' %} aria-current="page"{% endif %}>
-        <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3a9 9 0 1 0 0 18 9 9 0 0 0 0-18zm1 13h-2v-3H8v-2h3V8h2v3h3v2h-3z"/></svg><span>Post</span>
+        <svg viewBox="0 0 24 24" width="24" height="24" aria-hidden="true"><path d="M12 3a9 9 0 1 0 0 18 9 9 0 0 0 0-18zm1 13h-2v-3H8v-2h3V8h2v3h3v2h-3z"/></svg><span>Post</span>
     </a>{% endif %}
     <a class="tab{% if page == 'my_events' %} active{% endif %}" href="{% url 'my_events' %}"{% if page == 'my_events' %} aria-current="page"{% endif %}>
-        <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M7 2v2H5a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V6a2 2 0 0 0-2-2h-2V2h-2v2H9V2zm-2 8h14v10H5z"/></svg><span>My events</span>
+        <svg viewBox="0 0 24 24" width="24" height="24" aria-hidden="true"><path d="M7 2v2H5a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V6a2 2 0 0 0-2-2h-2V2h-2v2H9V2zm-2 8h14v10H5z"/></svg><span>My events</span>
     </a>
     {% with unread=unread_message_count %}
     <a class="tab{% if page == 'inbox' or page == 'conversation' or page == 'message_user' %} active{% endif %}" href="{% url 'inbox' %}" aria-label="Messages{% if unread %}, {{ unread }} new{% endif %}"{% if page == 'inbox' %} aria-current="page"{% endif %}>
-        <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 4h16a2 2 0 0 1 2 2v10a2 2 0 0 1-2 2H8l-4 4V6a2 2 0 0 1 2-2z"/></svg><span>Messages</span>{% if unread %}<span class="tab-badge">{{ unread }}</span>{% endif %}
+        <svg viewBox="0 0 24 24" width="24" height="24" aria-hidden="true"><path d="M4 4h16a2 2 0 0 1 2 2v10a2 2 0 0 1-2 2H8l-4 4V6a2 2 0 0 1 2-2z"/></svg><span>Messages</span>{% if unread %}<span class="tab-badge">{{ unread }}</span>{% endif %}
     </a>
     {% endwith %}
     {% with unread=unread_notification_count %}
     <a class="tab{% if page == 'notifications' %} active{% endif %}" href="{% url 'notifications' %}" aria-label="Notifications{% if unread %}, {{ unread }} new{% endif %}"{% if page == 'notifications' %} aria-current="page"{% endif %}>
-        <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 22a2.5 2.5 0 0 0 2.45-2h-4.9A2.5 2.5 0 0 0 12 22zm7-6V11a7 7 0 0 0-5-6.71V3a2 2 0 0 0-4 0v1.29A7 7 0 0 0 5 11v5l-2 2v1h18v-1z"/></svg><span>Alerts</span>{% if unread %}<span class="tab-badge">{{ unread }}</span>{% endif %}
+        <svg viewBox="0 0 24 24" width="24" height="24" aria-hidden="true"><path d="M12 22a2.5 2.5 0 0 0 2.45-2h-4.9A2.5 2.5 0 0 0 12 22zm7-6V11a7 7 0 0 0-5-6.71V3a2 2 0 0 0-4 0v1.29A7 7 0 0 0 5 11v5l-2 2v1h18v-1z"/></svg><span>Alerts</span>{% if unread %}<span class="tab-badge">{{ unread }}</span>{% endif %}
     </a>
     {% endwith %}
 </nav>
-<script src="{% static 'events/message-count.js' %}" defer></script>{% endif %}
+<script src="{% static 'events/message-count.js' %}" defer></script>
+<script src="{% static 'events/bell.js' %}" defer></script>{% endif %}
 {% endwith %}

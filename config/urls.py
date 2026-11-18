@@ -26,6 +26,7 @@ from events.views import (
     NotificationListView,
     SearchView,
 )
+from events.bell_views import notification_bell
 from events.messaging_views import (
     InboxView,
     conversation,
@@ -67,6 +68,7 @@ urlpatterns = [
         name="conversation_updates",
     ),
     path("notifications/", NotificationListView.as_view(), name="notifications"),
+    path("notifications/bell/", notification_bell, name="notification_bell"),
     # Move home page to /home/, avoid conflicting with root
     path(
         "home/", TemplateView.as_view(template_name="accounts/home.html"), name="home"

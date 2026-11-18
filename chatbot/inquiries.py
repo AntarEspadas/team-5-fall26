@@ -1,12 +1,15 @@
-"""Pass unanswered questions to event managers and deliver their answers."""
+"""Answer questions that earlier versions of the assistant forwarded.
+
+Staff answer them in the admin, and the answer reaches the asker by email,
+notification, and in their chat.
+"""
 
 import logging
 
 from django.conf import settings
-from django.core.mail import mail_managers, send_mail
+from django.core.mail import send_mail
 from django.db.models import Q
 from django.utils import timezone
-from django.utils.text import Truncator
 
 from accounts.ban_services import require_unbanned_user
 from events.models import Notification
@@ -15,63 +18,6 @@ from . import gemini
 from .models import Inquiry
 
 logger = logging.getLogger(__name__)
-
-SUBJECT_MAX_LENGTH = Notification._meta.get_field("subject").max_length
-
-
-def manager_for(event):
-    """Return the host who manages an event, or None when staff manage it."""
-    return event.host if event and event.host_id else None
-
-
-def create_inquiry(user, question, question_english="", language="", event=None):
-    """Save a question for an event manager and tell them about it.
-
-    A hosted event's host gets an in-app notification and an email. Staff
-    listed in ``MANAGERS`` are emailed about every question.
-    """
-    inquiry = Inquiry.objects.create(
-        user=user,
-        event=event,
-        question=question,
-        question_english=question_english,
-        language=language,
-    )
-    about = f" about “{event.title}”" if event else ""
-    summary = f"Someone asked the website assistant a question{about}:\n\n"
-    summary += inquiry.display_question
-    if not inquiry.is_english and question_english:
-        summary += f"\n\nOriginal ({language}): {question}"
-    summary += "\n\nAnswer it on the Questions page: /assistant/inquiries/"
-
-    host = manager_for(event)
-    if host and host != user:
-        Notification.objects.create(
-            recipient=host,
-            event=event,
-            subject=Truncator(f"New question about {event.title}").chars(
-                SUBJECT_MAX_LENGTH
-            ),
-            body=summary,
-        )
-        if host.email:
-            send_mail(
-                "New question about your event",
-                summary,
-                settings.DEFAULT_FROM_EMAIL,
-                [host.email],
-                fail_silently=True,
-            )
-    mail_managers("New question for the event manager", summary, fail_silently=True)
-    return inquiry
-
-
-def inquiries_managed_by(user):
-    """Return the inquiries a user may answer: all for staff, else their events."""
-    inquiries = Inquiry.objects.select_related("user", "event", "answered_by")
-    if user.is_staff:
-        return inquiries
-    return inquiries.filter(event__host=user)
 
 
 def answer_inquiry(inquiry, answer, answered_by):

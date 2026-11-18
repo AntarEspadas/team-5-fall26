@@ -102,6 +102,141 @@
             margin-bottom: 20px;
         }
 
+        /* My plans: a vertical timeline grouped by day */
+        .plan-timeline {
+            list-style: none;
+            margin: 0;
+            padding: 0;
+        }
+
+        .plan-day {
+            display: grid;
+            grid-template-columns: 64px minmax(0, 1fr);
+            gap: 20px;
+            position: relative;
+            padding-bottom: 24px;
+        }
+
+        /* The line joining one day to the next */
+        .plan-day:not(:last-child)::before {
+            content: "";
+            position: absolute;
+            top: 72px;
+            bottom: 0;
+            left: 31px;
+            width: 2px;
+            background: #d6e4dc;
+        }
+
+        .plan-date {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            width: 64px;
+            height: 64px;
+            border-radius: 14px;
+            background: #237b53;
+            color: #fff;
+            line-height: 1.05;
+            text-transform: uppercase;
+        }
+
+        .plan-weekday,
+        .plan-month {
+            font-size: 11px;
+            font-weight: 700;
+            letter-spacing: 0.06em;
+        }
+
+        .plan-daynum {
+            font-size: 24px;
+            font-weight: 800;
+        }
+
+        .plan-day-heading {
+            margin: 4px 0 10px;
+            font-size: 16px;
+            color: #26384a;
+        }
+
+        .plan-items {
+            display: grid;
+            gap: 10px;
+            list-style: none;
+            margin: 0;
+            padding: 0;
+        }
+
+        .plan-item {
+            padding: 12px 16px;
+            border: 1px solid #dfe7e2;
+            border-left: 4px solid #237b53;
+            border-radius: 10px;
+            background: #fafcfb;
+        }
+
+        .plan-item.is-hosting {
+            border-left-color: #c77d1a;
+        }
+
+        .plan-item p {
+            margin: 0;
+        }
+
+        .plan-time {
+            color: #536273;
+            font-size: 14px;
+            font-weight: 600;
+        }
+
+        .plan-title {
+            margin: 2px 0 !important;
+            font-weight: 700;
+        }
+
+        .plan-title a {
+            color: #1f2d3a;
+            text-decoration: none;
+        }
+
+        .plan-title a:hover {
+            text-decoration: underline;
+        }
+
+        .plan-where {
+            color: #666;
+            font-size: 14px;
+        }
+
+        .plan-badges {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 6px;
+            margin-top: 8px !important;
+        }
+
+        .plan-badges:empty {
+            display: none;
+        }
+
+        .plan-badge {
+            padding: 2px 10px;
+            border-radius: 999px;
+            font-size: 12px;
+            font-weight: 700;
+        }
+
+        .plan-badge.hosting {
+            background: #fbefdc;
+            color: #8a5310;
+        }
+
+        .plan-badge.going {
+            background: #e3f1e9;
+            color: #1c6443;
+        }
+
         /* Mobile layout */
         @media (max-width: 600px) {
             .my-events-page {
@@ -128,6 +263,21 @@
             .my-events-page-content {
                 padding: 18px;
             }
+
+            .plan-day {
+                grid-template-columns: 52px minmax(0, 1fr);
+                gap: 12px;
+            }
+
+            .plan-date {
+                width: 52px;
+                height: 56px;
+            }
+
+            .plan-day:not(:last-child)::before {
+                top: 64px;
+                left: 25px;
+            }
         }
     </style>
 </head>
@@ -141,11 +291,6 @@
 
         <p class="my-events-intro">
             Manage the events you host, attend, and save for later.
-            {% if not viewer_banned %}<a href="{% url 'event_create' %}">Post a new event</a>{% endif %}
-            &middot;
-            <a href="{% url 'chatbot:inquiries' %}">
-                {% if viewer_banned %}View attendee questions{% else %}Answer attendee questions{% endif %}
-            </a>
         </p>
 
         <div class="my-events-container">
@@ -159,11 +304,23 @@
                 <button
                     type="button"
                     class="my-events-tab"
-                    id="hosted-tab"
+                    id="plans-tab"
                     role="tab"
                     aria-selected="{% if favorites_tab_active %}false{% else %}true{% endif %}"
-                    aria-controls="hosted-panel"
+                    aria-controls="plans-panel"
                     tabindex="{% if favorites_tab_active %}-1{% else %}0{% endif %}"
+                >
+                    My plans
+                </button>
+
+                <button
+                    type="button"
+                    class="my-events-tab"
+                    id="hosted-tab"
+                    role="tab"
+                    aria-selected="false"
+                    aria-controls="hosted-panel"
+                    tabindex="-1"
                 >
                     Hosted / Archived / Cancelled
                 </button>
@@ -195,13 +352,85 @@
             <!-- The paper page -->
             <div class="my-events-page-content">
 
-                <!-- Page 1: Events hosted by the user -->
+                <!-- Page 1: Upcoming plans as a timeline -->
+                <div
+                    class="my-events-panel"
+                    id="plans-panel"
+                    role="tabpanel"
+                    aria-labelledby="plans-tab"
+                    {% if favorites_tab_active %}hidden{% endif %}
+                >
+                    <section aria-labelledby="plans-heading">
+                        <h2 id="plans-heading">My plans</h2>
+
+                        <p class="panel-description">
+                            Everything coming up that you are hosting or going to, in date order.
+                        </p>
+
+                        {% if plan_days %}
+                            <ol class="plan-timeline">
+                                {% for day, plans in plan_days %}
+                                    <li class="plan-day">
+                                        <div class="plan-date" aria-hidden="true">
+                                            {% if day %}
+                                                <span class="plan-weekday">{{ day|date:"D" }}</span>
+                                                <span class="plan-daynum">{{ day|date:"j" }}</span>
+                                                <span class="plan-month">{{ day|date:"M" }}</span>
+                                            {% else %}
+                                                <span class="plan-weekday">TBA</span>
+                                            {% endif %}
+                                        </div>
+
+                                        <div class="plan-day-body">
+                                            <h3 class="plan-day-heading">
+                                                {% if day %}{{ day|date:"l, F j" }}{% else %}Date to be announced{% endif %}
+                                            </h3>
+
+                                            <ul class="plan-items">
+                                                {% for plan in plans %}
+                                                    {% with event=plan.event %}
+                                                        <li class="plan-item{% if plan.hosting %} is-hosting{% endif %}">
+                                                            <p class="plan-time">
+                                                                {% timezone "America/New_York" %}
+                                                                    {% if event.start_time %}{{ event.start_time|date:"g:i A" }}{% if event.end_time %} &ndash; {{ event.end_time|date:"g:i A" }}{% endif %}{% else %}Time to be announced{% endif %}
+                                                                {% endtimezone %}
+                                                            </p>
+                                                            <p class="plan-title">
+                                                                <a href="{% url 'event_detail' event.pk %}">{{ event.title }}</a>
+                                                            </p>
+                                                            {% if event.location %}
+                                                                <p class="plan-where">{{ event.location }}</p>
+                                                            {% elif event.park_names %}
+                                                                <p class="plan-where">{{ event.park_names }}</p>
+                                                            {% endif %}
+                                                            <p class="plan-badges">
+                                                                {% if plan.hosting %}<span class="plan-badge hosting">Hosting</span>{% endif %}
+                                                                {% if plan.party_size %}<span class="plan-badge going">Going &middot; Party of {{ plan.party_size }}</span>{% endif %}
+                                                            </p>
+                                                        </li>
+                                                    {% endwith %}
+                                                {% endfor %}
+                                            </ul>
+                                        </div>
+                                    </li>
+                                {% endfor %}
+                            </ol>
+                        {% else %}
+                            <p class="empty-state">
+                                You have no upcoming plans yet.
+                                <a href="{% url 'search' %}?when=weekend">See what's on this weekend</a>
+                            </p>
+                        {% endif %}
+                    </section>
+                </div>
+
+                <!-- Page 2: Events hosted by the user -->
                 <div
                     class="my-events-panel"
                     id="hosted-panel"
                     role="tabpanel"
                     aria-labelledby="hosted-tab"
-                    {% if favorites_tab_active %}hidden{% endif %}
+                    hidden
                 >
 
                     <section aria-labelledby="upcoming-heading">
@@ -266,7 +495,7 @@
 
                 </div>
 
-                <!-- Page 2: Events the user registered for -->
+                <!-- Page 3: Events the user registered for -->
                 <div
                     class="my-events-panel"
                     id="attended-panel"
