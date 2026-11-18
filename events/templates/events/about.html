@@ -1,0 +1,77 @@
+{% load static %}
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>About us | NYC Parks Events</title>
+    <link rel="stylesheet" href="{% static 'events/search.css' %}">
+    <link rel="stylesheet" href="{% static 'events/home.css' %}">
+    <link rel="stylesheet" href="{% static 'events/about.css' %}">
+</head>
+
+<body class="about-page">
+    {% include "events/_site_header.html" %}
+
+    <main class="shell about-shell">
+        <h1 class="headline">About NYC Parks Events</h1>
+        <p class="about-lead">
+            A place to find free events in New York City's parks, and people to go with.
+        </p>
+
+        <section class="about-section" aria-labelledby="what-heading">
+            <h2 id="what-heading">What you can do here</h2>
+            <ul class="about-features">
+                <li>
+                    <h3>Find events</h3>
+                    <p>Search by keyword or in plain language, and filter by date, time, borough, and category.</p>
+                </li>
+                <li>
+                    <h3>Register and plan</h3>
+                    <p>Register for events, add them to your calendar, and keep track of them in My events.</p>
+                </li>
+                <li>
+                    <h3>Host your own</h3>
+                    <p>Post an event, manage who's coming, and send updates to attendees.</p>
+                </li>
+                <li>
+                    <h3>Meet people</h3>
+                    <p>See who else is going, message them, and find people with similar interests.</p>
+                </li>
+            </ul>
+        </section>
+
+        <section class="about-section" aria-labelledby="data-heading">
+            <h2 id="data-heading">Where the events come from</h2>
+            <p>
+                Most events come from NYC Parks through
+                <a href="https://opendata.cityofnewyork.us/" rel="noopener">NYC Open Data</a>,
+                and we sync them every hour. Members can also post their own events.
+            </p>
+            <p class="about-note">
+                This is not an official NYC Parks website. Always check an event's
+                official page for the latest details.
+            </p>
+        </section>
+
+        <section class="about-section" aria-labelledby="team-heading">
+            <h2 id="team-heading">Who built it</h2>
+            <p>
+                NYC Parks Events is a course project by Team 5 at New York University, Fall 2026.
+            </p>
+            <ul class="about-team">
+                {% for member in team %}
+                    <li>{{ member }}</li>
+                {% endfor %}
+            </ul>
+        </section>
+
+        <p class="about-cta">
+            <a class="btn-primary" href="{% url 'search' %}">Browse events</a>
+        </p>
+    </main>
+
+    {% include "events/_site_footer.html" %}
+    {% include "chatbot/widget.html" %}
+</body>
+</html>

@@ -13,6 +13,7 @@
     <link rel="stylesheet" href="{% static 'events/home.css' %}">
     <link rel="stylesheet" href="{% static 'reports/menus.css' %}">
     <link rel="stylesheet" href="{% static 'accounts/ban.css' %}">
+    <link rel="stylesheet" href="{% static 'events/ratings.css' %}">
     <script src="{% static 'reports/menus.js' %}" defer></script>
 
     <style>
@@ -514,10 +515,55 @@
             </section>
         </div>
 
+        {% if is_host %}
+        <section class="profile-section host-ratings-section" id="host-ratings">
+            <div class="profile-section-header">
+                <h2>Host rating</h2>
+                {% if host_rating.count %}
+                    <span class="section-count">{{ host_rating.count }} rating{{ host_rating.count|pluralize }}</span>
+                {% endif %}
+            </div>
+
+            <p class="profile-section-description">
+                Ratings from people who went to events this member hosted. Reviewer names aren't shown.
+            </p>
+
+            {% if host_rating.show_average %}
+                <div class="host-rating-overview" aria-label="Rated {{ host_rating.average }} out of 5 from {{ host_rating.count }} ratings">
+                    <span class="big-average" aria-hidden="true">{{ host_rating.average }}</span>
+                    <span class="rate-stars-readonly" aria-hidden="true">{% for n in "12345" %}<span{% if forloop.counter <= host_rating.stars_filled %} class="on"{% endif %}>★</span>{% endfor %}</span>
+                    <span class="rating-total" aria-hidden="true">out of 5 · {{ host_rating.count }} rating{{ host_rating.count|pluralize }}</span>
+                </div>
+            {% else %}
+                <p class="profile-empty-state">
+                    <strong>New host.</strong> The average appears once 3 people have rated this host.
+                </p>
+            {% endif %}
+
+            {% if host_comments %}
+                <ul class="host-comment-list">
+                    {% for rating in host_comments %}
+                        <li class="host-comment" id="rating-{{ rating.pk }}">
+                            <div class="host-comment-head">
+                                {% if host_rating.show_average %}<span class="rate-stars-readonly" aria-label="{{ rating.stars }} out of 5 stars">{% for n in "12345" %}<span{% if forloop.counter <= rating.stars %} class="on"{% endif %} aria-hidden="true">★</span>{% endfor %}</span>{% endif %}
+                                <span>{{ rating.event.title }} · {{ rating.updated_at|date:"M Y" }}</span>
+                            </div>
+                            <p>{{ rating.comment }}</p>
+                            {% if not viewer_banned and rating.rater_id != request.user.pk %}
+                                <a class="host-comment-report" href="{% url 'host_rating_report' rating.pk %}">Report</a>
+                            {% endif %}
+                        </li>
+                    {% endfor %}
+                </ul>
+            {% endif %}
+        </section>
+        {% endif %}
+
         <footer class="profile-footer">
             NYC Parks Events · Community Profiles
         </footer>
     </main>
+    {% include "events/_site_footer.html" %}
     {% if user.is_authenticated %}
     {% endif %}
     {% include "chatbot/widget.html" %}

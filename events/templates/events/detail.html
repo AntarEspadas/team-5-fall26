@@ -9,6 +9,7 @@
     <link rel="stylesheet" href="{% static 'events/search.css' %}">
     <link rel="stylesheet" href="{% static 'reports/menus.css' %}">
     <link rel="stylesheet" href="{% static 'events/calendar.css' %}">
+    <link rel="stylesheet" href="{% static 'events/ratings.css' %}">
     <script src="{% static 'reports/menus.js' %}" defer></script>
     <script src="{% static 'events/calendar-menu.js' %}" defer></script>
 
@@ -656,7 +657,8 @@
         <h1>{{ event.title }}</h1>
         {% if event.host %}
           <p class="event-host">
-            Hosted by <strong>{{ event.host.display_name|default:event.host.username }}</strong>
+            Hosted by <strong>{% if event.host.share_profile_with_attendees and user.is_authenticated %}<a href="{% url 'public_profile' event.host.username %}#host-ratings">{{ event.host.display_name|default:event.host.username }}</a>{% else %}{{ event.host.display_name|default:event.host.username }}{% endif %}</strong>
+            {% include "events/_host_rating_badge.html" with rating=host_rating only %}
           </p>
         {% endif %}
 
@@ -719,6 +721,7 @@
         </div>
 
     </main>
+    {% include "events/_site_footer.html" %}
 
     <aside class="detail-panel" aria-label="Event actions">
         <p class="panel-when">
@@ -732,6 +735,10 @@
             {% endtimezone %}
         </p>
         <div class="detail-actions panel-actions">
+            {% if show_rating_card %}
+                {% include "events/_rate_host_card.html" %}
+            {% endif %}
+
             {% if event.registration_url and not host_cancelled %}
                 <a class="detail-button" href="{{ event.registration_url }}">
                     External Registration

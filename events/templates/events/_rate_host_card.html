@@ -1,0 +1,37 @@
+{# Rating card in the event page's action panel, shown to attendees once the event is over. #}
+{% with host_name=event.host.display_name|default:event.host.username %}
+<section class="rate-card" id="rate-host" aria-labelledby="rate-host-title">
+    {% if my_rating %}
+        <h2 class="rate-title" id="rate-host-title">Your rating</h2>
+        <p class="rate-intro">You rated {{ host_name }} as the organizer.</p>
+    {% else %}
+        <h2 class="rate-title" id="rate-host-title">How was it?</h2>
+        <p class="rate-intro">Rate {{ host_name }} as the organizer. Other people see the average on their profile.</p>
+    {% endif %}
+
+    {% if rating_closed_reason %}
+        {% if my_rating %}
+            <p class="rate-stars-readonly" aria-label="{{ my_rating.stars }} out of 5 stars">{% for n in star_choices reversed %}<span{% if n <= my_rating.stars %} class="on"{% endif %} aria-hidden="true">★</span>{% endfor %}</p>
+            {% if my_rating.comment %}<p class="rate-comment-readonly">“{{ my_rating.comment }}”</p>{% endif %}
+        {% endif %}
+        <p class="rate-note">{{ rating_closed_reason }}</p>
+    {% else %}
+        <form class="rate-form" method="post" action="{% url 'rate_host' event.pk %}">
+            {% csrf_token %}
+            <fieldset class="star-input">
+                <legend>Stars</legend>
+                <div class="star-options">
+                    {% for n in star_choices %}
+                        <input type="radio" id="stars-{{ n }}" name="stars" value="{{ n }}" required{% if my_rating.stars == n %} checked{% endif %}>
+                        <label for="stars-{{ n }}" title="{{ n }} star{{ n|pluralize }}"><span class="visually-hidden">{{ n }} star{{ n|pluralize }}</span><span aria-hidden="true">★</span></label>
+                    {% endfor %}
+                </div>
+            </fieldset>
+            <label class="rate-comment-label" for="rate-comment">Comment <span>(optional)</span></label>
+            <textarea id="rate-comment" name="comment" rows="3" maxlength="{{ comment_max_length }}" placeholder="What went well, or what could be better?">{{ my_rating.comment }}</textarea>
+            <p class="rate-note">Your name isn't shown with your rating.{% if rating_closes_at %} You can change it until {{ rating_closes_at|date:"M j" }}.{% endif %}</p>
+            <button class="detail-button" type="submit">{% if my_rating %}Update rating{% else %}Save rating{% endif %}</button>
+        </form>
+    {% endif %}
+</section>
+{% endwith %}

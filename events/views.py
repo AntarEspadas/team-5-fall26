@@ -53,6 +53,7 @@ from .models import (
     EventInterest,
     EventPost,
     FavoriteEvent,
+    HostRating,
     Notification,
     Registration,
     SearchHistory,
@@ -65,6 +66,12 @@ from .notifications import (
     notify_registration_change,
     party,
 )
+from .ratings import (
+    host_rating_summary,
+    rating_block_reason,
+    rating_closes_at,
+    rating_window_open,
+)
 from .natural_search import MAX_PROMPT_LENGTH, describe_search, natural_search_url
 from .recommendations import record_search, recommended_events
 from .search import search_events
@@ -75,6 +82,22 @@ SEARCH_PAGE_SIZE = 20
 NOTIFICATION_PAGE_SIZE = 20
 ARCHIVED_EVENT_PREVIEW_LIMIT = 3
 ARCHIVED_EVENT_PAGE_SIZE = 20
+
+
+def annotate_for_viewer(queryset, user):
+    """Mark each event the viewer registered for or already rated the host of.
+
+    Event cards use these flags to choose their button: Cancel Registration
+    on upcoming events, and Rate on ended ones the viewer attended.
+    """
+    return queryset.annotate(
+        user_is_registered=Exists(
+            Registration.objects.filter(event_id=OuterRef("pk"), user=user)
+        ),
+        user_rated_host=Exists(
+            HostRating.objects.filter(event_id=OuterRef("pk"), rater=user)
+        ),
+    )
 
 
 class EventCreateView(LoginRequiredMixin, CreateView):
@@ -227,7 +250,7 @@ class MyEventsView(LoginRequiredMixin, TemplateView):
         context["archived_events"] = [
             event for event in reversed(events) if not event.is_open
         ]
-        context["registered_events"] = (
+        registrations = list(
             Registration.objects.filter(user=user)
             .select_related("event")
             .order_by(
@@ -236,11 +259,23 @@ class MyEventsView(LoginRequiredMixin, TemplateView):
                 "event__title",
             )
         )
+        stars_by_event = dict(
+            HostRating.objects.filter(rater=user).values_list("event_id", "stars")
+        )
+        can_rate_hosts = get_active_ban(user) is None
+        for registration in registrations:
+            event = registration.event
+            registration.my_stars = stars_by_event.get(event.pk)
+            registration.can_rate = (
+                can_rate_hosts
+                and event.host_id is not None
+                and event.host_id != user.pk
+                and rating_window_open(event)
+            )
+        context["registered_events"] = registrations
+        context["plan_days"] = plan_timeline(context["upcoming_events"], registrations)
         context["favorite_events"] = user.favorite_events.select_related("event")
         context["favorites_tab_active"] = self.request.GET.get("tab") == "favorites"
-        context["plan_days"] = plan_timeline(
-            context["upcoming_events"], context["registered_events"]
-        )
         return context
 
 
@@ -644,6 +679,8 @@ class EventDetailView(DetailView):
         if context["can_manage"]:
             context["recipient_count"] = interested_recipients(event).count()
 
+        self.add_host_rating_context(context, current_registration)
+
         # Contact requests are per pair of users, even if they began at
         # another event or the current viewer was the recipient.
         request_by_recipient = {}
@@ -740,6 +777,60 @@ class EventDetailView(DetailView):
 
         return context
 
+    def add_host_rating_context(self, context, current_registration):
+        """Add the host's rating summary and, for attendees, the rating card.
+
+        The card appears for anyone who registered once the event is over,
+        even after the rating window closes, so they can still see their own
+        rating; ``rating_block_reason`` decides whether the form is offered.
+        """
+        event = self.object
+        user = self.request.user
+        if event.host is None:
+            return
+        context["host_rating"] = host_rating_summary(event.host)
+        show_card = (
+            current_registration is not None
+            and event.host_id != user.pk
+            and event.has_ended
+            and not event.is_cancelled
+        )
+        context["show_rating_card"] = show_card
+        if not show_card:
+            return
+        context["my_rating"] = HostRating.objects.filter(
+            event=event, rater=user
+        ).first()
+        context["rating_closed_reason"] = rating_block_reason(event, user)
+        context["star_choices"] = range(HostRating.MAX_STARS, 0, -1)
+        context["comment_max_length"] = HostRating.COMMENT_MAX_LENGTH
+        closes_at = rating_closes_at(event)
+        context["rating_closes_at"] = closes_at
+
+
+# Team 5 members shown on the About us page.
+TEAM_MEMBERS = (
+    "Aravind",
+    "Ananya Agarwal",
+    "Antar Espadas",
+    "Divyansh Maurya",
+    "Lucy Lu",
+    "Rakshit Dongre",
+    "Xinrui Li",
+)
+
+
+class AboutView(TemplateView):
+    """Explain what the site is, where its events come from, and who built it."""
+
+    template_name = "events/about.html"
+
+    def get_context_data(self, **kwargs):
+        """Add the team members listed on the page."""
+        context = super().get_context_data(**kwargs)
+        context["team"] = TEAM_MEMBERS
+        return context
+
 
 class LandingView(TemplateView):
     """Render the landing page with upcoming and archived events for signed-in visitors.
@@ -765,43 +856,29 @@ class LandingView(TemplateView):
             context["recommendations"] = recommended_events(self.request.user)
 
             # Upcoming events, soonest first.
-            context["events"] = (
-                Event.objects.filter(
-                    status=Event.Status.UPCOMING,
-                )
-                .exclude(pk__in=[event.pk for event in context["recommendations"]])
-                .annotate(
-                    user_is_registered=Exists(
-                        Registration.objects.filter(
-                            event_id=OuterRef("pk"),
-                            user=self.request.user,
-                        )
-                    )
-                )
-                .order_by(
-                    F("start_time").asc(nulls_last=True),
-                    "end_time",
-                    "title",
-                )[:UPCOMING_EVENT_LIMIT]
+            upcoming = annotate_for_viewer(
+                Event.objects.filter(status=Event.Status.UPCOMING).exclude(
+                    pk__in=[event.pk for event in context["recommendations"]]
+                ),
+                self.request.user,
+            ).order_by(
+                F("start_time").asc(nulls_last=True),
+                "end_time",
+                "title",
             )
+            context["events"] = upcoming[:UPCOMING_EVENT_LIMIT]
 
             # Recently completed events, newest first.
-            context["archived_events"] = (
-                Event.objects.filter(status=Event.Status.DONE)
-                .annotate(
-                    user_is_registered=Exists(
-                        Registration.objects.filter(
-                            event_id=OuterRef("pk"),
-                            user=self.request.user,
-                        )
-                    )
-                )
-                .order_by(
-                    F("start_time").desc(nulls_last=True),
-                    "-end_time",
-                    "-title",
-                )[:ARCHIVED_EVENT_PREVIEW_LIMIT]
-            )
+            context["archived_events"] = annotate_for_viewer(
+                Event.objects.filter(status=Event.Status.DONE),
+                self.request.user,
+            ).order_by(
+                F("start_time").desc(nulls_last=True),
+                "-end_time",
+                "-title",
+            )[
+                :ARCHIVED_EVENT_PREVIEW_LIMIT
+            ]
 
         return context
 
@@ -836,14 +913,7 @@ class EventSearchMixin:
         events = filter_events(base_queryset, filters)
 
         if self.request.user.is_authenticated:
-            events = events.annotate(
-                user_is_registered=Exists(
-                    Registration.objects.filter(
-                        event_id=OuterRef("pk"),
-                        user=self.request.user,
-                    )
-                )
-            )
+            events = annotate_for_viewer(events, self.request.user)
 
         if self.query:
             return search_events(events, self.query)

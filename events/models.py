@@ -1,5 +1,7 @@
 """Data models for NYC Parks events imported from the city's open data feed."""
 
+from datetime import datetime, time, timedelta
+
 from django.contrib.postgres.indexes import GinIndex
 from django.core.validators import MaxValueValidator, MinValueValidator
 from django.db import models
@@ -147,6 +149,33 @@ class Event(models.Model):
                 nyc_today()
             )
         return False
+
+    @property
+    def ended_at(self):
+        """Return the moment the event counts as over, or None without times.
+
+        Matches ``has_ended``: the end time when there is one, otherwise
+        midnight in New York after the day the event starts.
+        """
+        if self.end_time:
+            return self.end_time
+        if self.start_time:
+            start_day = timezone.localtime(self.start_time, NYC_TIMEZONE).date()
+            return datetime.combine(
+                start_day + timedelta(days=1), time.min, tzinfo=NYC_TIMEZONE
+            )
+        return None
+
+    @property
+    def rating_window_open(self):
+        """Return whether attendees can still rate this event's host.
+
+        Lets templates, such as the event card, ask the same question the
+        rating view does without calling a function.
+        """
+        from .ratings import rating_window_open
+
+        return self.host_id is not None and rating_window_open(self)
 
     @property
     def is_open(self):
@@ -510,3 +539,56 @@ class EventReply(models.Model):
 
     def __str__(self):
         return f"Reply by {self.author} on post {self.post_id}"
+
+
+class HostRating(models.Model):
+    """One attendee's 1–5 star rating of the person who hosted an event.
+
+    The host is stored alongside the event so a host's average can be
+    computed without joining through every event they posted.
+    """
+
+    MIN_STARS = 1
+    MAX_STARS = 5
+    COMMENT_MAX_LENGTH = 300
+
+    event = models.ForeignKey(
+        Event,
+        on_delete=models.CASCADE,
+        related_name="host_ratings",
+    )
+    host = models.ForeignKey(
+        "accounts.User",
+        on_delete=models.CASCADE,
+        related_name="host_ratings",
+    )
+    rater = models.ForeignKey(
+        "accounts.User",
+        on_delete=models.CASCADE,
+        related_name="given_host_ratings",
+    )
+    stars = models.PositiveSmallIntegerField(
+        "stars",
+        validators=[MinValueValidator(MIN_STARS), MaxValueValidator(MAX_STARS)],
+    )
+    comment = models.CharField(
+        "comment", max_length=COMMENT_MAX_LENGTH, blank=True, default=""
+    )
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        ordering = ["-updated_at", "-pk"]
+        constraints = [
+            models.UniqueConstraint(
+                fields=["event", "rater"],
+                name="unique_host_rating_per_event",
+            ),
+            models.CheckConstraint(
+                condition=models.Q(stars__gte=1, stars__lte=5),
+                name="host_rating_stars_1_to_5",
+            ),
+        ]
+
+    def __str__(self):
+        return f"{self.rater} rated {self.host} {self.stars}/5 for {self.event}"

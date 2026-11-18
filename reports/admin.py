@@ -89,6 +89,15 @@ def target_summary(report, request, site):
         result["public_url"] = (
             reverse("event_detail", args=[event.pk]) + f"#{anchor}-{target.pk}"
         )
+    elif report.kind == Report.Kind.RATING:
+        result["summary"] = (
+            f"{target.stars}/5 for {target.host.get_display_name()} "
+            f"on {target.event.title}: {target.comment[:240]}"
+        )
+        result["public_url"] = (
+            reverse("public_profile", args=[target.host.username])
+            + f"#rating-{target.pk}"
+        )
     else:
         result["summary"] = f"{target.get_display_name()} (@{target.username})"
         result["public_url"] = reverse("public_profile", args=[target.username])
@@ -297,6 +306,8 @@ class ReportAdmin(admin.ModelAdmin):
                 "reported_post__event",
                 "reported_reply__author",
                 "reported_reply__post__event",
+                "reported_rating__host",
+                "reported_rating__event",
             )
         )
         for report in reports:

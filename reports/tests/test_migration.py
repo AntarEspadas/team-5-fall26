@@ -159,7 +159,15 @@ class ReportKindMigrationTests(TransactionTestCase):
             resolved_at=resolved_at,
         )
         original = old_report.objects.values().get(pk=report.pk)
-        MigrationExecutor(connection).migrate(after)
-        migrated = Report.objects.get(pk=report.pk)
+        executor = MigrationExecutor(connection)
+        executor.migrate(after)
+        # Use the model as of this migration, not the latest one, so later
+        # migrations that add columns don't break this test.
+        migrated_report = executor.loader.project_state(after).apps.get_model(
+            "reports", "Report"
+        )
+        migrated = migrated_report.objects.get(pk=report.pk)
         self.assertIsNone(migrated.resolved_by_id)
-        self.assertEqual(Report.objects.values(*original).get(pk=report.pk), original)
+        self.assertEqual(
+            migrated_report.objects.values(*original).get(pk=report.pk), original
+        )

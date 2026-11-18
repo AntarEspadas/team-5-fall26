@@ -21,6 +21,7 @@ from django.views.generic import TemplateView
 from reports.views import report_conversation_user
 
 from events.views import (
+    AboutView,
     EventDetailView,
     LandingView,
     NotificationListView,
@@ -39,6 +40,7 @@ urlpatterns = [
     # Landing page at root "/" (login success target); lists upcoming events
     path("", LandingView.as_view(), name="landing"),
     path("search", SearchView.as_view(), name="search"),
+    path("about/", AboutView.as_view(), name="about"),
     path("events/<int:pk>/", EventDetailView.as_view(), name="event_detail"),
     path("events/", include("events.urls")),
     path("messages/", InboxView.as_view(), name="inbox"),
