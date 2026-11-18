@@ -1,0 +1,45 @@
+{% load static %}
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Upload pictures | NYC Parks Events</title>
+    <link rel="stylesheet" href="{% static 'events/search.css' %}">
+    <link rel="stylesheet" href="{% static 'events/home.css' %}">
+    <link rel="stylesheet" href="{% static 'events/event_form.css' %}">
+</head>
+<body>
+    {% include "events/_site_header.html" %}
+    <main class="event-form-page">
+        <a class="search-back" href="{% url 'public_profile' user.username %}#photos">Back to your pictures</a>
+        <h1>Upload event pictures</h1>
+        <p class="event-form-intro">Share pictures from an event you attended or hosted. Choose one event and a visibility setting for this batch.</p>
+        {% include "accounts/_submission_notice.html" %}
+        {% if not viewer_banned %}
+            {% if has_photo_events %}
+                <form class="event-form" method="post" enctype="multipart/form-data">
+                    {% csrf_token %}
+                    {{ form.non_field_errors }}
+                    {% for field in form %}
+                        <div class="form-field{% if field.errors %} has-error{% endif %}">
+                            <label for="{{ field.id_for_label }}">{{ field.label }}</label>
+                            {{ field }}
+                            {% if field.help_text %}<p class="help-text" id="{{ field.auto_id }}_helptext">{{ field.help_text }}</p>{% endif %}
+                            {{ field.errors }}
+                        </div>
+                    {% endfor %}
+                    <div class="form-actions">
+                        <button class="btn-primary" type="submit">Upload pictures</button>
+                    </div>
+                </form>
+            {% else %}
+                <p>You can upload pictures once an event you registered for or hosted has started. Cancelled events do not accept uploads.</p>
+                <a href="{% url 'my_events' %}">View your events</a>
+            {% endif %}
+        {% endif %}
+    </main>
+    {% include "events/_site_footer.html" %}
+    {% include "chatbot/widget.html" %}
+</body>
+</html>

@@ -5,6 +5,7 @@ from datetime import datetime, time, timedelta
 from django.contrib.postgres.indexes import GinIndex
 from django.core.validators import MaxValueValidator, MinValueValidator
 from django.db import models
+from django.db.models import Exists, OuterRef, Q
 from django.utils import timezone
 
 from .filters import CATEGORY_SLUGS, NYC_TIMEZONE, nyc_today
@@ -290,6 +291,72 @@ class Registration(models.Model):
 
     def __str__(self):
         return f"{self.user} registered for {self.event}"
+
+
+class EventPhotoQuerySet(models.QuerySet):
+    """Apply the same audience rules to galleries and image requests."""
+
+    def visible_to(self, user):
+        if not user.is_authenticated:
+            return self.filter(visibility=EventPhoto.Visibility.PUBLIC)
+        contacts = ContactRequest.objects.filter(
+            status=ContactRequest.Status.ACCEPTED
+        ).filter(
+            Q(sender=user, recipient_id=OuterRef("uploader_id"))
+            | Q(recipient=user, sender_id=OuterRef("uploader_id"))
+        )
+        return self.alias(photo_connected=Exists(contacts)).filter(
+            Q(visibility=EventPhoto.Visibility.PUBLIC)
+            | Q(uploader=user)
+            | Q(visibility=EventPhoto.Visibility.CONNECTIONS, photo_connected=True)
+        )
+
+
+class EventPhoto(models.Model):
+    """A member's picture tagged to one event, with its original storage."""
+
+    class Visibility(models.TextChoices):
+        PUBLIC = "public", "Public"
+        CONNECTIONS = "connections", "Connections only"
+
+    class StorageBackend(models.TextChoices):
+        LOCAL = "local", "Local"
+        S3 = "s3", "S3"
+
+    event = models.ForeignKey(Event, on_delete=models.CASCADE, related_name="photos")
+    uploader = models.ForeignKey(
+        "accounts.User", on_delete=models.CASCADE, related_name="event_photos"
+    )
+    visibility = models.CharField(
+        max_length=11,
+        choices=Visibility.choices,
+        default=Visibility.CONNECTIONS,
+    )
+    storage_backend = models.CharField(max_length=5, choices=StorageBackend.choices)
+    image_key = models.CharField(max_length=512)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    objects = EventPhotoQuerySet.as_manager()
+
+    class Meta:
+        ordering = ["-created_at", "-pk"]
+        indexes = [
+            models.Index(fields=["event", "-created_at"], name="photo_event_recent"),
+            models.Index(fields=["uploader", "event"], name="photo_uploader_event"),
+        ]
+        constraints = [
+            models.CheckConstraint(
+                condition=models.Q(visibility__in=["public", "connections"]),
+                name="event_photo_valid_visibility",
+            ),
+            models.CheckConstraint(
+                condition=models.Q(storage_backend__in=["local", "s3"]),
+                name="event_photo_valid_storage",
+            ),
+        ]
+
+    def __str__(self):
+        return f"Photo by {self.uploader} at {self.event}"
 
 
 class Notification(models.Model):

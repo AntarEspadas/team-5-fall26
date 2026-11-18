@@ -12,6 +12,8 @@ from django.http import Http404, HttpResponse, QueryDict
 from django.shortcuts import get_object_or_404, redirect, render
 from django.urls import reverse
 from django.utils import timezone
+from django.utils.decorators import method_decorator
+from django.views.decorators.cache import never_cache
 from django.views.decorators.http import (
     require_http_methods,
     require_POST,
@@ -75,6 +77,7 @@ from .natural_search import MAX_PROMPT_LENGTH, describe_search, natural_search_u
 from .recommendations import record_search, recommended_events
 from .search import search_events
 from .similar_interests import find_similar_interest_users
+from .photos import gallery_context, uploadable_events
 
 UPCOMING_EVENT_LIMIT = 20
 SEARCH_PAGE_SIZE = 20
@@ -541,6 +544,7 @@ def event_calendar_file(request, pk):
     return response
 
 
+@method_decorator(never_cache, name="dispatch")
 class EventDetailView(DetailView):
     """Display event details and its community content."""
 
@@ -555,6 +559,10 @@ class EventDetailView(DetailView):
         event = self.object
         user = self.request.user
         is_authenticated = user.is_authenticated
+        context.update(gallery_context(self.request, event=event))
+        context["can_upload_photos"] = (
+            uploadable_events(user).filter(pk=event.pk).exists()
+        )
 
         # Get all attendance intention records for this event.
         interests = EventInterest.objects.filter(event=event)

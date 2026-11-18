@@ -1,0 +1,89 @@
+.photo-gallery {
+    margin-top: 1.75rem;
+    padding: 1.5rem;
+    border: 1px solid #d9e1da;
+    border-radius: 12px;
+    background: #fff;
+    color: #24352c;
+}
+.photo-gallery-heading {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    flex-wrap: wrap;
+    gap: 1rem;
+    margin-bottom: 1.25rem;
+}
+.photo-gallery-heading h2, .photo-event-heading { margin: 0; }
+.photo-gallery-heading p, .photo-event-date, .photo-audience {
+    margin: .5rem 0 0;
+    color: #64756a;
+    font-size: .9rem;
+}
+.photo-event-heading a, .photo-card a, .photo-pagination a { color: #237b53; }
+.photo-event-date { margin-bottom: 1rem; }
+.photo-grid {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 1.25rem;
+    margin-bottom: 1.5rem;
+}
+.photo-card {
+    min-width: 0;
+    overflow: hidden;
+    border: 1px solid #d9e1da;
+    border-radius: 10px;
+    background: #f9fbf9;
+}
+.photo-image-link { display: block; }
+.photo-image-link img {
+    display: block;
+    width: 100%;
+    height: auto;
+    aspect-ratio: 4 / 3;
+    object-fit: cover;
+}
+.photo-card-body { padding: 1rem; overflow-wrap: anywhere; }
+.photo-byline { margin: 0; }
+.photo-controls {
+    display: grid;
+    gap: .5rem;
+    margin: 1rem 0 .75rem;
+}
+.photo-controls label { font-size: .9rem; font-weight: 700; }
+.photo-controls select {
+    width: 100%;
+    min-height: 40px;
+    padding: .5rem;
+    border: 1px solid #b5c6bb;
+    border-radius: 6px;
+    background: #fff;
+    color: #24352c;
+    font: inherit;
+}
+.photo-button, .photo-card a.photo-button {
+    display: inline-block;
+    padding: .75rem 1rem;
+    border: 1px solid #237b53;
+    border-radius: 8px;
+    background: #237b53;
+    color: #fff;
+    font: inherit;
+    font-weight: 700;
+    text-align: center;
+    text-decoration: none;
+    cursor: pointer;
+}
+.photo-button:hover { background: #1c6544; }
+.photo-button-small { padding: .5rem .75rem; font-size: .9rem; }
+.photo-card a.photo-delete-link { color: #a33636; font-size: .9rem; }
+.photo-pagination { display: flex; flex-wrap: wrap; gap: 1rem; align-items: center; }
+.photo-empty { color: #64756a; }
+.photo-delete-preview { display: block; max-width: 100%; height: auto; object-fit: contain; }
+@media (max-width: 900px) {
+    .photo-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+}
+@media (max-width: 540px) {
+    .photo-gallery { padding: 1rem; }
+    .photo-grid { grid-template-columns: minmax(0, 1fr); }
+}

@@ -10,6 +10,7 @@
     <link rel="stylesheet" href="{% static 'reports/menus.css' %}">
     <link rel="stylesheet" href="{% static 'events/calendar.css' %}">
     <link rel="stylesheet" href="{% static 'events/ratings.css' %}">
+    <link rel="stylesheet" href="{% static 'events/photos.css' %}">
     <script src="{% static 'reports/menus.js' %}" defer></script>
     <script src="{% static 'events/calendar-menu.js' %}" defer></script>
 
@@ -882,6 +883,8 @@
             </form>
         </section>
     {% endif %}
+
+    {% include "events/_photo_gallery.html" %}
 
     <!-- Attendance intentions and public attendee profiles -->
     <section class="community-section">

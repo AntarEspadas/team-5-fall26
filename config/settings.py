@@ -13,6 +13,7 @@ import os
 from pathlib import Path
 
 from dotenv import load_dotenv
+from django.core.exceptions import ImproperlyConfigured
 
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
 BASE_DIR = Path(__file__).resolve().parent.parent
@@ -175,6 +176,49 @@ STATIC_ROOT = BASE_DIR / "staticfiles"
 
 MEDIA_URL = "/media/"
 MEDIA_ROOT = BASE_DIR / "media"
+
+# Event pictures are always private in storage, even when shared publicly.
+# The backend selector affects new uploads; each photo retains its own backend.
+EVENT_PHOTO_STORAGE = os.environ.get("EVENT_PHOTO_STORAGE", "local").strip()
+EVENT_PHOTO_LOCAL_ROOT = Path(
+    os.environ.get("EVENT_PHOTO_LOCAL_ROOT")
+    or BASE_DIR / "private_media" / "event_photos"
+).resolve()
+EVENT_PHOTO_S3_BUCKET = os.environ.get("EVENT_PHOTO_S3_BUCKET", "").strip()
+EVENT_PHOTO_S3_REGION = os.environ.get("EVENT_PHOTO_S3_REGION", "").strip() or None
+
+if EVENT_PHOTO_STORAGE not in {"local", "s3"}:
+    raise ImproperlyConfigured("EVENT_PHOTO_STORAGE must be 'local' or 's3'.")
+if EVENT_PHOTO_STORAGE == "s3" and not EVENT_PHOTO_S3_BUCKET:
+    raise ImproperlyConfigured(
+        "EVENT_PHOTO_S3_BUCKET is required for S3 photo storage."
+    )
+if any(
+    EVENT_PHOTO_LOCAL_ROOT.is_relative_to(root.resolve())
+    for root in (MEDIA_ROOT, STATIC_ROOT)
+):
+    raise ImproperlyConfigured("Event photos must be stored outside public media.")
+
+STORAGES = {
+    "default": {"BACKEND": "django.core.files.storage.FileSystemStorage"},
+    "staticfiles": {"BACKEND": "django.contrib.staticfiles.storage.StaticFilesStorage"},
+    "event_photos_local": {
+        "BACKEND": "django.core.files.storage.FileSystemStorage",
+        "OPTIONS": {"location": EVENT_PHOTO_LOCAL_ROOT},
+    },
+    "event_photos_s3": {
+        "BACKEND": "storages.backends.s3.S3Storage",
+        "OPTIONS": {
+            "bucket_name": EVENT_PHOTO_S3_BUCKET,
+            "region_name": EVENT_PHOTO_S3_REGION,
+            "location": "event_photos",
+            "default_acl": None,
+            "querystring_auth": True,
+            "custom_domain": None,
+            "file_overwrite": False,
+        },
+    },
+}
 
 # Default primary key field type
 # https://docs.djangoproject.com/en/5.2/ref/settings/#default-auto-field
