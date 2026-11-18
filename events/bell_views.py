@@ -1,6 +1,7 @@
 """The header's notification bell: the latest notifications in a dropdown."""
 
 from django.contrib.auth.decorators import login_required
+from django.db.models import Case, Value, When
 from django.http import JsonResponse
 from django.template.loader import render_to_string
 from django.utils import timezone
@@ -17,12 +18,21 @@ def notification_bell(request):
     """Return the 5 latest notifications and mark the shown ones read.
 
     Opening the bell counts as reading what it shows. Pending contact
-    requests stay new until they are answered, as on the notifications page.
+    requests stay new until they are answered, as on the notifications page,
+    and come first so newer event updates cannot push them out of the five.
+    Answered requests sort by date so they do not fill the bell for good.
     """
     latest = list(
-        request.user.notifications.select_related(
-            "event", "contact_request__sender"
-        ).order_by("-created_at", "-pk")[:BELL_SIZE]
+        request.user.notifications.select_related("event", "contact_request__sender")
+        .annotate(
+            _pending_request=Case(
+                When(
+                    contact_request__isnull=False, read_at__isnull=True, then=Value(0)
+                ),
+                default=Value(1),
+            )
+        )
+        .order_by("_pending_request", "-created_at", "-pk")[:BELL_SIZE]
     )
     to_mark = [
         n.pk for n in latest if n.read_at is None and n.contact_request_id is None

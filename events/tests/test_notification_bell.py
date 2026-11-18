@@ -106,6 +106,46 @@ class NotificationBellTests(TestCase):
             Notification.objects.get(contact_request=contact).read_at is None
         )
 
+    def test_pending_contact_requests_come_before_newer_updates(self):
+        """An old pending request is not pushed out by five newer updates."""
+        contact = ContactRequest.objects.create(
+            event=self.event, sender=self.peer, recipient=self.member
+        )
+        note = Notification.objects.create(
+            recipient=self.member,
+            event=self.event,
+            contact_request=contact,
+            subject="Old contact request",
+            body="Hello",
+        )
+        Notification.objects.filter(pk=note.pk).update(
+            created_at=timezone.now() - timedelta(days=3)
+        )
+        html = self.client.post(self.url).json()["html"]
+        self.assertEqual(html.count('class="bell-item'), 5)
+        self.assertLess(html.index("Old contact request"), html.index("Update 6"))
+        self.assertNotIn("Update 2", html)
+
+    def test_answered_contact_requests_sort_by_date(self):
+        """Answered requests do not take a slot ahead of newer updates."""
+        contact = ContactRequest.objects.create(
+            event=self.event, sender=self.peer, recipient=self.member
+        )
+        note = Notification.objects.create(
+            recipient=self.member,
+            event=self.event,
+            contact_request=contact,
+            subject="Answered request",
+            body="Hello",
+            read_at=timezone.now(),
+        )
+        Notification.objects.filter(pk=note.pk).update(
+            created_at=timezone.now() - timedelta(days=3)
+        )
+        html = self.client.post(self.url).json()["html"]
+        self.assertNotIn("Answered request", html)
+        self.assertIn("Update 2", html)
+
     def test_empty_bell(self):
         """Members without notifications see a friendly empty state."""
         self.member.notifications.all().delete()
