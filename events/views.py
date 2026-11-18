@@ -236,9 +236,7 @@ class MyEventsView(LoginRequiredMixin, TemplateView):
                 "event__title",
             )
         )
-        context["favorite_events"] = (
-            FavoriteEvent.objects.filter(user=user).select_related("event")
-        )
+        context["favorite_events"] = user.favorite_events.select_related("event")
         context["favorites_tab_active"] = self.request.GET.get("tab") == "favorites"
         return context
 
