@@ -3,10 +3,12 @@
 from datetime import timedelta
 
 from django.contrib.auth import get_user_model
-from django.test import TestCase
+from django.contrib.staticfiles import finders
+from django.test import SimpleTestCase, TestCase
 from django.urls import reverse
 from django.utils import timezone
 
+from accounts.ban_services import apply_ban
 from events.models import ContactRequest, Event, Notification
 
 
@@ -104,6 +106,46 @@ class NotificationBellTests(TestCase):
             Notification.objects.get(contact_request=contact).read_at is None
         )
 
+    def test_pending_contact_requests_come_before_newer_updates(self):
+        """An old pending request is not pushed out by five newer updates."""
+        contact = ContactRequest.objects.create(
+            event=self.event, sender=self.peer, recipient=self.member
+        )
+        note = Notification.objects.create(
+            recipient=self.member,
+            event=self.event,
+            contact_request=contact,
+            subject="Old contact request",
+            body="Hello",
+        )
+        Notification.objects.filter(pk=note.pk).update(
+            created_at=timezone.now() - timedelta(days=3)
+        )
+        html = self.client.post(self.url).json()["html"]
+        self.assertEqual(html.count('class="bell-item'), 5)
+        self.assertLess(html.index("Old contact request"), html.index("Update 6"))
+        self.assertNotIn("Update 2", html)
+
+    def test_answered_contact_requests_sort_by_date(self):
+        """Answered requests do not take a slot ahead of newer updates."""
+        contact = ContactRequest.objects.create(
+            event=self.event, sender=self.peer, recipient=self.member
+        )
+        note = Notification.objects.create(
+            recipient=self.member,
+            event=self.event,
+            contact_request=contact,
+            subject="Answered request",
+            body="Hello",
+            read_at=timezone.now(),
+        )
+        Notification.objects.filter(pk=note.pk).update(
+            created_at=timezone.now() - timedelta(days=3)
+        )
+        html = self.client.post(self.url).json()["html"]
+        self.assertNotIn("Answered request", html)
+        self.assertIn("Update 2", html)
+
     def test_empty_bell(self):
         """Members without notifications see a friendly empty state."""
         self.member.notifications.all().delete()
@@ -123,3 +165,37 @@ class NotificationBellTests(TestCase):
         """Event updates link to the event page."""
         html = self.client.post(self.url).json()["html"]
         self.assertIn(reverse("event_detail", args=[self.event.pk]), html)
+
+    def test_banned_members_can_open_the_bell(self):
+        """A ban blocks submissions, but opening the bell is only reading."""
+        admin = get_user_model().objects.create_superuser(
+            username="admin", email="admin@example.com", password="pass12345"
+        )
+        apply_ban(admin, self.member)
+        response = self.client.post(self.url)
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.json()["unread_count"], 2)
+        self.assertEqual(self.client.get(reverse("notifications")).status_code, 200)
+
+
+class NotificationBellAssetTests(SimpleTestCase):
+    """The bell's static files handle phones and changing counts."""
+
+    @staticmethod
+    def read(path):
+        with open(finders.find(path), encoding="utf-8") as handle:
+            return handle.read()
+
+    def test_phone_panel_fits_the_screen_and_scrolls(self):
+        """On phones the panel stops above the tab bar and its list scrolls."""
+        css = self.read("events/header.css")
+        phone = css[css.rindex("@media (max-width: 720px)") :]
+        self.assertIn("max-height: calc(100dvh - 64px - 76px", phone)
+        self.assertIn("overflow-y: auto", phone)
+
+    def test_tab_bar_badge_is_created_and_relabelled(self):
+        """The Alerts tab gains a badge when needed and keeps its label current."""
+        js = self.read("events/bell.js")
+        self.assertIn('tabBadge.className = "tab-badge"', js)
+        self.assertIn("tab.append(tabBadge)", js)
+        self.assertIn('tab.setAttribute(\n                    "aria-label"', js)

@@ -27,12 +27,25 @@
             "aria-label",
             count ? `Notifications, ${count} new` : "Notifications"
         );
-        // Keep the phone tab bar's badge in step with the bell.
+        // Keep the phone tab bar's Alerts badge in step with the bell.
         document
-            .querySelectorAll(".tabbar a[href$='/notifications/'] .tab-badge")
-            .forEach((tabBadge) => {
-                if (count > 0) tabBadge.textContent = String(count);
-                else tabBadge.remove();
+            .querySelectorAll(".tabbar a[href$='/notifications/']")
+            .forEach((tab) => {
+                let tabBadge = tab.querySelector(".tab-badge");
+                if (count > 0) {
+                    if (!tabBadge) {
+                        tabBadge = document.createElement("span");
+                        tabBadge.className = "tab-badge";
+                        tab.append(tabBadge);
+                    }
+                    tabBadge.textContent = String(count);
+                } else if (tabBadge) {
+                    tabBadge.remove();
+                }
+                tab.setAttribute(
+                    "aria-label",
+                    count ? `Notifications, ${count} new` : "Notifications"
+                );
             });
     }
 
