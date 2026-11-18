@@ -10,7 +10,6 @@ from django.utils import timezone
 from accounts.ban_responses import BAN_MESSAGE
 from accounts.ban_services import apply_ban, lift_ban
 from accounts.models import User, UserBan
-from chatbot.models import Inquiry
 from events.models import (
     ContactRequest,
     Conversation,
@@ -116,18 +115,6 @@ class BanUITests(TestCase):
         cls.message = DirectMessage.objects.create(
             conversation=cls.thread, sender=cls.friend, body="Existing private message"
         )
-        cls.inquiry = Inquiry.objects.create(
-            user=cls.peer, event=cls.event, question="Where should we meet?"
-        )
-        Inquiry.objects.create(
-            user=cls.peer,
-            event=cls.event,
-            question="Is it accessible?",
-            status=Inquiry.Status.ANSWERED,
-            answer="Meet at the accessible entrance",
-            answered_by=cls.user,
-            answered_at=timezone.now(),
-        )
 
     def setUp(self):
         self.client.force_login(self.user)
@@ -223,7 +210,7 @@ class BanUITests(TestCase):
         self.assertNotContains(
             response, f'href="{reverse("event_cancel", args=[self.event.pk])}"'
         )
-        self.assertContains(response, "View attendee questions")
+        self.assertNotContains(response, "attendee questions")
         self.assertContains(response, 'id="hosted-tab"')
         self.assertContains(response, 'id="attended-tab"')
         self.assertContains(response, 'id="hosted-panel"')
@@ -232,13 +219,6 @@ class BanUITests(TestCase):
         self.assertContains(
             response, reverse("event_detail", args=[self.attending_event.pk])
         )
-
-    def test_inquiry_questions_and_answers_stay_readable_without_answer_form(self):
-        response = self.client.get(reverse("chatbot:inquiries"))
-        self.assertContains(response, self.inquiry.question)
-        self.assertContains(response, "Meet at the accessible entrance")
-        self.assertContains(response, "Answering is disabled")
-        self.assertFalse(Controls(response).forms)
 
     def test_conversation_preserves_history_polling_and_read_tracking_without_composer(
         self,

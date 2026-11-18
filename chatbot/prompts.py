@@ -58,8 +58,7 @@ HOSTING
 - Hosts can edit their event until it ends, message everyone interested, and
   cancel it (with an optional note; cancelling can't be undone). Interested
   people are told about changes and cancellations by email and notification.
-- Hosts answer attendee questions forwarded by this assistant at
-  /assistant/inquiries/. NYC Parks feed events can't be edited.
+- NYC Parks feed events can't be edited.
 """
 
 INSTRUCTIONS = """
