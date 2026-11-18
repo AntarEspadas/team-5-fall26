@@ -10,6 +10,7 @@ TARGET_FIELDS = {
     Report.Kind.REPLY: "reported_reply",
     Report.Kind.USER: "reported_user",
     Report.Kind.PROFILE: "reported_user",
+    Report.Kind.RATING: "reported_rating",
 }
 
 
@@ -38,6 +39,10 @@ def record_report(reporter, kind, target, cleaned_data, *, conversation=None):
     elif kind != Report.Kind.PROFILE:
         if kind == Report.Kind.EVENT:
             event = target
+        elif kind == Report.Kind.RATING:
+            event = target.event
+            defaults["event"] = event
+            defaults["reported_user"] = target.rater
         else:
             event = target.event if kind == Report.Kind.POST else target.post.event
             defaults["event"] = event

@@ -10,6 +10,7 @@
 
     <link rel="stylesheet" href="{% static 'events/search.css' %}">
     <link rel="stylesheet" href="{% static 'events/home.css' %}">
+    <link rel="stylesheet" href="{% static 'events/ratings.css' %}">
     <style>
         /* Main page */
         .my-events-page {
@@ -516,12 +517,20 @@
                                                     Registered
                                                 {% endif %}
                                                 · Party of {{ registration.party_size }}
+                                                {% if registration.my_stars %}
+                                                    · <span class="my-rating" aria-label="You rated the host {{ registration.my_stars }} out of 5">You rated ★ {{ registration.my_stars }}</span>
+                                                {% endif %}
                                             </p>
 
                                             <p class="hosted-actions">
                                                 <a href="{% url 'event_detail' event.pk %}">
                                                     View event
                                                 </a>
+                                                {% if registration.can_rate %}
+                                                    <a href="{% url 'event_detail' event.pk %}#rate-host">
+                                                        {% if registration.my_stars %}Change rating{% else %}Rate host{% endif %}
+                                                    </a>
+                                                {% endif %}
                                             </p>
 
                                         {% endwith %}

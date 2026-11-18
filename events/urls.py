@@ -2,9 +2,10 @@
 
 from django.urls import path
 
-from reports.views import report_event, report_post, report_reply
+from reports.views import report_event, report_post, report_rating, report_reply
 
 from . import community_views
+from .rating_views import rate_host
 from .views import (
     EventCreateView,
     EventManageView,
@@ -32,6 +33,7 @@ urlpatterns = [
     path("<int:pk>/notify/", notify_attendees, name="event_notify"),
     path("<int:pk>/cancel/", cancel_event, name="event_cancel"),
     path("<int:pk>/register/", register_event, name="event_register"),
+    path("<int:pk>/rate-host/", rate_host, name="rate_host"),
     path("<int:pk>/calendar.ics", event_calendar_file, name="event_calendar"),
     path(
         "<int:pk>/cancel-registration/",
@@ -42,6 +44,7 @@ urlpatterns = [
     path("<int:pk>/report/", report_event, name="event_report"),
     path("posts/<int:post_id>/report/", report_post, name="event_post_report"),
     path("replies/<int:reply_id>/report/", report_reply, name="event_reply_report"),
+    path("ratings/<int:rating_id>/report/", report_rating, name="host_rating_report"),
     path(
         "<int:event_id>/interest/",
         community_views.toggle_event_interest,

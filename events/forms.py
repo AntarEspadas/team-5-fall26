@@ -4,7 +4,14 @@ from django import forms
 from django.utils import timezone
 
 from .filters import CATEGORY_GROUPS, CATEGORY_SEPARATOR, NYC_TIMEZONE
-from .models import ContactRequest, Event, EventPost, EventReply, Registration
+from .models import (
+    ContactRequest,
+    Event,
+    EventPost,
+    EventReply,
+    HostRating,
+    Registration,
+)
 
 DATETIME_INPUT_FORMAT = "%Y-%m-%dT%H:%M"
 CATEGORY_LABELS = {slug: label for slug, label, _ in CATEGORY_GROUPS}
@@ -136,6 +143,40 @@ class PartySizeForm(forms.Form):
             )
         },
     )
+
+
+class HostRatingForm(forms.ModelForm):
+    """Collect a 1–5 star rating of a host and an optional short comment."""
+
+    stars = forms.TypedChoiceField(
+        label="Your rating",
+        choices=[
+            (n, f"{n} star{'s' if n > 1 else ''}")
+            for n in range(HostRating.MIN_STARS, HostRating.MAX_STARS + 1)
+        ],
+        coerce=int,
+        widget=forms.RadioSelect,
+        error_messages={
+            "required": "Pick from 1 to 5 stars before saving your rating.",
+            "invalid_choice": "Pick from 1 to 5 stars before saving your rating.",
+        },
+    )
+
+    class Meta:
+        model = HostRating
+        fields = ["stars", "comment"]
+        error_messages = {
+            "comment": {
+                "max_length": (
+                    f"Shorten your comment to {HostRating.COMMENT_MAX_LENGTH} "
+                    "characters or fewer."
+                )
+            }
+        }
+
+    def clean_comment(self):
+        """Trim surrounding whitespace so blank comments are stored empty."""
+        return self.cleaned_data["comment"].strip()
 
 
 class CancelEventForm(forms.Form):

@@ -1,0 +1,245 @@
+/* Host ratings: the badge next to a host's name, the rating card in the
+ * event page panel, and the ratings section on public profiles.
+ *
+ * Uses the tokens from search.css when present, with fallbacks so the
+ * profile page (which has its own palette) renders the same.
+ */
+
+.visually-hidden {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    overflow: hidden;
+    clip: rect(0 0 0 0);
+    white-space: nowrap;
+}
+
+.host-rating-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    margin-left: 8px;
+    padding: 2px 10px;
+    border-radius: 999px;
+    background: #fff6dc;
+    color: #5c4300;
+    font-size: 0.875rem;
+    font-weight: 600;
+    vertical-align: middle;
+    white-space: nowrap;
+}
+
+.host-rating-badge.is-new {
+    background: #edf3ee;
+    color: var(--muted, #5f6f65);
+}
+
+.rating-star,
+.rate-stars-readonly .on {
+    color: #d99a00;
+}
+
+.rating-count {
+    color: #7a6a3f;
+    font-weight: 500;
+}
+
+.event-host a {
+    color: inherit;
+}
+
+/* Rating card in the event page panel. */
+.rate-card {
+    width: 100%;
+    padding: 16px;
+    border: 1px solid #f0dfa8;
+    border-radius: 12px;
+    background: #fffbef;
+    text-align: left;
+}
+
+.rate-title {
+    margin: 0 0 4px;
+    font-size: 1.1rem;
+}
+
+.rate-intro,
+.rate-note {
+    margin: 0 0 12px;
+    color: var(--muted, #5f6f65);
+    font-size: 0.9rem;
+    line-height: 1.45;
+}
+
+.rate-note:last-child {
+    margin-bottom: 0;
+}
+
+.rate-form,
+.panel-actions .rate-form {
+    display: grid;
+    gap: 8px;
+    margin: 0;
+    text-align: left;
+}
+
+.star-input {
+    margin: 0;
+    padding: 0;
+    border: 0;
+}
+
+.star-input legend {
+    margin-bottom: 4px;
+    padding: 0;
+    font-weight: 700;
+}
+
+/* Inputs run 5→1 in the markup and are shown reversed, so "this label and
+ * every label after it" lights the hovered star and the ones to its left. */
+.star-options {
+    display: inline-flex;
+    flex-direction: row-reverse;
+    justify-content: flex-end;
+    gap: 2px;
+}
+
+.star-options input {
+    position: absolute;
+    opacity: 0;
+    pointer-events: none;
+}
+
+.star-options label {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 40px;
+    height: 40px;
+    border-radius: 8px;
+    color: #cfd6d0;
+    font-size: 30px;
+    line-height: 1;
+    cursor: pointer;
+}
+
+.star-options input:checked ~ label,
+.star-options label:hover,
+.star-options label:hover ~ label {
+    color: #d99a00;
+}
+
+.star-options input:focus-visible + label {
+    outline: 3px solid var(--leaf, #237b53);
+    outline-offset: 1px;
+}
+
+.rate-comment-label {
+    font-weight: 700;
+}
+
+.rate-comment-label span {
+    color: var(--muted, #5f6f65);
+    font-weight: 400;
+}
+
+.rate-form textarea {
+    width: 100%;
+    padding: 10px 12px;
+    border: 1px solid var(--line, #d7e0d9);
+    border-radius: 10px;
+    background: #ffffff;
+    color: inherit;
+    font: inherit;
+    resize: vertical;
+}
+
+.rate-stars-readonly {
+    margin: 0 0 6px;
+    color: #cfd6d0;
+    font-size: 24px;
+    letter-spacing: 2px;
+}
+
+.rate-comment-readonly {
+    margin: 0 0 10px;
+    font-style: italic;
+    overflow-wrap: anywhere;
+}
+
+/* My events: rating state for past events. */
+.my-rating {
+    color: #5c4300;
+    font-weight: 600;
+}
+
+/* Public profile: host ratings section. */
+.host-ratings-section {
+    margin-top: 28px;
+}
+
+.host-rating-overview {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: baseline;
+    gap: 6px 12px;
+    margin: 0 0 18px;
+}
+
+.host-rating-overview .big-average {
+    color: #244b37;
+    font-size: 32px;
+    font-weight: 800;
+}
+
+.host-rating-overview .rate-stars-readonly {
+    margin: 0;
+}
+
+.host-rating-overview .rating-total {
+    color: #718076;
+    font-size: 14px;
+}
+
+.host-comment-list {
+    display: grid;
+    gap: 12px;
+    margin: 0;
+    padding: 0;
+    list-style: none;
+}
+
+.host-comment {
+    padding: 14px 16px;
+    border: 1px solid #e0e8e1;
+    border-radius: 10px;
+    background: #fbfcfb;
+}
+
+.host-comment-head {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    justify-content: space-between;
+    gap: 6px 12px;
+    margin-bottom: 6px;
+    color: #718076;
+    font-size: 13px;
+}
+
+.host-comment-head .rate-stars-readonly {
+    margin: 0;
+    font-size: 16px;
+}
+
+.host-comment p {
+    margin: 0;
+    color: #34483a;
+    line-height: 1.6;
+    overflow-wrap: anywhere;
+}
+
+.host-comment-report {
+    color: #718076;
+    font-size: 13px;
+}

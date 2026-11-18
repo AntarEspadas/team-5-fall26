@@ -1,0 +1,2 @@
+{# A host's average rating, or "New host" until enough people have rated. Pass rating=host_rating_summary(...). #}
+{% if rating.show_average %}<span class="host-rating-badge" aria-label="Rated {{ rating.average }} out of 5 from {{ rating.count }} ratings"><span class="rating-star" aria-hidden="true">★</span><strong>{{ rating.average }}</strong><span class="rating-count">({{ rating.count }})</span></span>{% else %}<span class="host-rating-badge is-new">New host</span>{% endif %}

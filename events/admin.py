@@ -2,7 +2,14 @@
 
 from django.contrib import admin
 
-from .models import Event, EventPost, EventReply, Notification, Registration
+from .models import (
+    Event,
+    EventPost,
+    EventReply,
+    HostRating,
+    Notification,
+    Registration,
+)
 
 
 @admin.register(Registration)
@@ -43,6 +50,15 @@ class EventAdmin(admin.ModelAdmin):
     list_select_related = ("host",)
     search_fields = ("title", "location", "park_names")
     ordering = ("start_time",)
+
+
+@admin.register(HostRating)
+class HostRatingAdmin(admin.ModelAdmin):
+    """Let moderators review and remove host ratings flagged in reports."""
+
+    list_display = ("__str__", "host", "stars", "updated_at")
+    list_select_related = ("event", "host", "rater")
+    search_fields = ("comment", "event__title", "host__username")
 
 
 @admin.register(EventPost)
