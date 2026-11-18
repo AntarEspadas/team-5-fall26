@@ -36,6 +36,31 @@
 
         {% include 'events/_search_form.html' %}
 
+        <section class="weekend-section" aria-labelledby="weekend-heading">
+            <div class="section-head">
+                <h2 id="weekend-heading">This weekend</h2>
+                <span class="section-dates">
+                    {{ weekend_start|date:"D, M j" }}{% if weekend_end != weekend_start %} &ndash; {{ weekend_end|date:"D, M j" }}{% endif %}
+                </span>
+                <a class="section-link" href="{{ weekend_url }}">See all weekend events →</a>
+            </div>
+
+            {% if weekend_events %}
+            <ul class="event-grid">
+                {% for event in weekend_events %}
+                <li class="event">
+                    {% include 'events/_event_card_content.html' with link_to_source=True %}
+                </li>
+                {% endfor %}
+            </ul>
+            {% else %}
+            <p class="empty-state">
+                Nothing is scheduled for this weekend yet.
+                <a class="section-link" href="{% url 'search' %}">Search all upcoming events</a>
+            </p>
+            {% endif %}
+        </section>
+
         {% if user.is_authenticated %}
         {% if has_search_history %}
         <section class="events-section" aria-labelledby="recommendations-heading">
@@ -118,17 +143,20 @@
             {% endif %}
         </section>
         {% else %}
-        <p class="empty-state">
-            Please log in to view your saved events and plans.
-        </p>
-        <p>
-            <a class="btn-primary" href="{% url 'login' %}">Go to Login</a>
-        </p>
+        <section class="join-card" aria-labelledby="join-heading">
+            <h2 id="join-heading">Make plans with your neighbors</h2>
+            <p>
+                Log in or sign up to register for events, chat with people going,
+                and keep track of your plans.
+            </p>
+            <div class="join-actions">
+                <a class="btn-primary" href="{% url 'register' %}">Sign up</a>
+                <a class="btn-secondary" href="{% url 'login' %}">Log in</a>
+            </div>
+        </section>
         {% endif %}
     </main>
     {% include "events/_site_footer.html" %}
-    {% if user.is_authenticated %}
-    {% endif %}
     {% include "chatbot/widget.html" %}
 </body>
 </html>
