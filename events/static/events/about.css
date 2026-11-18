@@ -1,0 +1,91 @@
+/* About us page. Builds on the shared tokens in search.css and home.css. */
+
+.about-shell {
+    max-width: 880px;
+}
+
+.about-lead {
+    margin: -8px 0 32px;
+    color: var(--muted, #5b6b61);
+    font-size: 1.15rem;
+}
+
+.about-section {
+    margin-bottom: 36px;
+}
+
+.about-section h2 {
+    margin: 0 0 14px;
+    font-size: 1.35rem;
+    letter-spacing: -0.01em;
+}
+
+.about-section p {
+    margin: 0 0 12px;
+    line-height: 1.65;
+}
+
+.about-section a {
+    color: var(--leaf, #1f6b45);
+    font-weight: 600;
+}
+
+.about-note {
+    padding: 12px 16px;
+    border: 1px solid var(--line, #c9d3cb);
+    border-radius: var(--radius-card, 14px);
+    background: var(--surface, #ffffff);
+    color: var(--muted, #5b6b61);
+}
+
+.about-features {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 16px;
+    margin: 0;
+    padding: 0;
+    list-style: none;
+}
+
+.about-features li {
+    padding: 18px 20px;
+    border: 1px solid var(--line, #c9d3cb);
+    border-radius: var(--radius-card, 14px);
+    background: var(--surface, #ffffff);
+}
+
+.about-features h3 {
+    margin: 0 0 6px;
+    font-size: 1.05rem;
+}
+
+.about-features p {
+    margin: 0;
+    color: var(--muted, #5b6b61);
+}
+
+.about-team {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    margin: 0;
+    padding: 0;
+    list-style: none;
+}
+
+.about-team li {
+    padding: 6px 14px;
+    border-radius: var(--radius-pill, 999px);
+    background: var(--chip, #e6efe9);
+    font-weight: 600;
+}
+
+.about-cta {
+    margin: 8px 0 0;
+}
+
+@media (max-width: 640px) {
+    .about-features {
+        grid-template-columns: 1fr;
+    }
+}

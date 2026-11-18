@@ -705,6 +705,30 @@ class EventDetailView(DetailView):
         return context
 
 
+# Team 5 members shown on the About us page.
+TEAM_MEMBERS = (
+    "Aravind",
+    "Ananya Agarwal",
+    "Antar Espadas",
+    "Divyansh Maurya",
+    "Lucy Lu",
+    "Rakshit Dongre",
+    "Xinrui Li",
+)
+
+
+class AboutView(TemplateView):
+    """Explain what the site is, where its events come from, and who built it."""
+
+    template_name = "events/about.html"
+
+    def get_context_data(self, **kwargs):
+        """Add the team members listed on the page."""
+        context = super().get_context_data(**kwargs)
+        context["team"] = TEAM_MEMBERS
+        return context
+
+
 class LandingView(TemplateView):
     """Render the landing page with upcoming and archived events for signed-in visitors.
 
