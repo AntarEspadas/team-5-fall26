@@ -540,9 +540,8 @@ class EventDetailView(DetailView):
         unbanned = get_active_ban(user) is None
         context["can_interact"] = context["can_mark_interest"] and unbanned
         context["is_favorite"] = (
-            is_authenticated and FavoriteEvent.objects.filter(
-                user=user, event=event
-            ).exists()
+            is_authenticated
+            and FavoriteEvent.objects.filter(user=user, event=event).exists()
         )
         context["can_save_favorite"] = (
             is_authenticated and unbanned and event.is_open and not event.is_cancelled
