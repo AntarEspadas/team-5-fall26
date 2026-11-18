@@ -14,11 +14,14 @@ from django.http import Http404
 from django.shortcuts import render, resolve_url
 from django.urls import reverse_lazy
 from django.utils import timezone
+from django.utils.decorators import method_decorator
+from django.views.decorators.cache import never_cache
 from django.views.generic import CreateView, DetailView, UpdateView
 
 from events.models import ContactRequest, Event, EventInterest
 from events.ratings import host_rating_summary, latest_host_comments
 from events.similar_interests import public_match_for_event
+from events.photos import gallery_context
 from .ban_services import get_active_ban
 from .forms import AccountSettingsForm, LoginForm, RegistrationForm
 
@@ -46,6 +49,7 @@ class AccountSettingsView(LoginRequiredMixin, SuccessMessageMixin, UpdateView):
         return context
 
 
+@method_decorator(never_cache, name="dispatch")
 class PublicProfileView(LoginRequiredMixin, DetailView):
     """Display a lightweight community profile."""
 
@@ -84,6 +88,10 @@ class PublicProfileView(LoginRequiredMixin, DetailView):
         context = super().get_context_data(**kwargs)
         profile_user = self.object
         context["profile_ban"] = get_active_ban(profile_user)
+        context.update(gallery_context(self.request, uploader=profile_user))
+        context["can_upload_photos"] = (
+            profile_user.pk == self.request.user.pk and context["profile_ban"] is None
+        )
 
         # Ratings from attendees of events this member hosted.
         context["is_host"] = profile_user.hosted_events.exists()

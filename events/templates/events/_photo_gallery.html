@@ -1,0 +1,33 @@
+{% load tz %}
+<section class="photo-gallery" id="photos" aria-labelledby="photos-heading">
+    <div class="photo-gallery-heading">
+        <div>
+            <h2 id="photos-heading">Event pictures</h2>
+            <p>{{ photo_page.paginator.count }} picture{{ photo_page.paginator.count|pluralize }}{% if photo_grouped %}, grouped by event{% endif %}</p>
+        </div>
+        {% if can_upload_photos %}
+            <a class="photo-button" href="{% url 'event_photo_upload' %}{% if not photo_grouped %}?event={{ event.pk }}{% endif %}">Upload pictures</a>
+        {% endif %}
+    </div>
+    {% regroup photo_page by event as photo_events %}
+    {% for group in photo_events %}
+        {% if photo_grouped %}
+            <h3 class="photo-event-heading"><a href="{% url 'event_detail' group.grouper.pk %}#photos">{{ group.grouper.title }}</a></h3>
+            {% timezone "America/New_York" %}<p class="photo-event-date">{{ group.grouper.start_time|date:"F j, Y" }}</p>{% endtimezone %}
+        {% endif %}
+        <div class="photo-grid">
+            {% for photo in group.list %}
+                {% include "events/_photo_card.html" %}
+            {% endfor %}
+        </div>
+    {% empty %}
+        <p class="photo-empty">No pictures to show yet.</p>
+    {% endfor %}
+    {% if photo_page.has_other_pages %}
+        <nav class="photo-pagination" aria-label="Picture pages">
+            {% if photo_previous_url %}<a href="{{ photo_previous_url }}">Previous pictures</a>{% endif %}
+            <span>Page {{ photo_page.number }} of {{ photo_page.paginator.num_pages }}</span>
+            {% if photo_next_url %}<a href="{{ photo_next_url }}">Next pictures</a>{% endif %}
+        </nav>
+    {% endif %}
+</section>

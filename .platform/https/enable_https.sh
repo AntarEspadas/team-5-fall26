@@ -78,7 +78,7 @@ server {
     ssl_protocols       TLSv1.2 TLSv1.3;
     ssl_session_cache   shared:SSL:10m;
 
-    client_max_body_size 10m;
+    client_max_body_size 55m;
 
     # Keep Elastic Beanstalk's access log and enhanced health log for HTTPS
     # requests too, without its HTTP redirect. The wildcard matches nothing

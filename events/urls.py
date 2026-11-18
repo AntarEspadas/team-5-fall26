@@ -5,6 +5,7 @@ from django.urls import path
 from reports.views import report_event, report_post, report_rating, report_reply
 
 from . import community_views
+from . import photo_views
 from .rating_views import rate_host
 from .views import (
     EventCreateView,
@@ -22,6 +23,22 @@ from .views import (
 )
 
 urlpatterns = [
+    path("photos/upload/", photo_views.upload_photos, name="event_photo_upload"),
+    path(
+        "photos/<int:photo_id>/image/",
+        photo_views.photo_image,
+        name="event_photo_image",
+    ),
+    path(
+        "photos/<int:photo_id>/visibility/",
+        photo_views.photo_visibility,
+        name="event_photo_visibility",
+    ),
+    path(
+        "photos/<int:photo_id>/delete/",
+        photo_views.delete_photo,
+        name="event_photo_delete",
+    ),
     path(
         "search-history/clear/",
         clear_search_history,

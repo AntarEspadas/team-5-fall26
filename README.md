@@ -166,6 +166,83 @@ closed. Everyone who selected Interested or Want to Attend gets an email and
 a notification. **My events** (`/events/mine/`), linked in the header, lists a
 host's upcoming events and archives the cancelled and ended ones.
 
+## Event pictures
+
+Registered attendees and hosts can upload pictures from an event page or the
+**Event pictures** section of their own community profile. Uploads become available
+when a noncancelled event starts and remain available after it ends. Events without
+a start time do not accept pictures. Registration represents attendance; no separate
+check-in is required.
+
+Choose one event, 1–10 JPEG, PNG, or WebP pictures, and a visibility setting for the
+batch. Each file may be up to 5 MiB and 4096 pixels per side. Pictures are corrected
+for orientation, stripped of embedded metadata, and saved as JPEGs at up to 2048
+pixels per side. An invalid file rejects the entire batch; select the files again
+after correcting an error.
+
+- **Public:** anyone can view the picture, including signed-out visitors.
+- **Connections only** (default): the uploader and members with an accepted contact
+  request with the uploader can view it. The request can originate at any event,
+  in either direction. Registration, hosting, and pending requests do not grant
+  access to someone else's connections-only pictures.
+
+Event pages show accessible pictures newest first. Community profiles group a
+member's pictures by event, newest events first. Galleries display 24 pictures per
+page and include only pictures the viewer can access. Existing profile login and
+sharing preferences still apply to the profile page itself; Public pictures remain
+viewable on event pages even when their uploader's profile is hidden.
+
+Uploaders can change each picture's visibility or delete it with confirmation.
+Account bans disable these controls and uploads, while browsing remains available.
+Existing pictures remain viewable after registration is removed or an event is
+cancelled.
+
+### Picture storage
+
+Install the updated requirements, then run `python manage.py migrate`. Both storage
+backends keep objects private, including Public pictures. Images are served through
+`/events/photos/<id>/image/`, which checks the viewer on every request and disables
+caching. Do not expose the private directory or S3 bucket through public hosting.
+
+Local storage works without AWS configuration:
+
+```dotenv
+EVENT_PHOTO_STORAGE=local
+# Optional absolute path outside media/ and staticfiles/.
+EVENT_PHOTO_LOCAL_ROOT=
+```
+
+The default directory is `private_media/event_photos/`, which Git ignores. As with
+existing profile pictures, instance-local files are lost when the server is replaced.
+Use a persistent mounted directory or S3 when pictures need to survive replacement.
+
+To store new event pictures in S3:
+
+```dotenv
+EVENT_PHOTO_STORAGE=s3
+EVENT_PHOTO_S3_BUCKET=your-private-photo-bucket
+EVENT_PHOTO_S3_REGION=us-east-1
+```
+
+Create the bucket separately with **Block Public Access** enabled and use an IAM
+role on Elastic Beanstalk, or the standard AWS credentials locally. The application
+requires `s3:GetObject`, `s3:PutObject`, and `s3:DeleteObject` permissions on
+`arn:aws:s3:::your-private-photo-bucket/event_photos/*`, plus `s3:ListBucket` on
+`arn:aws:s3:::your-private-photo-bucket` so existence checks can distinguish missing
+objects from access errors. No public-read ACL, public bucket policy, or browser-side
+AWS credentials are needed.
+
+Restart the application after changing configuration. `EVENT_PHOTO_STORAGE` affects
+**new uploads only**. Each picture remembers its original backend, so switching
+backends does not move files. Keep the previous local directory or S3 bucket and its
+credentials available to continue reading and deleting older pictures. Changing the
+bucket name or local root also requires keeping the corresponding files available
+at the new location. Static files and existing profile pictures keep their existing
+storage configuration.
+
+The Elastic Beanstalk HTTP and HTTPS configurations allow 55 MiB requests for the
+maximum ten-picture batch. Other reverse proxies must allow the same request size.
+
 ## Reporting events
 
 Every event page has a **Report event** button. Signed-in users can report

@@ -1,0 +1,22 @@
+<article class="photo-card">
+    <a class="photo-image-link" href="{% url 'event_photo_image' photo.pk %}" aria-label="View picture from {{ photo.event.title }} by {{ photo.uploader.get_display_name }}">
+        <img src="{% url 'event_photo_image' photo.pk %}" alt="Picture from {{ photo.event.title }}, uploaded by {{ photo.uploader.get_display_name }}" loading="lazy" decoding="async" width="600" height="450">
+    </a>
+    <div class="photo-card-body">
+        <p class="photo-byline">By {% if photo.uploader.share_profile_with_attendees %}<a href="{% url 'public_profile' photo.uploader.username %}">{{ photo.uploader.get_display_name }}</a>{% else %}{{ photo.uploader.get_display_name }}{% endif %}</p>
+        <p class="photo-audience">{{ photo.get_visibility_display }}</p>
+        {% if request.user.pk == photo.uploader_id and not viewer_banned %}
+            <form class="photo-controls" method="post" action="{% url 'event_photo_visibility' photo.pk %}">
+                {% csrf_token %}
+                <label for="photo-visibility-{{ photo.pk }}">Visibility</label>
+                <select name="visibility" id="photo-visibility-{{ photo.pk }}">
+                    {% for value, label in photo_visibility_choices %}
+                        <option value="{{ value }}"{% if value == photo.visibility %} selected{% endif %}>{{ label }}</option>
+                    {% endfor %}
+                </select>
+                <button class="photo-button photo-button-small" type="submit">Save visibility</button>
+            </form>
+            <a class="photo-delete-link" href="{% url 'event_photo_delete' photo.pk %}">Delete picture</a>
+        {% endif %}
+    </div>
+</article>
