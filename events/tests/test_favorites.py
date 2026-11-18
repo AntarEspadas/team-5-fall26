@@ -8,7 +8,13 @@ from django.urls import reverse
 from django.utils import timezone
 
 from accounts.models import User, UserBan
-from events.models import Event, EventInterest, FavoriteEvent, Notification, Registration
+from events.models import (
+    Event,
+    EventInterest,
+    FavoriteEvent,
+    Notification,
+    Registration,
+)
 
 
 class FavoriteEventTests(TestCase):
@@ -152,9 +158,7 @@ class FavoriteEventTests(TestCase):
         page = self.client.get(self.list_url)
         self.assertContains(page, self.event.title)
         self.assertNotContains(page, "Remove from favorites")
-        self.assertNotContains(
-            self.client.get(self.detail_url), "Remove from favorites"
-        )
+        self.assertNotContains(self.client.get(self.detail_url), "Remove from favorites")
         response = self.client.post(self.action_url, {"action": "remove"})
         self.assertEqual(response.status_code, 403)
         self.assertTrue(FavoriteEvent.objects.filter(user=self.member).exists())
