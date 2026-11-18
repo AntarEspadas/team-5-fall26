@@ -1,0 +1,14 @@
+{% load tz %}{% if notifications %}
+<ul class="bell-list">
+    {% for notification in notifications %}
+    <li class="bell-item{% if notification.pk in newly_read or not notification.read_at %} is-new{% endif %}">
+        <a href="{% if notification.contact_request_id %}{% url 'notifications' %}{% else %}{% url 'event_detail' notification.event_id %}{% endif %}">
+            <span class="bell-subject">{{ notification.subject }}</span>
+            <span class="bell-meta">{{ notification.event.title }} &middot; {% timezone "America/New_York" %}{{ notification.created_at|date:"M j, g:i A" }}{% endtimezone %}</span>
+        </a>
+    </li>
+    {% endfor %}
+</ul>
+{% else %}
+<p class="bell-empty">You're all caught up. New notifications will show here.</p>
+{% endif %}

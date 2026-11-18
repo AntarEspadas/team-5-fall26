@@ -14,7 +14,17 @@
             {% endwith %}
 
             {% with unread=unread_notification_count %}
-            <a class="nav-link{% if page == 'notifications' %} active{% endif %}" href="{% url 'notifications' %}" aria-label="Notifications{% if unread %}, {{ unread }} new{% endif %}"{% if page == 'notifications' %} aria-current="page"{% endif %}>Notifications{% if unread %} <span class="count-pill notification-count-badge">{{ unread }} new</span>{% endif %}</a>
+            <details class="bell-menu{% if page == 'notifications' %} active{% endif %}" data-bell-url="{% url 'notification_bell' %}">
+                <summary class="bell-toggle" aria-label="Notifications{% if unread %}, {{ unread }} new{% endif %}">
+                    <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 22a2.5 2.5 0 0 0 2.45-2h-4.9A2.5 2.5 0 0 0 12 22zm7-6V11a7 7 0 0 0-5-6.71V3a2 2 0 0 0-4 0v1.29A7 7 0 0 0 5 11v5l-2 2v1h18v-1z"/></svg>
+                    {% if unread %}<span class="bell-badge notification-count-badge">{{ unread }}</span>{% endif %}
+                </summary>
+                <div class="bell-panel" role="region" aria-label="Latest notifications">
+                    <p class="bell-head">Notifications</p>
+                    <div class="bell-body" data-bell-body aria-live="polite"><p class="bell-empty">Loading…</p></div>
+                    <a class="bell-all" href="{% url 'notifications' %}">See all notifications</a>
+                </div>
+            </details>
             {% endwith %}
 
             <details class="account-menu">
@@ -60,5 +70,6 @@
     </a>
     {% endwith %}
 </nav>
-<script src="{% static 'events/message-count.js' %}" defer></script>{% endif %}
+<script src="{% static 'events/message-count.js' %}" defer></script>
+<script src="{% static 'events/bell.js' %}" defer></script>{% endif %}
 {% endwith %}

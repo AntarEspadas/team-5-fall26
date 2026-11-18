@@ -181,18 +181,6 @@
     background: var(--leaf-dark);
 }
 
-.plans-section {
-    margin-top: 40px;
-}
-
-.plans-card {
-    margin: 0;
-    padding: 20px;
-    border: 1px solid var(--line);
-    border-radius: var(--radius-card);
-    background: var(--surface);
-    color: var(--muted);
-}
 .archived-section {
     margin-top: 40px;
 }
