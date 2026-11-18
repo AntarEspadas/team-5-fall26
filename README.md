@@ -293,11 +293,10 @@ the server creates (see below).
   (at `CHATBOT_SUPPORT_EMAIL` when it is set). These replies are logged with
   the outcome **Couldn't answer**, so staff can see which questions need FAQ
   entries.
-- **Questions page.** Earlier versions forwarded unanswered questions to
-  event managers. Those questions can still be answered on the **Questions**
-  page (`/assistant/inquiries/`, linked from **My events**) or in the admin;
-  the answer is translated into the asker's language and appears in their
-  chat. New questions are no longer forwarded.
+- **Old forwarded questions.** Earlier versions forwarded unanswered
+  questions to event managers. Staff can still answer any open ones in the
+  admin (**Assistant inquiries**); the answer is translated into the asker's
+  language and appears in their chat. New questions are no longer forwarded.
 - **Off-topic or inappropriate requests** are declined by the system prompt
   and by Gemini's safety settings (harassment, hate speech, sexual, and
   dangerous content blocked at medium and above).
@@ -341,8 +340,8 @@ the server creates (see below).
      behaviour.
    - `CHATBOT_SUPPORT_EMAIL`: support address offered as a fallback
      (defaults to the first manager email).
-   - `CHATBOT_MANAGER_EMAILS`: comma-separated staff emails told about
-     forwarded questions.
+   - `CHATBOT_MANAGER_EMAILS`: comma-separated staff emails (Django
+     `MANAGERS`); the first is the default support address.
    - `CHATBOT_LOG_CONVERSATIONS`: `False` to disable conversation logs.
 5. Run `python manage.py migrate` (Elastic Beanstalk runs it on deploy) to
    create the FAQ, log, and questions tables.

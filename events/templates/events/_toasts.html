@@ -5,7 +5,7 @@ page. Errors stay until closed; everything else fades after a few seconds.
 <div class="toast-stack" data-toast-stack>
     {% for message in messages %}
     <div class="toast{% if message.level_tag %} toast-{{ message.level_tag }}{% endif %}" role="{% if message.level_tag == 'error' %}alert{% else %}status{% endif %}"{% if message.level_tag != 'error' %} data-toast-autohide{% endif %}>
-        <svg class="toast-icon" viewBox="0 0 24 24" aria-hidden="true">{% if message.level_tag == 'error' %}<path d="M12 2a10 10 0 1 0 0 20 10 10 0 0 0 0-20zm1 15h-2v-2h2zm0-4h-2V7h2z"/>{% elif message.level_tag == 'success' %}<path d="M12 2a10 10 0 1 0 0 20 10 10 0 0 0 0-20zm-1.5 14.5-4-4 1.4-1.4 2.6 2.6 5.6-5.6 1.4 1.4z"/>{% else %}<path d="M12 2a10 10 0 1 0 0 20 10 10 0 0 0 0-20zm1 15h-2v-6h2zm0-8h-2V7h2z"/>{% endif %}</svg>
+        <svg class="toast-icon" viewBox="0 0 24 24" width="22" height="22" aria-hidden="true">{% if message.level_tag == 'error' %}<path d="M12 2a10 10 0 1 0 0 20 10 10 0 0 0 0-20zm1 15h-2v-2h2zm0-4h-2V7h2z"/>{% elif message.level_tag == 'success' %}<path d="M12 2a10 10 0 1 0 0 20 10 10 0 0 0 0-20zm-1.5 14.5-4-4 1.4-1.4 2.6 2.6 5.6-5.6 1.4 1.4z"/>{% else %}<path d="M12 2a10 10 0 1 0 0 20 10 10 0 0 0 0-20zm1 15h-2v-6h2zm0-8h-2V7h2z"/>{% endif %}</svg>
         <p class="toast-text">{{ message }}</p>
         <button type="button" class="toast-close" data-toast-close aria-label="Dismiss">&times;</button>
     </div>

@@ -190,9 +190,10 @@ class LandingViewTests(TestCase):
         self.assertContains(response, f'href="{reverse("register")}"')
         self.assertContains(response, f'href="{reverse("login")}"')
         self.assertNotContains(response, "Alpha Yoga")
-        self.assertNotContains(response, "Upcoming events")
+        # Match the section headings: the site footer links to Archived events.
+        self.assertNotContains(response, 'id="events-heading"')
         self.assertNotContains(response, "Personal plans")
-        self.assertNotContains(response, "Archived events")
+        self.assertNotContains(response, 'id="archived-heading"')
         self.assertEqual(list(response.context["events"]), [])
         self.assertEqual(list(response.context["archived_events"]), [])
 

@@ -15,11 +15,4 @@ urlpatterns = [
     path("api/chat/live/turn", views.live_turn, name="live_turn"),
     path("api/chat/history", views.chat_history, name="history"),
     path("api/chat/reset", views.chat_reset, name="reset"),
-    # Page where event managers answer forwarded questions.
-    path("assistant/inquiries/", views.inquiry_list, name="inquiries"),
-    path(
-        "assistant/inquiries/<int:pk>/answer/",
-        views.answer_inquiry_view,
-        name="answer_inquiry",
-    ),
 ]
