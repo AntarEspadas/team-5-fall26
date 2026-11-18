@@ -40,7 +40,7 @@ from .calendar_export import (
     ics_filename,
     webcal_url,
 )
-from .filters import EventFilterForm, filter_events, filter_params
+from .filters import NYC_TIMEZONE, EventFilterForm, filter_events, filter_params
 from .forms import (
     CancelEventForm,
     EventListingForm,
@@ -272,7 +272,43 @@ class MyEventsView(LoginRequiredMixin, TemplateView):
                 and rating_window_open(event)
             )
         context["registered_events"] = registrations
+        context["plan_days"] = plan_timeline(context["upcoming_events"], registrations)
         return context
+
+
+def plan_timeline(hosted_events, registrations):
+    """Group a user's upcoming plans by day, in date order.
+
+    Plans are the open events the user hosts or registered for, cancelled
+    ones left out. Each day is ``(date, plans)``, where a plan is a dict with
+    the event, ``hosting``, and the party size when registered. Events
+    without a date come last under a ``None`` day.
+    """
+    plans = {}
+    for event in hosted_events:
+        if not event.is_cancelled:
+            plans[event.pk] = {"event": event, "hosting": True, "party_size": None}
+    for registration in registrations:
+        event = registration.event
+        if not event.is_open or event.is_cancelled:
+            continue
+        plan = plans.setdefault(
+            event.pk, {"event": event, "hosting": False, "party_size": None}
+        )
+        plan["party_size"] = registration.party_size
+
+    def sort_key(plan):
+        event = plan["event"]
+        return (event.start_time is None, event.start_time, event.title, event.pk)
+
+    days = []
+    for plan in sorted(plans.values(), key=sort_key):
+        start = plan["event"].start_time
+        day = timezone.localtime(start, NYC_TIMEZONE).date() if start else None
+        if not days or days[-1][0] != day:
+            days.append((day, []))
+        days[-1][1].append(plan)
+    return days
 
 
 class EventManageView(LoginRequiredMixin, DetailView):
