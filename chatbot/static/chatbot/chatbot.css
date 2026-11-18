@@ -472,7 +472,7 @@
     align-items: flex-end;
     gap: 8px;
     margin: 0;
-    padding: 12px 12px 8px 16px;
+    padding: 12px 12px 12px 16px;
     border-top: 1px solid var(--pa-line);
     background: var(--pa-surface);
 }
@@ -549,15 +549,6 @@
     background: var(--pa-leaf-dark);
 }
 
-.pa-footnote {
-    margin: 0;
-    padding: 0 16px 10px;
-    background: var(--pa-surface);
-    color: var(--pa-muted);
-    font-size: 0.72rem;
-    text-align: center;
-}
-
 /* Phones: the open panel fills the screen. */
 
 @media (max-width: 520px) {
@@ -590,9 +581,4 @@
         animation: none !important;
         transition: none !important;
     }
-}
-
-.pa-footnote a {
-    color: var(--pa-leaf);
-    font-weight: 600;
 }
