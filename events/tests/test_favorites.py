@@ -158,7 +158,9 @@ class FavoriteEventTests(TestCase):
         page = self.client.get(self.list_url)
         self.assertContains(page, self.event.title)
         self.assertNotContains(page, "Remove from favorites")
-        self.assertNotContains(self.client.get(self.detail_url), "Remove from favorites")
+        self.assertNotContains(
+            self.client.get(self.detail_url), "Remove from favorites"
+        )
         response = self.client.post(self.action_url, {"action": "remove"})
         self.assertEqual(response.status_code, 403)
         self.assertTrue(FavoriteEvent.objects.filter(user=self.member).exists())
