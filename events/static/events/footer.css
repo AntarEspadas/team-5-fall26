@@ -1,0 +1,139 @@
+/* The shared site footer, included on every page by _site_footer.html.
+ *
+ * Some pages do not load search.css, so every value is set here directly.
+ */
+
+.site-footer {
+    margin-top: 48px;
+    background: #1f4d38;
+    color: #e8f2ec;
+    font-family: var(--font, "Figtree", system-ui, sans-serif);
+    font-size: 0.95rem;
+    line-height: 1.6;
+}
+
+.site-footer *,
+.site-footer *::before,
+.site-footer *::after {
+    box-sizing: border-box;
+}
+
+.site-footer a {
+    color: #e8f2ec;
+    text-decoration: none;
+}
+
+.site-footer a:hover {
+    color: #ffffff;
+    text-decoration: underline;
+}
+
+.site-footer a:focus-visible {
+    outline: 2px solid #ffffff;
+    outline-offset: 2px;
+    border-radius: 4px;
+}
+
+.site-footer-inner {
+    display: grid;
+    grid-template-columns: minmax(0, 1.4fr) minmax(0, 2fr);
+    gap: 32px;
+    max-width: var(--page-width, 1200px);
+    margin: 0 auto;
+    padding: 40px 24px 28px;
+}
+
+.site-footer-logo {
+    display: inline-flex;
+    align-items: center;
+    gap: 10px;
+    color: #ffffff;
+    font-size: 1.15rem;
+    font-weight: 800;
+}
+
+.site-footer-mark {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 34px;
+    height: 34px;
+    border-radius: 10px;
+    background: #2f7a55;
+}
+
+.site-footer-mark svg {
+    width: 20px;
+    height: 20px;
+    fill: none;
+    stroke: #ffffff;
+    stroke-width: 2;
+    stroke-linecap: round;
+    stroke-linejoin: round;
+}
+
+.site-footer-brand p {
+    max-width: 30ch;
+    margin: 12px 0 0;
+    color: #bcd9c8;
+}
+
+.site-footer-links {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 24px;
+}
+
+.site-footer-links h2 {
+    margin: 0 0 10px;
+    color: #9fd1b6;
+    font-size: 0.8rem;
+    font-weight: 700;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+}
+
+.site-footer-links ul {
+    margin: 0;
+    padding: 0;
+    list-style: none;
+}
+
+.site-footer-links li {
+    margin: 0 0 6px;
+}
+
+.site-footer-bottom {
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: space-between;
+    gap: 4px 24px;
+    max-width: var(--page-width, 1200px);
+    margin: 0 auto;
+    padding: 14px 24px 20px;
+    border-top: 1px solid #3c6e56;
+    color: #a9cbb8;
+    font-size: 0.82rem;
+}
+
+.site-footer-bottom p {
+    margin: 0;
+}
+
+@media (max-width: 760px) {
+    .site-footer-inner {
+        grid-template-columns: 1fr;
+        gap: 24px;
+        padding: 32px 18px 20px;
+    }
+
+    .site-footer-links {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+
+    /* Leave room so the floating assistant button doesn't cover the last line. */
+    .site-footer-bottom {
+        flex-direction: column;
+        padding: 14px 18px 88px;
+    }
+}
