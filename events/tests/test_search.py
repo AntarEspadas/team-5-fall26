@@ -52,6 +52,8 @@ def make_event(guid, **fields):
     """Create an event with optional discovery fields."""
     fields.setdefault("title", "Community gathering")
     fields.setdefault("content_hash", "s" * 64)
+    # Feed events without a registration link are not listed (#158).
+    fields.setdefault("registration_url", "https://example.com/register")
     return Event.objects.create(guid=guid, **fields)
 
 
@@ -302,9 +304,13 @@ class SearchViewTests(TestCase):
     def test_card_actions_are_not_nested_inside_links(self):
         """Register links and forms sit beside the card links, never in them."""
         community = make_event(
-            "community-yoga",
+            Event.HOSTED_GUID_PREFIX + "community-yoga",
             title="Community Yoga",
             start_time=datetime(2099, 1, 16, 9, tzinfo=NYC),
+            registration_url="",
+            host=get_user_model().objects.create_user(
+                username="yoga_host", email="yoga_host@example.com"
+            ),
         )
 
         anonymous = self.client.get(reverse("search"), {"q": "yoga"})
@@ -343,6 +349,7 @@ class SearchViewTests(TestCase):
                     title="Yoga",
                     location="Central Park",
                     content_hash="p" * 64,
+                    registration_url="https://example.com/register",
                 )
                 for index in range(SEARCH_PAGE_SIZE + 1)
             ]

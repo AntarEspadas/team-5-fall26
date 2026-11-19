@@ -186,7 +186,7 @@ class Toolbox:
         except (TypeError, ValueError):
             limit = DEFAULT_SEARCH_RESULTS
         events = filter_events(
-            Event.objects.filter(status=Event.Status.UPCOMING), filters
+            Event.objects.listed().filter(status=Event.Status.UPCOMING), filters
         )
         query = str(query or "").strip()
         if query:

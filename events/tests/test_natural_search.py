@@ -382,6 +382,8 @@ class GeminiInterpretationTests(SimpleTestCase):
 
 def make_event(guid, title, start, **fields):
     fields.setdefault("content_hash", "n" * 64)
+    # Feed events without a registration link are not listed (#158).
+    fields.setdefault("registration_url", "https://example.com/register")
     return Event.objects.create(guid=guid, title=title, start_time=start, **fields)
 
 

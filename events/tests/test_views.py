@@ -21,6 +21,8 @@ NYC = ZoneInfo("America/New_York")
 def make_event(guid, title, **kwargs):
     """Create an event row with sensible defaults for view tests."""
     kwargs.setdefault("content_hash", "v" * 64)
+    # Feed events without a registration link are not listed (#158).
+    kwargs.setdefault("registration_url", "https://example.com/register")
     return Event.objects.create(guid=guid, title=title, **kwargs)
 
 
@@ -167,12 +169,17 @@ class LandingViewTests(TestCase):
             registration_url="https://example.org/alpha/register",
             image_url="https://example.org/img/yoga.png",
         )
+        # A hosted event, so its card offers registration on this site.
         make_event(
-            "b2",
+            Event.HOSTED_GUID_PREFIX + "b2",
             "Beta Birdwatching",
             start_time=datetime(2099, 1, 16, 10, 0, tzinfo=NYC),
             end_time=datetime(2099, 1, 16, 12, 0, tzinfo=NYC),
             park_names="Central Park",
+            registration_url="",
+            host=get_user_model().objects.create_user(
+                username="beta_host", email="beta_host@example.com"
+            ),
         )
         self.past_event = make_event(
             "c3",
@@ -234,7 +241,7 @@ class LandingViewTests(TestCase):
             response,
             f'href="{reverse("event_detail", args=[self.alpha_event.pk])}"',
         )
-        beta_event = Event.objects.get(guid="b2")
+        beta_event = Event.objects.get(guid=Event.HOSTED_GUID_PREFIX + "b2")
         register_url = reverse("event_detail", args=[beta_event.pk])
         self.assertContains(
             response, f'<a class="register" href="{register_url}#register">'
