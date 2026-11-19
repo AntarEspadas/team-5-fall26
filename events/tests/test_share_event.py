@@ -16,7 +16,7 @@ class ShareEventTests(TestCase):
         cls.event = Event.objects.create(guid="share-walk", title="Park walk")
         cls.other = Event.objects.create(guid="share-yoga", title="Park yoga")
         cls.member = get_user_model().objects.create_user(
-            "sharemember", "share@example.com"
+            "sharemember", "share@example.com", password="ShareTestPass123!"
         )
 
     def test_visitor_can_share_the_direct_event_url(self):
@@ -53,6 +53,28 @@ class ShareEventTests(TestCase):
         self.assertContains(response, "Share event")
         self.assertContains(response, "Register for Event")
         self.assertFalse(Registration.objects.exists())
+        self.client.post(reverse("event_register", args=[self.event.pk]))
+        self.assertTrue(
+            Registration.objects.filter(event=self.event, user=self.member).exists()
+        )
+
+    def test_signed_out_friend_can_log_in_and_return_to_event(self):
+        """Follow the login flow from a shared link before registering."""
+        path = reverse("event_detail", args=[self.event.pk])
+        response = self.client.get(path)
+        login_url = reverse("login") + "?next=" + path
+        self.assertContains(response, "Log in to Register")
+        login = self.client.get(login_url)
+        self.assertEqual(login.status_code, 200)
+        response = self.client.post(
+            login_url,
+            {
+                "username": self.member.username,
+                "password": "ShareTestPass123!",
+                "next": path,
+            },
+        )
+        self.assertRedirects(response, path)
         self.client.post(reverse("event_register", args=[self.event.pk]))
         self.assertTrue(
             Registration.objects.filter(event=self.event, user=self.member).exists()

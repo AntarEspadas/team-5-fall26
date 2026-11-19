@@ -8,7 +8,7 @@ const vm = require("node:vm");
 const source = readFileSync(resolve(__dirname, "../static/events/share-event.js"), "utf8");
 const url = "https://parks.example/events/42/";
 
-function setup({ clipboard, legacyCopy } = {}) {
+function setup({ clipboard, legacyCopy, selectionError = false } = {}) {
     const classes = new Set();
     const button = {
         hidden: true, disabled: false, focus() { this.focused = true; },
@@ -21,7 +21,11 @@ function setup({ clipboard, legacyCopy } = {}) {
     const fallback = { hidden: false };
     const input = {
         value: url, focus() { this.focused = true; },
-        select() { this.selected = true; }, setSelectionRange(start, end) { this.range = [start, end]; },
+        select() {
+            if (selectionError) throw new Error("Selection unsupported");
+            this.selected = true;
+        },
+        setSelectionRange(start, end) { this.range = [start, end]; },
     };
     const elements = {
         "[data-share-button]": button, "[data-share-status]": status,
@@ -105,4 +109,21 @@ test("prevents overlapping copy attempts and allows retry", async () => {
     await second;
     assert.equal(attempts, 2);
     assert.equal(ui.button.disabled, false);
+});
+
+test("selection failure leaves a manual link and permits retry", async () => {
+    const ui = setup({ selectionError: true, legacyCopy: () => true });
+    await ui.button.click();
+    assert.equal(ui.fallback.hidden, false);
+    assert.equal(ui.button.disabled, false);
+    assert.equal(ui.classes.has("is-error"), true);
+    assert.match(ui.status.textContent, /Could not copy automatically/);
+    await ui.button.click();
+    assert.equal(ui.button.disabled, false);
+});
+
+test("a page without the share component does not throw", () => {
+    assert.doesNotThrow(() => vm.runInNewContext(source, {
+        document: { querySelector: () => null },
+    }));
 });

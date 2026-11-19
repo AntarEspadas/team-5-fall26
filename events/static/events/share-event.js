@@ -9,14 +9,15 @@
     const status = share.querySelector("[data-share-status]");
     const fallback = share.querySelector("[data-share-fallback]");
     const input = share.querySelector("[data-share-url]");
+    if (!button || !status || !fallback || !input) return;
 
     // Try the older copy command when the Clipboard API is unavailable.
     function tryLegacyCopy() {
         fallback.hidden = false;
-        input.focus();
-        input.select();
-        input.setSelectionRange(0, input.value.length);
         try {
+            input.focus();
+            input.select();
+            input.setSelectionRange(0, input.value.length);
             return typeof document.execCommand === "function" &&
                 document.execCommand("copy") === true;
         } catch {
