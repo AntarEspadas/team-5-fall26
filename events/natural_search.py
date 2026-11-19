@@ -9,6 +9,9 @@ dropped, and the rest stays as search keywords. Quoted phrases and
 With Gemini configured (``CHATBOT_ENABLED``), prompts of a few words or more
 are interpreted by Gemini, so other phrasings and languages work too. The
 rules here are the fallback whenever Gemini is off or fails.
+
+The archive of past events uses the same reading with ``past=True``, so
+"yesterday", "last weekend", or "Monday" mean days that have gone by.
 """
 
 import logging
@@ -196,13 +199,18 @@ class Interpretation:
         return merged
 
 
-def natural_search_url(request):
+def natural_search_url(request, past=False):
     """Return the search a plain-language query stands for, or None.
 
     The search form's hidden ``nl`` field identifies a newly typed prompt.
     Shared links without it only use the built-in rules when they contain an
     explicit date phrase; ordinary shared keyword links stay unchanged.
     An ``exact=1`` link always bypasses interpretation.
+
+    Args:
+        request: the search request.
+        past: read the prompt as a search of the archive of past events,
+            and send it back to the archive instead of the upcoming search.
     """
     prompt = " ".join(request.GET.get("q", "").split())[:MAX_PROMPT_LENGTH]
     shown = " ".join(request.GET.get("nl", "").split())
@@ -214,12 +222,12 @@ def natural_search_url(request):
 
     today = nyc_today()
     if "nl" in request.GET:
-        meaning = interpret(prompt, today)
+        meaning = interpret(prompt, today, past=past)
     else:
         # A direct link like /search?q=kids+event+this+week should work.
         # Do not change existing links that only supply keywords, boroughs,
         # or categories, and do not make an AI request for shared URLs.
-        meaning = parse_prompt(prompt, today)
+        meaning = parse_prompt(prompt, today, past=past)
         if not (meaning.date_from or meaning.date_to):
             return None
     if not meaning.changes(prompt):
@@ -228,23 +236,27 @@ def natural_search_url(request):
     form.is_valid()
     filters = meaning.merged_with(form.cleaned_data)
     keywords = meaning.keywords
-    if not keywords and not filter_params(filters):
+    if not keywords and not filter_params(filters) and not past:
         # "What's on?" lists everything coming up.
         filters["date_from"] = today
+    status = Event.Status.DONE if past else Event.Status.UPCOMING
     broader = any_word_query(keywords)
     if broader:
-        events = filter_events(
-            Event.objects.filter(status=Event.Status.UPCOMING), filters
-        )
+        events = filter_events(Event.objects.filter(status=status), filters)
         if not search_events(events, keywords).exists():
             keywords = broader
     params = [("q", keywords)] if keywords else []
     params += filter_params(filters) + [("asked", prompt)]
-    return f"{reverse('search')}?{urlencode(params, quote_via=quote)}"
+    page = reverse("archived_events" if past else "search")
+    return f"{page}?{urlencode(params, quote_via=quote)}"
 
 
-def interpret(prompt, today):
-    """Return what a prompt asks for, using Gemini when it is configured."""
+def interpret(prompt, today, past=False):
+    """Return what a prompt asks for, using Gemini when it is configured.
+
+    With ``past`` the prompt searches past events, so dates without a year
+    or a "last"/"next" mean the most recent such day.
+    """
     prompt = " ".join(str(prompt).split())[:MAX_PROMPT_LENGTH]
     if wants_gemini(prompt):
         # Imported here so the events app only needs the assistant for this.
@@ -252,7 +264,7 @@ def interpret(prompt, today):
 
         try:
             data = generate_json(
-                [{"text": gemini_instructions(prompt, today)}], GEMINI_SCHEMA
+                [{"text": gemini_instructions(prompt, today, past)}], GEMINI_SCHEMA
             )
         except GeminiError as error:
             logger.warning("Gemini could not read a search, using rules: %s", error)
@@ -261,7 +273,7 @@ def interpret(prompt, today):
             if meaning is not None:
                 return meaning
             logger.warning("Gemini returned an unusable search, using rules")
-    return parse_prompt(prompt, today)
+    return parse_prompt(prompt, today, past=past)
 
 
 def wants_gemini(prompt):
@@ -300,17 +312,27 @@ GEMINI_SCHEMA = {
 }
 
 
-def gemini_instructions(prompt, today):
+def gemini_instructions(prompt, today, past=False):
     """Return the request that asks Gemini to turn a prompt into filters."""
-    saturday, sunday = preset_range("weekend", today)
+    if past:
+        saturday, sunday = weekend("last", today)
+        weekend_name, events = "last weekend", "past events that already ended"
+        dates = (
+            "Dates mean the most recent such day on or before today, e.g. "
+            "'Monday' is the last Monday and 'yesterday' is the day before "
+            "today. "
+        )
+    else:
+        saturday, sunday = preset_range("weekend", today)
+        weekend_name, events, dates = "this weekend", "upcoming events", ""
     categories = "; ".join(
         f"{slug} ({label})" for slug, label in CATEGORY_LABELS.items()
     )
     return (
         f"Today is {today:%A, %B} {today.day}, {today.year} in New York City "
-        f"({today.isoformat()}); this weekend is {saturday.isoformat()} to "
+        f"({today.isoformat()}); {weekend_name} is {saturday.isoformat()} to "
         f"{sunday.isoformat()}. A visitor typed the search below on an NYC "
-        "Parks events website. Turn it into filters for upcoming events.\n"
+        f"Parks events website. Turn it into filters for {events}. {dates}\n"
         "- keywords: English words for the activity, topic, or place that "
         "event listings should mention, such as 'yoga' or 'central park'. "
         "Translate other languages. Leave out dates, times, boroughs, "
@@ -375,8 +397,12 @@ def allowed(values, choices):
     return list(dict.fromkeys(value for value in values if value in choices))
 
 
-def parse_prompt(prompt, today):
-    """Read a prompt with built-in English rules relative to ``today``."""
+def parse_prompt(prompt, today, past=False):
+    """Read a prompt with built-in English rules relative to ``today``.
+
+    With ``past``, dates point back in time: "Monday" or "Nov 17" mean the
+    most recent such day, and "this week" or "this month" end today.
+    """
     text = prompt.replace("“", '"').replace("”", '"').replace("’", "'")
     protected = []
 
@@ -414,7 +440,9 @@ def parse_prompt(prompt, today):
             value = date(int(year) if year else today.year, int(month), int(day))
         except ValueError:
             return False
-        if not year and value < today:
+        if not year and past and value > today:
+            value = value.replace(year=today.year - 1)
+        elif not year and not past and value < today:
             value = value.replace(year=today.year + 1)
         return add_range(value)
 
@@ -436,26 +464,33 @@ def parse_prompt(prompt, today):
     )
     take(
         rf"\b(?:in|during)\s+({MONTH})\b",
-        lambda m: add_range(*month_range(MONTHS[m[1]], today)),
+        lambda m: add_range(*month_range(MONTHS[m[1]], today, past)),
+    )
+    take(
+        r"\b(?:last|past|previous)\s+(\d{1,2})\s+(days?|weeks?)\b",
+        lambda m: add_range(today - recent_span(m[1], m[2]), today),
     )
     take(r"\btonight\b", lambda m: add_range(today) and add_time("evening"))
     take(r"\btoday\b", lambda m: add_range(today))
+    take(r"\byesterday\b", lambda m: add_range(today - timedelta(days=1)))
     take(r"\b(?:tomorrow|tmrw)\b", lambda m: add_range(today + timedelta(days=1)))
     take(
-        r"\b(?:(this|next|coming|the)\s+)?weekends?\b",
-        lambda m: add_range(*weekend(m[1], today)),
+        r"\b(?:(this|next|coming|the|last|past|previous)\s+)?weekends?\b",
+        lambda m: add_range(*weekend(qualifier(m[1], past), today)),
     )
     take(
-        r"\b(this|next|coming)\s+week\b",
-        lambda m: add_range(*week(m[1], today)),
+        r"\b(this|next|coming|last|past|previous)\s+week\b",
+        lambda m: add_range(*week(qualifier(m[1], past), today)),
     )
     take(
-        r"\b(this|next|coming)\s+month\b",
-        lambda m: add_range(*month_phrase(m[1], today)),
+        r"\b(this|next|coming|last|past|previous)\s+month\b",
+        lambda m: add_range(*month_phrase(qualifier(m[1], past), today)),
     )
     take(
-        rf"\b(?:(this|next|coming|on)\s+)?({WEEKDAY})s?\b",
-        lambda m: add_range(weekday(WEEKDAYS.index(m[2]), m[1], today)),
+        rf"\b(?:(this|next|coming|on|last|past|previous)\s+)?({WEEKDAY})s?\b",
+        lambda m: add_range(
+            weekday(WEEKDAYS.index(m[2]), qualifier(m[1], past), today)
+        ),
     )
     take(CLOCK_TIME, add_clock)
     for slug, pattern in TIME_PATTERNS.items():
@@ -502,11 +537,40 @@ def full_year(value):
     return int(value) + 2000 if len(value) == 2 else int(value)
 
 
-def month_range(month, today):
-    """Return the rest of this month, or all of the next such month."""
-    year = today.year if month >= today.month else today.year + 1
+def qualifier(word, past):
+    """Normalize the word before a date phrase, e.g. "previous" to "last".
+
+    In the archive a bare "weekend" or "Monday" means the latest one that
+    has started, written here as "recent".
+    """
+    if word in ("last", "past", "previous"):
+        return "last"
+    if past and word in (None, "the", "on"):
+        return "recent"
+    if past and word == "this":
+        return "this-past"
+    return word
+
+
+def recent_span(count, unit):
+    """Return how far back "last 3 days" or "past 2 weeks" reaches."""
+    days = int(count) * (7 if unit.startswith("week") else 1)
+    return timedelta(days=max(days - 1, 0))
+
+
+def month_range(month, today, past=False):
+    """Return the rest of this month, or all of the next such month.
+
+    With ``past``, return the latest such month up to today instead.
+    """
+    if past:
+        year = today.year if month <= today.month else today.year - 1
+    else:
+        year = today.year if month >= today.month else today.year + 1
     first = date(year, month, 1)
     last = next_month_start(first) - timedelta(days=1)
+    if past:
+        return first, min(last, today)
     return max(first, today), last
 
 
@@ -516,14 +580,37 @@ def next_month_start(day):
 
 
 def month_phrase(qualifier, today):
-    """Return the rest of this month, or all of next month for "next month"."""
+    """Return the days a "this/next/last month" phrase covers.
+
+    "This month" is the rest of it, or its first days up to today in the
+    archive; "next month" and "last month" are the whole month.
+    """
+    first = today.replace(day=1)
     if qualifier == "next":
         return month_range(next_month_start(today).month, today)
+    if qualifier == "last":
+        last = first - timedelta(days=1)
+        return last.replace(day=1), last
+    if qualifier in ("recent", "this-past"):
+        return first, today
     return preset_range("month", today)
 
 
 def weekend(qualifier, today):
-    """Return this weekend, or next week's weekend for "next weekend"."""
+    """Return the Saturday and Sunday a "weekend" phrase means.
+
+    "This weekend" is the coming one and "next weekend" the one after next
+    Monday. "Last weekend" is the latest one that has ended, and in the
+    archive a bare "weekend" is the latest one that has started.
+    """
+    if qualifier in ("last", "recent", "this-past"):
+        # Days back to the latest Saturday; on a Saturday or Sunday that
+        # weekend has started, but it is only over for "last weekend".
+        back = (today.weekday() - 5) % 7
+        if qualifier == "last" and back < 2:
+            back += 7
+        saturday = today - timedelta(days=back)
+        return saturday, min(saturday + timedelta(days=1), today)
     saturday, sunday = preset_range("weekend", today)
     if qualifier == "next":
         next_monday = today + timedelta(days=7 - today.weekday())
@@ -533,18 +620,35 @@ def weekend(qualifier, today):
 
 
 def week(qualifier, today):
-    """Return the rest of this week, or all of next week (Monday to Sunday)."""
-    sunday = today + timedelta(days=6 - today.weekday())
+    """Return the days a "this/next/last week" phrase covers.
+
+    Weeks run Monday to Sunday. "This week" is the rest of it, or its
+    first days up to today in the archive.
+    """
+    monday = today - timedelta(days=today.weekday())
+    sunday = monday + timedelta(days=6)
     if qualifier == "next":
         return sunday + timedelta(days=1), sunday + timedelta(days=7)
+    if qualifier == "last":
+        return monday - timedelta(days=7), monday - timedelta(days=1)
+    if qualifier in ("recent", "this-past"):
+        return monday, today
     return today, sunday
 
 
 def weekday(index, qualifier, today):
-    """Return the next such weekday (today counts), or next week's one."""
+    """Return the day a weekday name means; today counts as the nearest.
+
+    The next such weekday by default, next week's with "next", and the
+    latest one before today with "last" (or up to today in the archive).
+    """
     if qualifier == "next":
         next_monday = today + timedelta(days=7 - today.weekday())
         return next_monday + timedelta(days=index)
+    if qualifier == "last":
+        return today - timedelta(days=(today.weekday() - index - 1) % 7 + 1)
+    if qualifier in ("recent", "this-past"):
+        return today - timedelta(days=(today.weekday() - index) % 7)
     return today + timedelta(days=(index - today.weekday()) % 7)
 
 

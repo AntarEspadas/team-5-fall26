@@ -992,7 +992,11 @@ class ArchivedEventsView(
     LoginRequiredMixin,
     ListView,
 ):
-    """Display and search completed events in the public archive."""
+    """Display and search completed events in the public archive.
+
+    Searches can be typed in plain language too, such as "yoga yesterday" or
+    "last weekend in Brooklyn"; dates are read as days that have gone by.
+    """
 
     model = Event
     template_name = "events/archived_events.html"
@@ -1011,6 +1015,23 @@ class ArchivedEventsView(
     empty_without_filters = False
     clear_filters_url_name = "archived_events"
     search_action_url_name = "archived_events"
+
+    def get(self, request, *args, **kwargs):
+        """Send a plain-language search to the dates and filters it describes."""
+        target = natural_search_url(request, past=True)
+        if target:
+            return redirect(target)
+        return super().get(request, *args, **kwargs)
+
+    def get_context_data(self, **kwargs):
+        """Explain how a plain-language search was read."""
+        context = super().get_context_data(**kwargs)
+        context["plain_language"] = True
+        asked = " ".join(self.request.GET.get("asked", "").split())
+        if asked:
+            context["asked"] = asked[:MAX_PROMPT_LENGTH]
+            context["understood"] = describe_search(self.query, self.filters)
+        return context
 
 
 class SearchView(EventSearchMixin, ListView):

@@ -563,11 +563,178 @@ class NaturalLanguageSearchPageTests(TestCase):
         self.assertContains(landing, "Try &ldquo;kids events in Brooklyn this weekend")
         self.assertContains(results, '<input type="hidden" name="nl" value="yoga">')
 
-    def test_archive_search_stays_a_keyword_search(self, today):
+
+def parse_past(prompt):
+    return parse_prompt(prompt, TODAY, past=True)
+
+
+class PastPromptRulesTests(SimpleTestCase):
+    """In the archive, date words mean days that have already gone by."""
+
+    def test_relative_dates_look_back(self):
+        """Today is Wednesday, January 14."""
+        cases = {
+            "yesterday": days(13),
+            "today": days(14),
+            "monday": days(12),
+            "on Monday": days(12),
+            "last monday": days(12),
+            "wednesday": days(14),
+            "last wednesday": days(7),
+            "thursday": days(8),
+            "weekend": days(10, 11),
+            "this weekend": days(10, 11),
+            "last weekend": days(10, 11),
+            "this week": days(12, 14),
+            "last week": days(5, 11),
+            "this month": days(1, 14),
+            "last month": (date(2098, 12, 1), date(2098, 12, 31)),
+            "in january": days(1, 14),
+            "in December": (date(2098, 12, 1), date(2098, 12, 31)),
+            "past 3 days": days(12, 14),
+            "last 2 weeks": days(1, 14),
+            "Jan 10": days(10),
+            "Feb 3": (date(2098, 2, 3), date(2098, 2, 3)),
+            "1/13": days(13),
+        }
+        for prompt, expected in cases.items():
+            with self.subTest(prompt):
+                meaning = parse_past(f"picnic {prompt}")
+
+                self.assertEqual((meaning.date_from, meaning.date_to), expected)
+                self.assertEqual(meaning.keywords, "picnic")
+
+    def test_weekends_on_a_weekend(self):
+        """A weekend in progress is "this weekend"; "last" is the one before."""
+        saturday = date(2099, 1, 17)
+        sunday = date(2099, 1, 18)
+
+        def dates(prompt, today):
+            meaning = parse_prompt(prompt, today, past=True)
+            return meaning.date_from, meaning.date_to
+
+        self.assertEqual(dates("weekend", saturday), (saturday, saturday))
+        self.assertEqual(dates("this weekend", sunday), (saturday, sunday))
+        self.assertEqual(dates("last weekend", saturday), days(10, 11))
+        self.assertEqual(dates("last weekend", sunday), days(10, 11))
+
+    def test_upcoming_search_understands_yesterday_and_last(self):
+        """The upcoming search reads the same words instead of keeping them."""
+        cases = {
+            "yesterday": days(13),
+            "last week": days(5, 11),
+            "last weekend": days(10, 11),
+            "last month": (date(2098, 12, 1), date(2098, 12, 31)),
+            "last friday": days(9),
+        }
+        for prompt, expected in cases.items():
+            with self.subTest(prompt):
+                meaning = parse(f"picnic {prompt}")
+
+                self.assertEqual((meaning.date_from, meaning.date_to), expected)
+                self.assertEqual(meaning.keywords, "picnic")
+
+    @override_settings(CHATBOT_ENABLED=True)
+    @patch("chatbot.gemini.generate_json")
+    def test_gemini_is_told_to_look_back(self, generate_json):
+        generate_json.return_value = {
+            "keywords": "yoga",
+            "boroughs": [],
+            "categories": [],
+            "date_from": "2099-01-13",
+            "date_to": "2099-01-13",
+            "time_of_day": "any",
+        }
+
+        meaning = interpret("yoga in the park yesterday", TODAY, past=True)
+
+        request = generate_json.call_args.args[0][0]["text"]
+        self.assertIn("past events that already ended", request)
+        self.assertIn("last weekend is 2099-01-10 to 2099-01-11", request)
+        self.assertEqual((meaning.date_from, meaning.date_to), days(13))
+
+
+@override_settings(CHATBOT_ENABLED=False)
+@patch("events.natural_search.nyc_today", return_value=TODAY)
+class ArchiveNaturalSearchTests(TestCase):
+    """The archive search box reads dates in plain language too (#161)."""
+
+    def setUp(self):
         get_user_model().objects.create_user(username="reader", password="pass12345")
         self.client.login(username="reader", password="pass12345")
+        self.yesterday_walk = make_event(
+            "feed-walk",
+            "Bird Walk",
+            datetime(2099, 1, 13, 9, tzinfo=NYC),
+            status=Event.Status.DONE,
+        )
+        self.monday_yoga = make_event(
+            "feed-yoga",
+            "Sunset Yoga",
+            datetime(2099, 1, 12, 18, tzinfo=NYC),
+            status=Event.Status.DONE,
+        )
+        self.upcoming = make_event(
+            "feed-later",
+            "Bird Walk Again",
+            datetime(2099, 1, 20, 9, tzinfo=NYC),
+        )
 
-        response = self.client.get(reverse("archived_events"))
+    def ask(self, prompt, follow=False):
+        """Submit the archive search box the way the page does."""
+        return self.client.get(
+            reverse("archived_events"), {"q": prompt, "nl": ""}, follow=follow
+        )
 
-        self.assertNotContains(response, 'name="nl"')
-        self.assertContains(response, "Search by activity, park, or location")
+    def test_yesterday_redirects_to_yesterdays_date(self, today):
+        response = self.ask("yesterday")
+
+        self.assertEqual(response.status_code, 302)
+        url = urlsplit(response["Location"])
+        self.assertEqual(url.path, reverse("archived_events"))
+        self.assertEqual(
+            parse_qsl(url.query),
+            [
+                ("date_from", "2099-01-13"),
+                ("date_to", "2099-01-13"),
+                ("asked", "yesterday"),
+            ],
+        )
+
+    def test_yesterday_lists_only_yesterdays_past_events(self, today):
+        response = self.ask("yesterday", follow=True)
+
+        self.assertEqual(list(response.context["events"]), [self.yesterday_walk])
+        self.assertContains(response, "Searching past events for")
+        self.assertContains(response, "Tue, Jan 13")
+
+    def test_keywords_and_weekday_together(self, today):
+        response = self.ask("yoga on monday", follow=True)
+
+        self.assertEqual(list(response.context["events"]), [self.monday_yoga])
+
+    def test_plain_keywords_search_without_a_redirect(self, today):
+        response = self.ask("bird walk")
+
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(list(response.context["events"]), [self.yesterday_walk])
+
+    def test_shared_link_with_a_date_phrase_is_read(self, today):
+        response = self.client.get(reverse("archived_events"), {"q": "last week"})
+
+        self.assertEqual(response.status_code, 302)
+        self.assertIn("date_from=2099-01-05", response["Location"])
+
+    def test_exact_link_skips_reading(self, today):
+        response = self.client.get(
+            reverse("archived_events"), {"q": "yesterday", "exact": "1"}
+        )
+
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(list(response.context["events"]), [])
+
+    def test_search_box_offers_plain_language(self, today):
+        response = self.client.get(reverse("archived_events"), {"q": "yoga"})
+
+        self.assertContains(response, '<input type="hidden" name="nl" value="yoga">')
+        self.assertContains(response, "Try &ldquo;yoga yesterday&rdquo;")
