@@ -3,6 +3,8 @@
 {% load static %}
 
 {% block title %}Account settings{% endblock %}
+{% block body_class %} class="settings-page-body"{% endblock %}
+{% block main_class %}settings-main{% endblock %}
 
 {% block extrastyle %}
 <link rel="stylesheet" href="{% static 'accounts/ban.css' %}">
@@ -11,9 +13,17 @@
 {% block content %}
 <style>
   .settings-page {
-    max-width: 720px;
+    max-width: 100%;
     margin: 0 auto;
     padding-bottom: 2rem;
+  }
+
+  .settings-page-body main.settings-main {
+    width: min(100% - 40px, 1000px);
+    max-width: none;
+    margin: 40px auto 64px;
+    padding: clamp(1.25rem, 3vw, 2.5rem);
+    border-radius: 18px;
   }
 
   .settings-intro {
@@ -144,6 +154,39 @@
     border: 1px solid #d9e1da;
   }
 
+  .crop-editor {
+    display: flex;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 1.25rem;
+    margin: 0 0 1.25rem;
+  }
+
+  .crop-frame {
+    position: relative;
+    width: min(220px, 100%);
+    aspect-ratio: 1;
+    overflow: hidden;
+    flex: 0 0 auto;
+    border-radius: 50%;
+    background: #edf2ed;
+    border: 2px solid #285c3b;
+    touch-action: none;
+    cursor: grab;
+  }
+
+  .crop-frame:active { cursor: grabbing; }
+  .crop-editor[hidden] { display: none; }
+
+  .crop-frame img {
+    position: absolute;
+    max-width: none;
+    user-select: none;
+    pointer-events: none;
+  }
+
+  .crop-instructions { color: #68756d; }
+
   .profile-photo-preview[hidden] {
     display: none;
   }
@@ -190,6 +233,12 @@
   }
 
   @media (max-width: 480px) {
+    .settings-page-body main.settings-main {
+      width: calc(100% - 20px);
+      margin: 16px auto 32px;
+      padding: 1rem;
+    }
+
     .settings-section {
       padding: 1rem;
     }
@@ -240,7 +289,9 @@
         <img
           id="profile-photo-preview"
           class="profile-photo profile-photo-preview"
-          {% if form.initial.profile_photo %}
+          {% if form.instance.profile_photo_crop %}
+            src="{{ form.instance.profile_photo_crop.url }}"
+          {% elif form.initial.profile_photo %}
             src="{{ form.initial.profile_photo.url }}"
           {% else %}
             hidden
@@ -259,6 +310,18 @@
         hidden
       ></p>
 
+      <div class="crop-editor" id="profile-photo-crop-editor" hidden>
+        <div class="crop-frame" id="profile-photo-crop-frame" tabindex="0" role="group" aria-label="Profile photo crop area" aria-describedby="profile-photo-crop-help">
+          <img id="profile-photo-crop-image" alt="" {% if form.initial.profile_photo %}data-source="{{ form.initial.profile_photo.url }}"{% endif %}>
+        </div>
+        <div class="crop-instructions">
+          <strong>Adjust your photo</strong>
+          <p id="profile-photo-crop-help">Zoom in to make more room to move the photo. Drag or use the arrow keys, then save changes.</p>
+          <label for="profile-photo-zoom">Zoom</label>
+          <input type="range" id="profile-photo-zoom" min="1" max="3" step="0.05" value="1">
+        </div>
+      </div>
+
       {% for field in form %}
         {% if field.name == "display_name" or field.name == "profile_photo" or field.name == "bio" or field.name == "pronouns" %}
           <div class="settings-field">
@@ -268,12 +331,8 @@
 
             {{ field }}
 
-            {% if field.name != "profile_photo" and field.help_text %}
-              <p class="helptext">{{ field.help_text }}</p>
-            {% endif %}
-
-            {% if field.name == "profile_photo" and field.help_text %}
-              <p class="helptext">{{ field.help_text }}</p>
+            {% if field.help_text %}
+              <p class="helptext" id="{{ field.auto_id }}_helptext">{{ field.help_text }}</p>
             {% endif %}
 
             {% if field.errors %}
@@ -282,6 +341,14 @@
           </div>
         {% endif %}
 
+      {% endfor %}
+      {{ form.profile_photo_crop_x }}
+      {{ form.profile_photo_crop_y }}
+      {{ form.profile_photo_crop_zoom }}
+      {% for field in form.hidden_fields %}
+        {% if field.errors %}
+          <div class="field-errors">{{ field.errors }}</div>
+        {% endif %}
       {% endfor %}
     </section>
 

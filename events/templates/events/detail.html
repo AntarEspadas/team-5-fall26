@@ -969,7 +969,7 @@
                         >
                             {% if attendee.user.profile_photo %}
                                 <img
-                                    src="{{ attendee.user.profile_photo.url }}"
+                                    src="{{ attendee.user.displayed_profile_photo.url }}"
                                     alt=""
                                 >
                             {% else %}
@@ -1050,7 +1050,7 @@
                         >
                             {% if attendee.user.profile_photo %}
                                 <img
-                                    src="{{ attendee.user.profile_photo.url }}"
+                                    src="{{ attendee.user.displayed_profile_photo.url }}"
                                     alt=""
                                 >
                             {% else %}
