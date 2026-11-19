@@ -47,8 +47,6 @@ from .filters import (
     EventFilterForm,
     filter_events,
     filter_params,
-    nyc_today,
-    preset_range,
 )
 from .forms import (
     CancelEventForm,
@@ -92,8 +90,6 @@ SEARCH_PAGE_SIZE = 20
 NOTIFICATION_PAGE_SIZE = 20
 ARCHIVED_EVENT_PREVIEW_LIMIT = 3
 
-# This weekend's events shown on the home page to every visitor.
-WEEKEND_EVENT_LIMIT = 8
 ARCHIVED_EVENT_PAGE_SIZE = 20
 
 
@@ -853,9 +849,9 @@ class AboutView(TemplateView):
 class LandingView(TemplateView):
     """Render the home page.
 
-    Every visitor sees this weekend's events. Signed-in visitors also get their
-    personal sections: upcoming events with registration badges, plans, and
-    archived events. Signed-out visitors get a prompt to log in or sign up.
+    Signed-in visitors get their personal sections: recommendations, upcoming
+    events with registration badges, and archived events. Signed-out visitors
+    get a prompt to log in or sign up.
     """
 
     template_name = "events/home.html"
@@ -867,7 +863,7 @@ class LandingView(TemplateView):
         return annotate_for_viewer(events, self.request.user)
 
     def get_context_data(self, **kwargs):
-        """Add this weekend's events and, when signed in, the personal lists."""
+        """Add the search filters and, when signed in, the personal lists."""
         context = super().get_context_data(**kwargs)
         context["filter_form"] = EventFilterForm()
         upcoming = Event.objects.filter(status=Event.Status.UPCOMING)
@@ -876,18 +872,6 @@ class LandingView(TemplateView):
             "end_time",
             "title",
         )
-
-        weekend_start, weekend_end = preset_range("weekend", nyc_today())
-        weekend = filter_events(
-            upcoming,
-            {"date_from": weekend_start, "date_to": weekend_end},
-        )
-        context["weekend_start"] = weekend_start
-        context["weekend_end"] = weekend_end
-        context["weekend_url"] = reverse("search") + "?when=weekend"
-        context["weekend_events"] = self.with_registration(weekend).order_by(
-            *upcoming_order
-        )[:WEEKEND_EVENT_LIMIT]
 
         context["events"] = []
         context["archived_events"] = []
