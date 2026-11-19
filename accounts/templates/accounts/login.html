@@ -59,7 +59,7 @@
 
 <p class="auth-links">
     <a href="{% url 'password_reset' %}">Forgot password?</a>
-    <span>New here? <a href="{% url 'register' %}">Create an account</a></span>
+    <span>New here? <a href="{% url 'register' %}{% if next %}?next={{ next|urlencode:"" }}{% endif %}">Create an account</a></span>
 </p>
 
 
