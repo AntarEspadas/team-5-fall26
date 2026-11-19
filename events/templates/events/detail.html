@@ -13,6 +13,8 @@
     <link rel="stylesheet" href="{% static 'events/photos.css' %}">
     <script src="{% static 'reports/menus.js' %}" defer></script>
     <script src="{% static 'events/calendar-menu.js' %}" defer></script>
+    <link rel="stylesheet" href="{% static 'events/share-event.css' %}">
+    <script src="{% static 'events/share-event.js' %}" defer></script>
 
 
 <style>
@@ -829,6 +831,8 @@
             {% if calendar_available %}
                 {% include "events/_add_to_calendar.html" %}
             {% endif %}
+
+            {% include "events/_share_event.html" %}
 
             {% if event.event_url %}
                 <a class="detail-button" href="{{ event.event_url }}">

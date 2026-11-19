@@ -1,0 +1,51 @@
+/* Keep the share action consistent with the existing event controls. */
+.event-share .share-event-button:not([hidden]) {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.5rem;
+}
+
+.event-share [hidden] {
+    display: none !important;
+}
+
+.event-share .share-event-button:focus-visible {
+    outline: 2px solid #237b53;
+    outline-offset: 2px;
+}
+
+.share-event-status {
+    margin: 0;
+    color: #1f6f4a;
+    font-size: 0.9rem;
+    line-height: 1.4;
+}
+
+.share-event-status:not(:empty) {
+    margin-top: 0.5rem;
+}
+
+.share-event-status.is-error {
+    color: #9c3535;
+}
+
+.share-event-fallback {
+    margin-top: 0.5rem;
+}
+
+.share-event-fallback label {
+    display: block;
+    margin-bottom: 0.25rem;
+    font-size: 0.9rem;
+}
+
+.share-event-fallback input {
+    box-sizing: border-box;
+    width: 100%;
+    min-width: 0;
+    padding: 0.5rem;
+    border: 1px solid #bdc9c0;
+    border-radius: 6px;
+    font: inherit;
+}

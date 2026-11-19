@@ -1,0 +1,20 @@
+<div class="event-share" data-event-share>
+    <button class="detail-button secondary-button share-event-button" type="button"
+        data-share-button hidden>
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none"
+            stroke="currentColor" stroke-width="2" stroke-linecap="round"
+            stroke-linejoin="round" aria-hidden="true" focusable="false">
+            <circle cx="18" cy="5" r="3"/>
+            <circle cx="6" cy="12" r="3"/>
+            <circle cx="18" cy="19" r="3"/>
+            <path d="m8.7 10.5 6.6-4m-6.6 7 6.6 4"/>
+        </svg>
+        Share event
+    </button>
+    <p class="share-event-status" data-share-status role="status" aria-live="polite"></p>
+    <div class="share-event-fallback" data-share-fallback>
+        <label for="share-event-url">Event link (copy to share)</label>
+        <input id="share-event-url" data-share-url type="url"
+            value="{{ share_event_url }}" readonly>
+    </div>
+</div>
