@@ -72,6 +72,7 @@ from .notifications import (
     change_notice,
     interested_recipients,
     notify_interested,
+    notify_attendee_removed,
     notify_registration_change,
     party,
 )
@@ -514,6 +515,44 @@ def register_event(request, pk):
             messages.info(request, "You are already registered for this event.")
 
     return redirect(next_url)
+
+
+@login_required
+@require_POST
+def remove_attendee(request, pk, registration_id):
+    """Let a host take a guest off the guest list of their upcoming event.
+
+    The guest's registration is deleted and they get a notification and an
+    email saying the host removed them. Only the event's host can do this,
+    and only until the event ends or is cancelled.
+    """
+    event = get_hosted_upcoming_event(request.user, pk)
+    manage_url = reverse("event_manage", args=[event.pk]) + "?tab=attendees"
+    with transaction.atomic():
+        registration = (
+            Registration.objects.select_for_update()
+            .select_related("user")
+            .filter(pk=registration_id, event=event)
+            .first()
+        )
+        if registration is None:
+            messages.info(request, "That guest is no longer registered.")
+            return redirect(manage_url)
+        guest = registration.user
+        registration.delete()
+        notify_attendee_removed(
+            event,
+            guest,
+            event_url=request.build_absolute_uri(
+                reverse("event_detail", args=[event.pk])
+            ),
+        )
+    messages.success(
+        request,
+        f"{guest.get_display_name()} was removed from the guest list "
+        "and has been notified.",
+    )
+    return redirect(manage_url)
 
 
 @login_required

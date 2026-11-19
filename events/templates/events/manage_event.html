@@ -45,7 +45,20 @@
                         <strong>{{ attendee.user.get_display_name }}</strong>
                         <p class="manage-meta">{{ attendee.user.username }}</p>
                     </div>
-                    <span class="manage-status">Party of {{ attendee.party_size }}</span>
+                    <div class="manage-actions">
+                        <span class="manage-status">Party of {{ attendee.party_size }}</span>
+                        {% if event.is_open %}
+                        {# Two steps, so one stray click can't remove a guest. #}
+                        <details class="manage-remove">
+                            <summary aria-label="Remove {{ attendee.user.get_display_name }} from the guest list">Remove</summary>
+                            <form method="post" action="{% url 'event_remove_attendee' event.pk attendee.pk %}">
+                                {% csrf_token %}
+                                <p>{{ attendee.user.get_display_name }} will be told by email and notification.</p>
+                                <button type="submit">Remove guest</button>
+                            </form>
+                        </details>
+                        {% endif %}
+                    </div>
                 </li>
                 {% endfor %}
             </ul>
