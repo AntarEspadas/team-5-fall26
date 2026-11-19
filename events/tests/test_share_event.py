@@ -103,8 +103,8 @@ class ShareEventTests(TestCase):
                 "username": "newsharefriend",
                 "email": "newshare@example.com",
                 "display_name": "New Friend",
-                "password1": "NewFriendPass123!",
-                "password2": "NewFriendPass123!",
+                "password1": "Tr1cky-Sunset-Walk!",
+                "password2": "Tr1cky-Sunset-Walk!",
                 "next": path,
             },
         )
@@ -113,7 +113,7 @@ class ShareEventTests(TestCase):
             reverse("login"),
             {
                 "username": "newsharefriend",
-                "password": "NewFriendPass123!",
+                "password": "Tr1cky-Sunset-Walk!",
                 "next": path,
             },
         )
