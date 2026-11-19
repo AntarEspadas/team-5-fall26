@@ -600,6 +600,9 @@ class EventDetailView(DetailView):
         event = self.object
         user = self.request.user
         is_authenticated = user.is_authenticated
+        context["share_event_url"] = self.request.build_absolute_uri(
+            reverse("event_detail", args=[event.pk])
+        )
         context.update(gallery_context(self.request, event=event))
         context["can_upload_photos"] = (
             uploadable_events(user).filter(pk=event.pk).exists()
