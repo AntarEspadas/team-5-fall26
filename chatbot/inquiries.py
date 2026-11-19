@@ -61,9 +61,12 @@ def answer_inquiry(inquiry, answer, answered_by):
                 body=body,
             )
         # A registered address is not necessarily owned by the asker.
-        if asker.email and EmailAddress.objects.filter(
-            user=asker, email__iexact=asker.email, verified=True
-        ).exists():
+        if (
+            asker.email
+            and EmailAddress.objects.filter(
+                user=asker, email__iexact=asker.email, verified=True
+            ).exists()
+        ):
             send_mail(
                 "Your question was answered",
                 body,
