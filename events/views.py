@@ -146,14 +146,15 @@ def get_hosted_upcoming_event(user, pk):
 
 
 def people(count):
-    """Return e.g. "1 interested person" or "3 interested people"."""
-    return f"{count} interested {'person' if count == 1 else 'people'}"
+    """Return e.g. "1 person" or "3 people"."""
+    return f"{count} {'person' if count == 1 else 'people'}"
 
 
 class EventUpdateView(LoginRequiredMixin, UpdateView):
     """Let a host edit their own event until it ends.
 
-    Changing the date, time, or location notifies everyone interested.
+    Changing the date, time, or location notifies everyone interested or
+    registered.
     """
 
     form_class = EventListingForm
@@ -164,7 +165,8 @@ class EventUpdateView(LoginRequiredMixin, UpdateView):
         return get_hosted_upcoming_event(self.request.user, self.kwargs["pk"])
 
     def form_valid(self, form):
-        """Save the changes, notify interested users, and confirm on the page."""
+        """Save the changes, notify interested and registered users, and
+        confirm on the page."""
         notice = change_notice(form.instance, form.initial, form.changed_data)
         response = super().form_valid(form)
         confirmation = "Event updated."
@@ -184,7 +186,8 @@ class EventUpdateView(LoginRequiredMixin, UpdateView):
 @login_required
 @require_POST
 def notify_attendees(request, pk):
-    """Send the host's message to everyone interested in their event."""
+    """Send the host's message to everyone interested in or registered for
+    their event."""
     event = get_hosted_upcoming_event(request.user, pk)
     detail_url = reverse("event_detail", args=[event.pk])
     form = NotifyAttendeesForm(request.POST)
@@ -200,14 +203,17 @@ def notify_attendees(request, pk):
     if count:
         messages.success(request, f"Your message was sent to {people(count)}.")
     else:
-        messages.info(request, "Nobody is interested in this event yet.")
+        messages.info(
+            request, "Nobody is interested in or registered for this event yet."
+        )
     return redirect(detail_url)
 
 
 @login_required
 @require_http_methods(["GET", "POST"])
 def cancel_event(request, pk):
-    """Confirm, then cancel a host's event and tell everyone interested."""
+    """Confirm, then cancel a host's event and tell everyone interested or
+    registered."""
     event = get_hosted_upcoming_event(request.user, pk)
     form = CancelEventForm(request.POST if request.method == "POST" else None)
     if form.is_bound and form.is_valid():
