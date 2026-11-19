@@ -506,28 +506,22 @@
                 >
 
                     <section aria-labelledby="registered-heading">
-                        <h2 id="registered-heading">Registered Events</h2>
+                        <h2 id="registered-heading">Attended Events</h2>
 
                         <p class="panel-description">
-                            Events you have registered for, listed by date.
+                            Past events you registered for, most recent first.
                         </p>
 
-                        {% if registered_events %}
+                        {% if attended_registrations %}
                             <ul class="hosted-list">
-                                {% for registration in registered_events %}
+                                {% for registration in attended_registrations %}
                                     <li class="hosted-event">
                                         {% with event=registration.event %}
 
                                             {% include "events/_hosted_event_summary.html" %}
 
                                             <p class="hosted-label">
-                                                {% if event.is_cancelled %}
-                                                    Event cancelled
-                                                {% elif event.has_ended %}
-                                                    Event ended
-                                                {% else %}
-                                                    Registered
-                                                {% endif %}
+                                                Event ended
                                                 · Party of {{ registration.party_size }}
                                                 {% if registration.my_stars %}
                                                     · <span class="my-rating" aria-label="You rated the host {{ registration.my_stars }} out of 5">You rated ★ {{ registration.my_stars }}</span>
@@ -551,7 +545,7 @@
                             </ul>
                         {% else %}
                             <p class="empty-state">
-                                You have not registered for any events yet.
+                                Events you register for will show up here after they end.
                             </p>
                         {% endif %}
                     </section>

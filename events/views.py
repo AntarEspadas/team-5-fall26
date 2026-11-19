@@ -285,7 +285,13 @@ class MyEventsView(LoginRequiredMixin, TemplateView):
                 and event.host_id != user.pk
                 and rating_window_open(event)
             )
-        context["registered_events"] = registrations
+        # Attended: registrations for events that are over and weren't
+        # cancelled, most recent first. Upcoming ones are on My plans.
+        context["attended_registrations"] = [
+            registration
+            for registration in reversed(registrations)
+            if registration.event.has_ended and not registration.event.is_cancelled
+        ]
         context["plan_days"] = plan_timeline(context["upcoming_events"], registrations)
         context["favorite_events"] = user.favorite_events.select_related("event")
         context["favorites_tab_active"] = self.request.GET.get("tab") == "favorites"
