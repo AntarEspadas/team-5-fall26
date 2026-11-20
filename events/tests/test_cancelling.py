@@ -93,9 +93,7 @@ class CancelEventTests(CancelTestCase):
         response = self.cancel()
 
         self.assertRedirects(response, self.detail_url)
-        self.assertContains(
-            response, "Event cancelled. We let 2 interested people know."
-        )
+        self.assertContains(response, "Event cancelled. We let 2 people know.")
         self.event.refresh_from_db()
         self.assertEqual(self.event.status, Event.Status.CANCELLED)
         self.assertEqual(

@@ -859,7 +859,7 @@
 
     {% if can_manage %}
         <section class="community-section">
-            <h2>Message interested attendees</h2>
+            <h2>Message attendees</h2>
 
             <p>
                 {% if recipient_count %}
@@ -867,8 +867,9 @@
                     {% if recipient_count == 1 %}person{% else %}people{% endif %}
                     by email and in their notifications.
                 {% else %}
-                    Nobody is interested in this event yet. People who select
-                    "Interested" will get your messages.
+                    Nobody is interested in or registered for this event yet.
+                    People who register or select "Interested" will get your
+                    messages.
                 {% endif %}
             </p>
 

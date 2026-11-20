@@ -76,14 +76,14 @@ class HostMessageTests(NotifyTestCase):
     def test_host_sees_form_and_recipient_count(self):
         self.client.force_login(self.host)
         response = self.client.get(self.detail_url)
-        self.assertContains(response, "Message interested attendees")
+        self.assertContains(response, "Message attendees")
         self.assertEqual(response.context["recipient_count"], 2)
         self.assertContains(response, self.notify_url)
 
     def test_others_do_not_see_form(self):
         self.client.force_login(self.fan)
         response = self.client.get(self.detail_url)
-        self.assertNotContains(response, "Message interested attendees")
+        self.assertNotContains(response, "Message attendees")
         self.assertNotIn("recipient_count", response.context)
 
     def test_message_reaches_interested_users_except_host(self):
@@ -91,7 +91,7 @@ class HostMessageTests(NotifyTestCase):
         response = self.send()
 
         self.assertRedirects(response, self.detail_url)
-        self.assertContains(response, "Your message was sent to 2 interested people.")
+        self.assertContains(response, "Your message was sent to 2 people.")
         self.assertEqual(
             sorted(email.to[0] for email in mail.outbox),
             ["fan@example.com", "second_fan@example.com"],
@@ -108,15 +108,15 @@ class HostMessageTests(NotifyTestCase):
     def test_singular_count(self):
         EventInterest.objects.filter(user=self.second_fan).delete()
         self.client.force_login(self.host)
-        self.assertContains(
-            self.send(), "Your message was sent to 1 interested person."
-        )
+        self.assertContains(self.send(), "Your message was sent to 1 person.")
 
     def test_nobody_interested(self):
         EventInterest.objects.all().delete()
         self.client.force_login(self.host)
         response = self.send()
-        self.assertContains(response, "Nobody is interested in this event yet.")
+        self.assertContains(
+            response, "Nobody is interested in or registered for this event yet."
+        )
         self.assertEqual(mail.outbox, [])
         self.assertFalse(Notification.objects.exists())
 
@@ -139,7 +139,7 @@ class HostMessageTests(NotifyTestCase):
         self.client.force_login(self.host)
         self.assertEqual(self.send().status_code, 404)
         response = self.client.get(self.detail_url)
-        self.assertNotContains(response, "Message interested attendees")
+        self.assertNotContains(response, "Message attendees")
 
     def test_anonymous_redirected_to_login(self):
         response = self.client.post(self.notify_url, {"subject": "a", "message": "b"})
@@ -176,7 +176,7 @@ class ChangeNoticeTests(NotifyTestCase):
         response = self.edit(start_time="2099-01-15T17:30")
 
         self.assertContains(
-            response, "Event updated. We let 2 interested people know about the change."
+            response, "Event updated. We let 2 people know about the change."
         )
         self.assertEqual(len(mail.outbox), 2)
         email = mail.outbox[0]
