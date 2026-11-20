@@ -913,7 +913,7 @@
     <section class="community-section">
         <h2>Connect with Other Attendees</h2>
         <p>
-            See who's interested in this event and connect with other attendees.
+            See who's interested in or registered for this event and connect with them.
         </p>
         <p>
             Attendees who share their profiles can be explored below.
@@ -1084,6 +1084,8 @@
                             {% endif %}
 
                             <div class="attendee-card-actions">
+                                {% include "events/_contact_request_action.html" %}
+
                                 <a
                                     class="attendee-details-link"
                                     href="{% url 'public_profile' username=attendee.user.username %}"
