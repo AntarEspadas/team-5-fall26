@@ -1,6 +1,7 @@
 """Views for user account pages."""
 
 import time
+from urllib.parse import urlencode
 from django.conf import settings
 from django.contrib import messages
 from django.contrib.auth import get_user_model
@@ -15,6 +16,7 @@ from django.shortcuts import render, resolve_url
 from django.urls import reverse_lazy
 from django.utils import timezone
 from django.utils.decorators import method_decorator
+from django.utils.http import url_has_allowed_host_and_scheme
 from django.views.decorators.cache import never_cache
 from django.views.generic import CreateView, DetailView, UpdateView
 
@@ -192,18 +194,32 @@ class RegisterView(SuccessMessageMixin, CreateView):
     template_name = "accounts/register.html"
     success_message = "Welcome, %(name)s! Your account has been created. Please log in."
 
+    def get_return_url(self):
+        """Keep a safe same-site return destination across account creation."""
+        target = self.request.POST.get("next", self.request.GET.get("next", "")).strip()
+        if url_has_allowed_host_and_scheme(
+            target,
+            allowed_hosts={self.request.get_host()},
+            require_https=self.request.is_secure(),
+        ):
+            return target
+        return ""
+
     def get_context_data(self, **kwargs):
-        """
-        Pass login page URL to template for "Already have an account?" link.
-        """
+        """Preserve the return destination in the signup form and login link."""
         context = super().get_context_data(**kwargs)
-        context["login_url"] = resolve_url(settings.LOGIN_URL)
+        context["next"] = self.get_return_url()
+        context["login_url"] = self.get_success_url()
         context["google_oauth_enabled"] = settings.GOOGLE_OAUTH_ENABLED
         return context
 
     def get_success_url(self):
-        """Return the login page URL."""
-        return resolve_url(settings.LOGIN_URL)
+        """Return to login with the original safe destination, if supplied."""
+        login_url = resolve_url(settings.LOGIN_URL)
+        target = self.get_return_url()
+        if target:
+            return f"{login_url}?{urlencode({'next': target})}"
+        return login_url
 
     def get_success_message(self, cleaned_data):
         """Greet the new user by display name, or by username if they left it blank."""

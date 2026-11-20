@@ -1,5 +1,7 @@
 """Test the public share action and the URLs that friends receive."""
 
+from urllib.parse import urlencode
+
 from django.contrib.auth import get_user_model
 from django.test import TestCase
 from django.urls import reverse
@@ -79,3 +81,82 @@ class ShareEventTests(TestCase):
         self.assertTrue(
             Registration.objects.filter(event=self.event, user=self.member).exists()
         )
+
+    def test_new_friend_can_create_account_then_return_to_shared_event(self):
+        """A friend without an account keeps the event through signup and login."""
+        path = reverse("event_detail", args=[self.event.pk])
+        query = urlencode({"next": path})
+        login_url = reverse("login") + "?" + query
+        signup_url = reverse("register") + "?" + query
+
+        response = self.client.get(path)
+        self.assertContains(response, "Log in to Register")
+        response = self.client.get(login_url)
+        self.assertContains(response, f'href="{signup_url}"', count=2)
+        response = self.client.get(signup_url)
+        self.assertContains(response, f'name="next" value="{path}"')
+        self.assertEqual(response.context["login_url"], login_url)
+
+        response = self.client.post(
+            reverse("register"),
+            {
+                "username": "newsharefriend",
+                "email": "newshare@example.com",
+                "display_name": "New Friend",
+                "password1": "Tr1cky-Sunset-Walk!",
+                "password2": "Tr1cky-Sunset-Walk!",
+                "next": path,
+            },
+        )
+        self.assertRedirects(response, login_url)
+        response = self.client.post(
+            reverse("login"),
+            {
+                "username": "newsharefriend",
+                "password": "Tr1cky-Sunset-Walk!",
+                "next": path,
+            },
+        )
+        self.assertRedirects(response, path)
+        self.client.post(reverse("event_register", args=[self.event.pk]))
+        self.assertTrue(
+            Registration.objects.filter(
+                event=self.event, user__username="newsharefriend"
+            ).exists()
+        )
+
+    def test_invalid_signup_preserves_shared_event(self):
+        """An invalid signup stays on the form without dropping the destination."""
+        path = reverse("event_detail", args=[self.event.pk])
+        response = self.client.post(reverse("register"), {"next": path})
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, f'name="next" value="{path}"')
+        self.assertEqual(response.context["next"], path)
+
+    def test_signup_rejects_unsafe_return_destinations(self):
+        """Untrusted destinations never propagate into signup or login."""
+        for target in (
+            "https://evil.example/",
+            "//evil.example/",
+            "///evil.example/",
+            "http://testserver/events/1/",
+        ):
+            with self.subTest(target=target):
+                response = self.client.get(
+                    reverse("register"), {"next": target}, secure=True
+                )
+                self.assertEqual(response.context["next"], "")
+                self.assertEqual(response.context["login_url"], reverse("login"))
+
+        response = self.client.post(
+            reverse("register"),
+            {
+                "username": "unsafefriend",
+                "email": "unsafe@example.com",
+                "display_name": "Friend",
+                "password1": "FriendPass123!",
+                "password2": "FriendPass123!",
+                "next": "//evil.example/",
+            },
+        )
+        self.assertRedirects(response, reverse("login"))
