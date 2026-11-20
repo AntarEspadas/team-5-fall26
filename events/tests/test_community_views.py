@@ -322,7 +322,7 @@ class ContactRequestViewTests(CommunityViewTestBase):
         self.assertEqual(
             self.messages_for(response),
             [
-                "Mark yourself as interested in this event first, "
+                "Mark yourself as interested or register for this event first, "
                 "then send the request."
             ],
         )
