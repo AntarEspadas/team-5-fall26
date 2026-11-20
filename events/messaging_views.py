@@ -19,12 +19,7 @@ from accounts.models import User
 from .contact_services import create_contact_request, shared_upcoming_events
 from .conversation_services import get_accessible_conversation, has_accepted_contact
 from .forms import ContactStartForm, DirectMessageForm
-from .models import (
-    ContactRequest,
-    Conversation,
-    DirectMessage,
-    Event,
-)
+from .models import ContactRequest, Conversation, DirectMessage
 
 
 def _message_data(message):
