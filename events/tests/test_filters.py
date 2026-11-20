@@ -25,6 +25,8 @@ def make_event(guid, **fields):
     """Create an upcoming event with optional filterable fields."""
     fields.setdefault("title", "Community gathering")
     fields.setdefault("content_hash", "f" * 64)
+    # Feed events without a registration link are not listed (#158).
+    fields.setdefault("registration_url", "https://example.com/register")
     return Event.objects.create(guid=guid, **fields)
 
 
@@ -345,6 +347,7 @@ class FilteredSearchViewTests(TestCase):
                     park_ids="B100",
                     categories="Yoga & Pilates Classes",
                     content_hash="p" * 64,
+                    registration_url="https://example.com/register",
                 )
                 for index in range(SEARCH_PAGE_SIZE + 1)
             ]

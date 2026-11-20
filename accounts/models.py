@@ -60,6 +60,20 @@ class User(AbstractUser):
     profile_photo = models.ImageField(
         "profile photo", upload_to="profile_photos/", blank=True
     )
+    profile_photo_crop = models.ImageField(
+        "profile photo crop", upload_to="profile_photos/crops/", blank=True
+    )
+    profile_photo_crop_x = models.FloatField(default=0.5, editable=False)
+    profile_photo_crop_y = models.FloatField(default=0.5, editable=False)
+    profile_photo_crop_zoom = models.FloatField(default=1.0, editable=False)
+
+    @property
+    def displayed_profile_photo(self):
+        """Use the selected crop when available."""
+        if self.profile_photo:
+            return self.profile_photo_crop or self.profile_photo
+        return self.profile_photo
+
     bio = models.CharField(
         "bio",
         max_length=300,

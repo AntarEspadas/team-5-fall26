@@ -104,6 +104,7 @@ class CategoryImagePageTests(TestCase):
         )
         common = {
             "content_hash": "c" * 64,
+            "registration_url": "https://example.com/register",
             "start_time": datetime(2099, 5, 2, 10, 0, tzinfo=NYC),
         }
         cls.plain = Event.objects.create(

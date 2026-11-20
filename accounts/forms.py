@@ -14,14 +14,7 @@ from .models import ContactPermission, User
 class ProfilePhotoInput(forms.ClearableFileInput):
     """File input that hides the current photo URL but keeps clear support."""
 
-    initial_text = ""
-    input_text = ""
-
-    def get_context(self, name, value, attrs):
-        """Keep the current file value for Django's clear-checkbox logic."""
-        context = super().get_context(name, value, attrs)
-        context["widget"]["value"] = None
-        return context
+    template_name = "accounts/widgets/profile_photo_input.html"
 
 
 class AccountSettingsForm(forms.ModelForm):
@@ -55,6 +48,11 @@ class AccountSettingsForm(forms.ModelForm):
     allow_direct_contact = forms.BooleanField(
         label="Allow anyone to contact me directly",
         required=False,
+    )
+    profile_photo_crop_x = forms.FloatField(required=False, widget=forms.HiddenInput())
+    profile_photo_crop_y = forms.FloatField(required=False, widget=forms.HiddenInput())
+    profile_photo_crop_zoom = forms.FloatField(
+        required=False, min_value=1, max_value=3, widget=forms.HiddenInput()
     )
 
     share_profile_with_attendees = forms.BooleanField(
@@ -109,6 +107,15 @@ class AccountSettingsForm(forms.ModelForm):
 
         if self.instance and self.instance.pk:
             self.fields["interests"].initial = self.instance.interests or []
+            self.fields["profile_photo_crop_x"].initial = (
+                self.instance.profile_photo_crop_x
+            )
+            self.fields["profile_photo_crop_y"].initial = (
+                self.instance.profile_photo_crop_y
+            )
+            self.fields["profile_photo_crop_zoom"].initial = (
+                self.instance.profile_photo_crop_zoom
+            )
 
         if self.instance and self.instance.pk:
             self.fields["allow_direct_contact"].initial = (
@@ -117,26 +124,8 @@ class AccountSettingsForm(forms.ModelForm):
         else:
             self.fields["allow_direct_contact"].initial = False
 
-    def save(self, commit=True):
-        """Save profile data, interests, and contact preferences."""
-
-        user = super().save(commit=False)
-
-        user.interests = self.cleaned_data["interests"]
-
-        if self.cleaned_data["allow_direct_contact"]:
-            user.contact_permission = ContactPermission.OPEN
-        else:
-            user.contact_permission = ContactPermission.APPROVAL_REQUIRED
-
-        if commit:
-            user.save()
-            self.save_m2m()
-
-        return user
-
     def clean_profile_photo(self):
-        """Validate and re-encode new images without embedded metadata."""
+        """Validate and sanitize new images while preserving the original framing."""
 
         photo = self.cleaned_data.get("profile_photo")
 
@@ -169,6 +158,93 @@ class AccountSettingsForm(forms.ModelForm):
             output.getvalue(),
             name=f"{uuid4().hex}.jpg",
         )
+
+    def _crop_position(self, field_name, default):
+        """Return a normalized 0..1 crop position from the submitted form."""
+
+        position = self.cleaned_data[field_name]
+        if position is None:
+            return default
+        return min(1.0, max(0.0, position))
+
+    def save(self, commit=True):
+        """Save profile data and render the selected square crop."""
+
+        old_crop_name = self.instance.profile_photo_crop.name
+        user = super().save(commit=False)
+        old_x = user.profile_photo_crop_x
+        old_y = user.profile_photo_crop_y
+        old_zoom = user.profile_photo_crop_zoom
+        replacing_photo = "profile_photo" in self.changed_data
+        default_x, default_y = (0.5, 0.5) if replacing_photo else (old_x, old_y)
+        user.profile_photo_crop_x = self._crop_position(
+            "profile_photo_crop_x", default_x
+        )
+        user.profile_photo_crop_y = self._crop_position(
+            "profile_photo_crop_y", default_y
+        )
+        user.profile_photo_crop_zoom = self.cleaned_data["profile_photo_crop_zoom"] or (
+            1.0 if replacing_photo else old_zoom
+        )
+        crop_changed = (old_x, old_y, old_zoom) != (
+            user.profile_photo_crop_x,
+            user.profile_photo_crop_y,
+            user.profile_photo_crop_zoom,
+        )
+        user.interests = self.cleaned_data["interests"]
+
+        if self.cleaned_data["allow_direct_contact"]:
+            user.contact_permission = ContactPermission.OPEN
+        else:
+            user.contact_permission = ContactPermission.APPROVAL_REQUIRED
+
+        if not user.profile_photo:
+            user.profile_photo_crop = ""
+        elif replacing_photo or crop_changed or not user.profile_photo_crop:
+            crop = self._render_profile_photo(user)
+            if crop is not None:
+                user.profile_photo_crop = crop
+            elif replacing_photo:
+                user.profile_photo_crop = ""
+            else:
+                user.profile_photo_crop_x = old_x
+                user.profile_photo_crop_y = old_y
+                user.profile_photo_crop_zoom = old_zoom
+
+        if commit:
+            user.save()
+            self.save_m2m()
+            new_crop_name = user.profile_photo_crop.name
+            if old_crop_name and old_crop_name != new_crop_name:
+                user.profile_photo_crop.storage.delete(old_crop_name)
+
+        return user
+
+    def _render_profile_photo(self, user):
+        """Prepare a square crop for the model to save with the source photo."""
+
+        try:
+            upload = self.cleaned_data["profile_photo"]
+            if isinstance(upload, ContentFile):
+                source_file = BytesIO(upload.read())
+                upload.seek(0)
+            else:
+                source_file = user.profile_photo.storage.open(
+                    user.profile_photo.name, "rb"
+                )
+            with source_file, Image.open(source_file) as source:
+                image = source.convert("RGB")
+                width, height = image.size
+                side = max(1, round(min(width, height) / user.profile_photo_crop_zoom))
+                crop_x = round((width - side) * user.profile_photo_crop_x)
+                crop_y = round((height - side) * user.profile_photo_crop_y)
+                image = image.crop((crop_x, crop_y, crop_x + side, crop_y + side))
+                output = BytesIO()
+                image.save(output, format="JPEG", quality=90)
+        except (OSError, ValueError):
+            return None
+
+        return ContentFile(output.getvalue(), name=f"{uuid4().hex}.jpg")
 
 
 class RegistrationForm(UserCreationForm):

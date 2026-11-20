@@ -1,18 +1,17 @@
 """Tests for the landing page and its event list."""
 
-from datetime import date, datetime
-from unittest import mock
+from datetime import datetime, timedelta
 from zoneinfo import ZoneInfo
 
 from django.contrib.auth import get_user_model
 from django.test import TestCase
 from django.urls import reverse
+from django.utils import timezone
 
 from events.models import Event, Registration
 from events.views import (
     ARCHIVED_EVENT_PAGE_SIZE,
     UPCOMING_EVENT_LIMIT,
-    WEEKEND_EVENT_LIMIT,
 )
 
 NYC = ZoneInfo("America/New_York")
@@ -21,128 +20,85 @@ NYC = ZoneInfo("America/New_York")
 def make_event(guid, title, **kwargs):
     """Create an event row with sensible defaults for view tests."""
     kwargs.setdefault("content_hash", "v" * 64)
+    # Feed events without a registration link are not listed (#158).
+    kwargs.setdefault("registration_url", "https://example.com/register")
     return Event.objects.create(guid=guid, title=title, **kwargs)
 
 
-# A Wednesday, so "this weekend" is Saturday 17 and Sunday 18 January 2099.
-WEDNESDAY = date(2099, 1, 14)
-
-
-class WeekendSectionTests(TestCase):
-    """Every visitor sees this weekend's upcoming events on the home page."""
+class HomeWithoutWeekendSectionTests(TestCase):
+    """The home page has no separate This weekend list (#157)."""
 
     @classmethod
     def setUpTestData(cls):
         cls.user = get_user_model().objects.create_user(
             username="bob", email="bob@example.com", password="pass12345"
         )
-        cls.saturday = make_event(
-            "w1",
-            "Saturday Kayaking",
-            start_time=datetime(2099, 1, 17, 11, 0, tzinfo=NYC),
-            end_time=datetime(2099, 1, 17, 13, 0, tzinfo=NYC),
-        )
-        cls.sunday = make_event(
-            "w2",
-            "Sunday Garden Walk",
-            start_time=datetime(2099, 1, 18, 9, 0, tzinfo=NYC),
-            end_time=datetime(2099, 1, 18, 10, 0, tzinfo=NYC),
-        )
-        cls.from_friday = make_event(
-            "w3",
-            "Friday Night Festival",
-            start_time=datetime(2099, 1, 16, 18, 0, tzinfo=NYC),
-            end_time=datetime(2099, 1, 17, 1, 0, tzinfo=NYC),
-        )
-        make_event(
-            "w4",
-            "Friday Only Concert",
-            start_time=datetime(2099, 1, 16, 18, 0, tzinfo=NYC),
-            end_time=datetime(2099, 1, 16, 20, 0, tzinfo=NYC),
-        )
-        make_event(
-            "w5",
-            "Monday Morning Run",
-            start_time=datetime(2099, 1, 19, 7, 0, tzinfo=NYC),
-            end_time=datetime(2099, 1, 19, 8, 0, tzinfo=NYC),
-        )
-        make_event(
-            "w6",
-            "Finished Weekend Event",
-            start_time=datetime(2099, 1, 17, 9, 0, tzinfo=NYC),
-            status=Event.Status.DONE,
+        # Starts in a few days, so it falls in or near any "this weekend".
+        soon = timezone.now() + timedelta(days=2)
+        cls.event = make_event(
+            "soon",
+            "Soon Kayaking",
+            start_time=soon,
+            end_time=soon + timedelta(hours=2),
         )
 
-    def get_home(self, today=WEDNESDAY):
-        """Load the home page as if it were ``today`` in New York."""
-        with mock.patch("events.views.nyc_today", return_value=today):
-            return self.client.get(reverse("landing"))
+    def assert_no_weekend_section(self, response):
+        """The weekend list and its context are gone from the page."""
+        self.assertNotContains(response, "weekend-section")
+        self.assertNotContains(response, "See all weekend events")
+        self.assertNotContains(response, "Nothing is scheduled for this weekend yet.")
+        self.assertNotIn("weekend_events", response.context)
 
-    def test_signed_out_visitors_see_this_weekends_events(self):
-        """Upcoming events overlapping Saturday or Sunday are listed, soonest first."""
-        response = self.get_home()
+    def assert_in_order(self, response, *markers):
+        """Each marker appears on the page, in the given order."""
+        html = response.content.decode()
+        positions = [html.index(marker) for marker in markers]
+        self.assertEqual(positions, sorted(positions))
+
+    def test_signed_out_home_has_no_weekend_list(self):
+        """Visitors see the search bar, then the sign-up card, and no event list."""
+        response = self.client.get(reverse("landing"))
 
         self.assertEqual(response.status_code, 200)
-        self.assertEqual(
-            list(response.context["weekend_events"]),
-            [self.from_friday, self.saturday, self.sunday],
+        self.assert_no_weekend_section(response)
+        self.assertNotContains(response, "Soon Kayaking")
+        self.assert_in_order(
+            response,
+            'class="headline"',
+            'action="/search"',
+            'class="join-card"',
+            'class="site-footer"',
         )
-        self.assertContains(response, "This weekend")
-        self.assertContains(response, "Sat, Jan 17 &ndash; Sun, Jan 18")
-        self.assertContains(response, reverse("event_detail", args=[self.saturday.pk]))
-        self.assertNotContains(response, "Friday Only Concert")
-        self.assertNotContains(response, "Monday Morning Run")
-        self.assertNotContains(response, "Finished Weekend Event")
 
-    def test_section_links_to_the_weekend_search(self):
-        """The section links to search with the This weekend filter applied."""
-        response = self.get_home()
-
-        self.assertContains(response, f'href="{reverse("search")}?when=weekend"')
-
-    def test_on_sunday_only_the_rest_of_today_is_shown(self):
-        """Once the weekend has started on Sunday, only Sunday is listed."""
-        response = self.get_home(today=date(2099, 1, 18))
-
-        self.assertEqual(list(response.context["weekend_events"]), [self.sunday])
-        self.assertContains(response, "Sun, Jan 18")
-        self.assertNotContains(response, "Sat, Jan 17 &ndash;")
-
-    def test_empty_weekend_says_so(self):
-        """A weekend with nothing on points visitors to search instead."""
-        response = self.get_home(today=date(2099, 2, 4))
-
-        self.assertEqual(list(response.context["weekend_events"]), [])
-        self.assertContains(response, "Nothing is scheduled for this weekend yet.")
-        self.assertContains(response, f'href="{reverse("search")}"')
-
-    def test_weekend_list_is_capped(self):
-        """At most WEEKEND_EVENT_LIMIT events are shown."""
-        for index in range(WEEKEND_EVENT_LIMIT):
-            make_event(
-                f"extra{index}",
-                f"Extra {index}",
-                start_time=datetime(2099, 1, 17, 12, index, tzinfo=NYC),
-            )
-
-        response = self.get_home()
-
-        self.assertEqual(len(response.context["weekend_events"]), WEEKEND_EVENT_LIMIT)
-
-    def test_signed_in_visitors_keep_personal_sections(self):
-        """Signed-in users get the weekend list plus their own sections."""
-        Registration.objects.create(event=self.saturday, user=self.user)
+    def test_signed_in_home_keeps_its_sections_in_order(self):
+        """Members keep their sections, in the same order, without the list."""
         self.client.force_login(self.user)
 
-        response = self.get_home()
+        response = self.client.get(reverse("landing"))
 
-        weekend = {event.pk: event for event in response.context["weekend_events"]}
-        self.assertTrue(weekend[self.saturday.pk].user_is_registered)
-        self.assertFalse(weekend[self.sunday.pk].user_is_registered)
-        self.assertContains(response, "This weekend")
-        self.assertContains(response, "Upcoming events")
-        self.assertContains(response, "Archived events")
-        self.assertNotContains(response, "Log in or sign up")
+        self.assert_no_weekend_section(response)
+        self.assert_in_order(
+            response,
+            'class="headline"',
+            'action="/search"',
+            'id="events-heading"',
+            'id="archived-heading"',
+            'class="site-footer"',
+        )
+        self.assertNotContains(response, 'class="join-card"')
+
+    def test_this_weekend_filter_button_stays(self):
+        """The quick filter by the search bar still offers This weekend."""
+        for signed_in in (False, True):
+            with self.subTest(signed_in=signed_in):
+                if signed_in:
+                    self.client.force_login(self.user)
+                response = self.client.get(reverse("landing"))
+
+                self.assertContains(response, 'name="when" value="weekend"')
+                self.assertContains(
+                    response, f'href="{reverse("search")}?when=weekend"'
+                )
 
 
 class LandingViewTests(TestCase):
@@ -167,12 +123,17 @@ class LandingViewTests(TestCase):
             registration_url="https://example.org/alpha/register",
             image_url="https://example.org/img/yoga.png",
         )
+        # A hosted event, so its card offers registration on this site.
         make_event(
-            "b2",
+            Event.HOSTED_GUID_PREFIX + "b2",
             "Beta Birdwatching",
             start_time=datetime(2099, 1, 16, 10, 0, tzinfo=NYC),
             end_time=datetime(2099, 1, 16, 12, 0, tzinfo=NYC),
             park_names="Central Park",
+            registration_url="",
+            host=get_user_model().objects.create_user(
+                username="beta_host", email="beta_host@example.com"
+            ),
         )
         self.past_event = make_event(
             "c3",
@@ -234,7 +195,7 @@ class LandingViewTests(TestCase):
             response,
             f'href="{reverse("event_detail", args=[self.alpha_event.pk])}"',
         )
-        beta_event = Event.objects.get(guid="b2")
+        beta_event = Event.objects.get(guid=Event.HOSTED_GUID_PREFIX + "b2")
         register_url = reverse("event_detail", args=[beta_event.pk])
         self.assertContains(
             response, f'<a class="register" href="{register_url}#register">'

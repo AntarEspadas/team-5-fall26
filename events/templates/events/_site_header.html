@@ -41,8 +41,8 @@
         </nav>
         {% else %}
         <nav class="topbar-nav" aria-label="Account">
-            {% if page != 'login' %}<a class="nav-link signed-out-link" href="{% url 'login' %}">Log in</a>{% endif %}
-            {% if page != 'register' %}<a class="btn-ghost" href="{% url 'register' %}">Sign up</a>{% endif %}
+            {% if page != 'login' %}<a class="nav-link signed-out-link" href="{% url 'login' %}{% if page == 'register' and next %}?next={{ next|urlencode:"" }}{% endif %}">Log in</a>{% endif %}
+            {% if page != 'register' %}<a class="btn-ghost" href="{% url 'register' %}{% if page == 'login' and next %}?next={{ next|urlencode:"" }}{% endif %}">Sign up</a>{% endif %}
         </nav>
         {% endif %}
     </div>

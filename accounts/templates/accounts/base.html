@@ -28,7 +28,7 @@
 </head>
 <body{% block body_class %}{% endblock %}>
     {% include "events/_site_header.html" %}
-  <main>
+  <main class="{% block main_class %}{% endblock %}">
     {% block content %}{% endblock %}
   </main>
   {% include "events/_site_footer.html" %}

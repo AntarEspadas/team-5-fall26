@@ -2,7 +2,7 @@
     <section class="settings-section">
         <h2>Profile information</h2>
         {% if profile_user.profile_photo %}
-        <img class="profile-photo" src="{{ profile_user.profile_photo.url }}" alt="Your current profile photo" width="96" height="96">
+        <img class="profile-photo" src="{{ profile_user.displayed_profile_photo.url }}" alt="Your current profile photo" width="96" height="96">
         {% else %}
         <p>No profile photo.</p>
         {% endif %}
