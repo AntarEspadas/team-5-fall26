@@ -17,6 +17,21 @@ CATEGORY_IMAGE_NAMES = {"Swimming/Aquatics": "swimming", "Theater": "theater"}
 UNILLUSTRATED_GROUPS = ("seniors",)
 
 
+class EventQuerySet(models.QuerySet):
+    """Queries shared by the event lists."""
+
+    def listed(self):
+        """Leave out feed events nobody can sign up for (#158).
+
+        Some NYC Parks listings have neither a registration link nor a host
+        on this site, so there is nowhere to register or anyone to ask. They
+        stay in the database (and their pages still open from old links)
+        but are not shown in lists, search, or recommendations. Events
+        posted on the platform always have a host and are always listed.
+        """
+        return self.filter(Q(host__isnull=False) | ~Q(registration_url=""))
+
+
 class Event(models.Model):
     """One event, either copied from the NYC Parks feed or posted by a user.
 
@@ -93,6 +108,8 @@ class Event(models.Model):
     first_seen_at = models.DateTimeField("first seen at", auto_now_add=True)
     last_synced_at = models.DateTimeField("last synced at", null=True, blank=True)
     updated_at = models.DateTimeField("updated at", auto_now=True)
+
+    objects = EventQuerySet.as_manager()
 
     class Meta:
         """List events chronologically by default."""

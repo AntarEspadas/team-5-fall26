@@ -73,7 +73,8 @@ def recommended_events(user, limit=RECOMMENDATION_LIMIT):
 
     now = timezone.now()
     eligible = (
-        Event.objects.filter(
+        Event.objects.listed()
+        .filter(
             status=Event.Status.UPCOMING,
             start_time__gte=now,
         )

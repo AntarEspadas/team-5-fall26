@@ -875,7 +875,7 @@ class LandingView(TemplateView):
         """Add the search filters and, when signed in, the personal lists."""
         context = super().get_context_data(**kwargs)
         context["filter_form"] = EventFilterForm()
-        upcoming = Event.objects.filter(status=Event.Status.UPCOMING)
+        upcoming = Event.objects.listed().filter(status=Event.Status.UPCOMING)
         upcoming_order = (
             F("start_time").asc(nulls_last=True),
             "end_time",
@@ -901,7 +901,7 @@ class LandingView(TemplateView):
 
             # Recently completed events, newest first.
             archived = self.with_registration(
-                Event.objects.filter(status=Event.Status.DONE)
+                Event.objects.listed().filter(status=Event.Status.DONE)
             ).order_by(
                 F("start_time").desc(nulls_last=True),
                 "-end_time",
@@ -937,7 +937,7 @@ class EventSearchMixin:
         else:
             self.filter_form = form
 
-        base_queryset = Event.objects.filter(status=self.event_status)
+        base_queryset = Event.objects.listed().filter(status=self.event_status)
 
         events = filter_events(base_queryset, filters)
 
