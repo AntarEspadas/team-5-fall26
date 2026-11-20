@@ -3,6 +3,7 @@
 from django.contrib import messages
 from django.contrib.auth.decorators import login_required
 from django.db import transaction
+from django.http import Http404
 from django.shortcuts import get_object_or_404, redirect
 from django.urls import reverse
 from django.utils import timezone
@@ -12,7 +13,7 @@ from accounts.ban_responses import banned_response
 from accounts.ban_services import get_active_ban
 from accounts.models import User
 
-from .contact_services import create_contact_request
+from .contact_services import create_contact_request, participates_in_event
 from .forms import ContactRequestForm, EventPostForm, EventReplyForm
 from .models import (
     ContactRequest,
@@ -196,8 +197,9 @@ def send_contact_request(request, event_id, user_id):
         User,
         pk=user_id,
         share_profile_with_attendees=True,
-        event_interests__event=event,
     )
+    if not participates_in_event(recipient, event):
+        raise Http404("Attendee not found.")
 
     if recipient.pk == request.user.pk:
         messages.error(
@@ -206,13 +208,10 @@ def send_contact_request(request, event_id, user_id):
         )
         return redirect(event_detail_url(event_id))
 
-    if not EventInterest.objects.filter(
-        event=event,
-        user=request.user,
-    ).exists():
+    if not participates_in_event(request.user, event):
         messages.error(
             request,
-            "Mark yourself as interested in this event first, "
+            "Mark yourself as interested or register for this event first, "
             "then send the request.",
         )
         return redirect(event_detail_url(event_id))
@@ -251,7 +250,7 @@ def send_contact_request(request, event_id, user_id):
             messages.error(
                 request,
                 "This contact request can't be sent. Make sure you are both "
-                "interested in this upcoming event, then try again.",
+                "interested in or registered for this upcoming event, then try again.",
             )
 
     elif contact_request.status == ContactRequest.Status.ACCEPTED:
