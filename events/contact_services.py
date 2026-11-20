@@ -6,8 +6,37 @@ from django.db.models import Q
 from accounts.ban_services import get_active_ban, require_unbanned_user
 from accounts.models import ContactPermission, User
 
-from .models import ContactRequest, Conversation, EventInterest
+from .models import ContactRequest, Conversation, Event, EventInterest, Registration
 from .notifications import notify_contact_request
+
+
+def participant_events(user):
+    """Return events the user is interested in or registered for."""
+    return Event.objects.filter(
+        Q(pk__in=EventInterest.objects.filter(user=user).values("event_id"))
+        | Q(pk__in=Registration.objects.filter(user=user).values("event_id"))
+    )
+
+
+def participates_in_event(user, event):
+    """Both interest and registration count as event participation."""
+    return participant_events(user).filter(pk=event.pk).exists()
+
+
+def shared_upcoming_events(first_user, second_user):
+    """Return shared events that still accept new contact requests."""
+    shared = (
+        participant_events(first_user)
+        .filter(
+            pk__in=participant_events(second_user).values("pk"),
+            status=Event.Status.UPCOMING,
+        )
+        .order_by("start_time", "title", "pk")
+    )
+    eligible_ids = [
+        event.pk for event in shared if event.is_open and not event.is_cancelled
+    ]
+    return shared.filter(pk__in=eligible_ids)
 
 
 def create_contact_request(
@@ -36,8 +65,8 @@ def create_contact_request(
             or sender.pk == recipient.pk
             or get_active_ban(recipient) is not None
             or not recipient.share_profile_with_attendees
-            or not EventInterest.objects.filter(event=event, user=sender).exists()
-            or not EventInterest.objects.filter(event=event, user=recipient).exists()
+            or not participates_in_event(sender, event)
+            or not participates_in_event(recipient, event)
         ):
             return None, False
 
