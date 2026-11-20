@@ -170,6 +170,7 @@ class AccountSettingsForm(forms.ModelForm):
     def save(self, commit=True):
         """Save profile data and render the selected square crop."""
 
+        old_crop_name = self.instance.profile_photo_crop.name
         user = super().save(commit=False)
         old_x = user.profile_photo_crop_x
         old_y = user.profile_photo_crop_y
@@ -213,6 +214,9 @@ class AccountSettingsForm(forms.ModelForm):
         if commit:
             user.save()
             self.save_m2m()
+            new_crop_name = user.profile_photo_crop.name
+            if old_crop_name and old_crop_name != new_crop_name:
+                user.profile_photo_crop.storage.delete(old_crop_name)
 
         return user
 
