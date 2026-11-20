@@ -18,6 +18,7 @@ from events.models import (
     Event,
     EventInterest,
     Notification,
+    Registration,
 )
 
 User = get_user_model()
@@ -78,6 +79,99 @@ class MessagingViewTests(TestCase):
             response,
             reverse("message_user", args=[self.recipient.pk]),
         )
+
+    def test_registered_and_interested_users_can_connect(self):
+        """Both contact entry points work for every participation combination."""
+        detail_url = reverse("event_detail", args=[self.event.pk])
+        send_url = reverse(
+            "send_contact_request", args=[self.event.pk, self.recipient.pk]
+        )
+        profile_url = reverse("public_profile", args=[self.recipient.username])
+        message_url = reverse("message_user", args=[self.recipient.pk])
+        for sender_registered, recipient_registered in (
+            (False, False),
+            (False, True),
+            (True, False),
+            (True, True),
+        ):
+            with self.subTest(
+                sender_registered=sender_registered,
+                recipient_registered=recipient_registered,
+            ):
+                Notification.objects.all().delete()
+                ContactRequest.objects.all().delete()
+                EventInterest.objects.filter(event=self.event).delete()
+                Registration.objects.filter(event=self.event).delete()
+                for member, registered in (
+                    (self.sender, sender_registered),
+                    (self.recipient, recipient_registered),
+                ):
+                    model = Registration if registered else EventInterest
+                    model.objects.create(event=self.event, user=member)
+
+                self.assertContains(
+                    self.client.get(detail_url), f'action="{send_url}"'
+                )
+                self.assertContains(self.client.get(profile_url), "Send Message")
+                self.assertContains(self.client.get(message_url), "Community Walk")
+
+                response = self.client.post(send_url, {"message": "Hello"})
+                self.assertRedirects(response, detail_url)
+                contact = ContactRequest.objects.get()
+                self.assertEqual(contact.status, ContactRequest.Status.PENDING)
+                self.assertEqual(contact.recipient, self.recipient)
+                self.assertTrue(
+                    Notification.objects.filter(contact_request=contact).exists()
+                )
+                Notification.objects.all().delete()
+                contact.delete()
+
+                response = self.client.post(
+                    message_url, {"event": self.event.pk, "message": "Hello again"}
+                )
+                self.assertRedirects(response, message_url)
+                self.assertEqual(ContactRequest.objects.get().recipient, self.recipient)
+
+    def test_registered_recipient_still_controls_profile_visibility(self):
+        EventInterest.objects.filter(event=self.event, user=self.recipient).delete()
+        Registration.objects.create(event=self.event, user=self.recipient)
+        self.recipient.share_profile_with_attendees = False
+        self.recipient.save(update_fields=["share_profile_with_attendees"])
+        send_url = reverse(
+            "send_contact_request", args=[self.event.pk, self.recipient.pk]
+        )
+        self.assertNotContains(
+            self.client.get(reverse("event_detail", args=[self.event.pk])), send_url
+        )
+        self.assertEqual(self.client.post(send_url).status_code, 404)
+        self.assertEqual(
+            self.client.post(
+                reverse("message_user", args=[self.recipient.pk]),
+                {"event": self.event.pk},
+            ).status_code,
+            404,
+        )
+        self.assertFalse(ContactRequest.objects.exists())
+
+    def test_registration_only_does_not_allow_unrelated_events(self):
+        EventInterest.objects.filter(event=self.event, user=self.recipient).delete()
+        other_event = make_event(guid="other-event")
+        Registration.objects.create(event=other_event, user=self.recipient)
+        send_url = reverse(
+            "send_contact_request", args=[self.event.pk, self.recipient.pk]
+        )
+        self.assertEqual(self.client.post(send_url).status_code, 404)
+        self.assertFalse(
+            self.client.get(
+                reverse("public_profile", args=[self.recipient.username])
+            ).context["can_message"]
+        )
+        response = self.client.post(
+            reverse("message_user", args=[self.recipient.pk]),
+            {"event": self.event.pk},
+        )
+        self.assertEqual(response.status_code, 200)
+        self.assertFalse(ContactRequest.objects.exists())
 
     def test_profile_self_and_missing_profile_are_handled(self):
         own_profile = self.client.get(
@@ -156,7 +250,8 @@ class MessagingViewTests(TestCase):
 
         self.assertContains(
             response,
-            "Choose an upcoming event that you both are interested in.",
+            "Choose an upcoming event that you are both interested in "
+            "or registered for.",
         )
 
     def test_duplicate_pending_contact_request_is_not_created_again(self):
