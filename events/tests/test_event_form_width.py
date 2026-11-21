@@ -17,11 +17,11 @@ def page_rule():
 class EventFormWidthTests(TestCase):
     """The form box is wider, and the page still loads with its stylesheet."""
 
-    def test_form_page_is_wider(self):
-        """The page is capped at 1000px instead of the old 720px."""
+    def test_form_page_matches_the_header_width(self):
+        """The page uses the site's page width instead of the old 720px."""
         rule = page_rule()
 
-        self.assertIn("max-width: 1000px;", rule)
+        self.assertIn("max-width: var(--page-width, 1200px);", rule)
         self.assertNotIn("720px", rule)
 
     def test_post_an_event_page_uses_the_stylesheet(self):

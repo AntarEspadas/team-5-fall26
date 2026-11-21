@@ -1,8 +1,8 @@
 /* Form that event holders fill in to post an event. */
 
-/* Wide enough to use the screen like the settings page, with a gutter (#184). */
+/* As wide as the header's content, so the form fits the screen (#184). */
 .event-form-page {
-    max-width: 1000px;
+    max-width: var(--page-width, 1200px);
     margin: 0 auto;
     padding: 32px clamp(16px, 3vw, 32px) 64px;
 }
