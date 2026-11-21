@@ -4,7 +4,7 @@ from datetime import datetime, timedelta
 from zoneinfo import ZoneInfo
 
 from django.contrib.auth import get_user_model
-from django.test import TestCase
+from django.test import TestCase, override_settings
 from django.urls import reverse
 from django.utils import timezone
 
@@ -116,6 +116,8 @@ class EditButtonTests(EditTestCase):
         self.assertNotContains(self.detail(feed), "Edit event")
 
 
+# These tests post fixed dates in 2099, past the 2-year listing limit.
+@override_settings(EVENT_MAX_DAYS_AHEAD=36500)
 class EventUpdateViewTests(EditTestCase):
     """Hosts edit their events through the same validated form."""
 

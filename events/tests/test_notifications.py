@@ -5,7 +5,7 @@ from zoneinfo import ZoneInfo
 
 from django.contrib.auth import get_user_model
 from django.core import mail
-from django.test import RequestFactory, TestCase
+from django.test import RequestFactory, TestCase, override_settings
 from django.urls import reverse
 from django.utils import timezone
 
@@ -21,6 +21,8 @@ def as_input(moment):
     return timezone.localtime(moment, NYC).strftime("%Y-%m-%dT%H:%M")
 
 
+# Event pages here post fixed dates in 2099, past the 2-year listing limit.
+@override_settings(EVENT_MAX_DAYS_AHEAD=36500)
 class NotifyTestCase(TestCase):
     """A host, two interested fans, a bystander, and one hosted event."""
 

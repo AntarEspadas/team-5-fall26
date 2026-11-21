@@ -5,7 +5,7 @@ from unittest.mock import patch
 from zoneinfo import ZoneInfo
 
 from django.contrib.auth import get_user_model
-from django.test import TestCase
+from django.test import TestCase, override_settings
 from django.urls import reverse
 
 from events.forms import EventListingForm
@@ -33,6 +33,8 @@ def listing_data(**overrides):
     return data
 
 
+# These tests post fixed dates in 2099, past the 2-year listing limit.
+@override_settings(EVENT_MAX_DAYS_AHEAD=36500)
 class EventCreateViewTests(TestCase):
     """Signed-in users post events through a validated form."""
 
@@ -198,6 +200,8 @@ class EventListingFormTests(TestCase):
         self.assertIn('value="2099-01-15T18:30"', str(form["start_time"]))
 
 
+# These tests post fixed dates in 2099, past the 2-year listing limit.
+@override_settings(EVENT_MAX_DAYS_AHEAD=36500)
 class HostedEventDiscoveryTests(TestCase):
     """Posted events are discoverable like NYC Parks events."""
 

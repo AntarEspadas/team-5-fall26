@@ -1,6 +1,9 @@
 """Forms for hosted event listings, event discussions, and contact requests."""
 
+from datetime import timedelta
+
 from django import forms
+from django.conf import settings
 from django.utils import timezone
 
 from .filters import CATEGORY_GROUPS, CATEGORY_SEPARATOR, NYC_TIMEZONE
@@ -101,17 +104,30 @@ class EventListingForm(forms.ModelForm):
         )
 
     def clean(self):
-        """Reject new start times in the past and events that end too early.
+        """Reject past or far-future dates and events that end too early.
 
         An unchanged start time is allowed to be in the past, so hosts can
-        still fix the details of an event that is already under way.
+        still fix the details of an event that is already under way. New start
+        and end times must be within ``settings.EVENT_MAX_DAYS_AHEAD`` days.
         """
         cleaned = super().clean()
         start, end = cleaned.get("start_time"), cleaned.get("end_time")
-        if start and "start_time" in self.changed_data and start <= timezone.now():
+        now = timezone.now()
+        if start and "start_time" in self.changed_data and start <= now:
             self.add_error("start_time", "Choose a start time in the future.")
         if start and end and end <= start:
             self.add_error("end_time", "The end time must be after the start time.")
+        days_ahead = settings.EVENT_MAX_DAYS_AHEAD
+        latest = now + timedelta(days=days_ahead)
+        window = (
+            f"{days_ahead // 365} years"
+            if days_ahead % 365 == 0
+            else f"{days_ahead} days"
+        )
+        for name in ("start_time", "end_time"):
+            value = cleaned.get(name)
+            if value and name in self.changed_data and value > latest:
+                self.add_error(name, f"Choose a date within the next {window}.")
         return cleaned
 
 
