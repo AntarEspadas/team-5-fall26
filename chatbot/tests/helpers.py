@@ -22,6 +22,8 @@ def make_event(guid, title, days=2, **kwargs):
     kwargs.setdefault("start_time", start)
     kwargs.setdefault("end_time", start + timedelta(hours=2))
     kwargs.setdefault("content_hash", "v" * 64)
+    # Feed events without a registration link are not listed (#158).
+    kwargs.setdefault("registration_url", "https://example.com/register")
     return Event.objects.create(guid=guid, title=title, **kwargs)
 
 

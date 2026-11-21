@@ -234,7 +234,7 @@ def natural_search_url(request):
     broader = any_word_query(keywords)
     if broader:
         events = filter_events(
-            Event.objects.filter(status=Event.Status.UPCOMING), filters
+            Event.objects.listed().filter(status=Event.Status.UPCOMING), filters
         )
         if not search_events(events, keywords).exists():
             keywords = broader

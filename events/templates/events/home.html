@@ -36,31 +36,6 @@
 
         {% include 'events/_search_form.html' %}
 
-        <section class="weekend-section" aria-labelledby="weekend-heading">
-            <div class="section-head">
-                <h2 id="weekend-heading">This weekend</h2>
-                <span class="section-dates">
-                    {{ weekend_start|date:"D, M j" }}{% if weekend_end != weekend_start %} &ndash; {{ weekend_end|date:"D, M j" }}{% endif %}
-                </span>
-                <a class="section-link" href="{{ weekend_url }}">See all weekend events →</a>
-            </div>
-
-            {% if weekend_events %}
-            <ul class="event-grid">
-                {% for event in weekend_events %}
-                <li class="event">
-                    {% include 'events/_event_card_content.html' with link_to_source=True %}
-                </li>
-                {% endfor %}
-            </ul>
-            {% else %}
-            <p class="empty-state">
-                Nothing is scheduled for this weekend yet.
-                <a class="section-link" href="{% url 'search' %}">Search all upcoming events</a>
-            </p>
-            {% endif %}
-        </section>
-
         {% if user.is_authenticated %}
         {% if has_search_history %}
         <section class="events-section" aria-labelledby="recommendations-heading">

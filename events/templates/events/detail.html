@@ -13,6 +13,8 @@
     <link rel="stylesheet" href="{% static 'events/photos.css' %}">
     <script src="{% static 'reports/menus.js' %}" defer></script>
     <script src="{% static 'events/calendar-menu.js' %}" defer></script>
+    <link rel="stylesheet" href="{% static 'events/share-event.css' %}">
+    <script src="{% static 'events/share-event.js' %}" defer></script>
 
 
 <style>
@@ -830,6 +832,8 @@
                 {% include "events/_add_to_calendar.html" %}
             {% endif %}
 
+            {% include "events/_share_event.html" %}
+
             {% if event.event_url %}
                 <a class="detail-button" href="{{ event.event_url }}">
                     Official Event Page
@@ -855,7 +859,7 @@
 
     {% if can_manage %}
         <section class="community-section">
-            <h2>Message interested attendees</h2>
+            <h2>Message attendees</h2>
 
             <p>
                 {% if recipient_count %}
@@ -863,8 +867,9 @@
                     {% if recipient_count == 1 %}person{% else %}people{% endif %}
                     by email and in their notifications.
                 {% else %}
-                    Nobody is interested in this event yet. People who select
-                    "Interested" will get your messages.
+                    Nobody is interested in or registered for this event yet.
+                    People who register or select "Interested" will get your
+                    messages.
                 {% endif %}
             </p>
 
@@ -965,7 +970,7 @@
                         >
                             {% if attendee.user.profile_photo %}
                                 <img
-                                    src="{{ attendee.user.profile_photo.url }}"
+                                    src="{{ attendee.user.displayed_profile_photo.url }}"
                                     alt=""
                                 >
                             {% else %}
@@ -1046,7 +1051,7 @@
                         >
                             {% if attendee.user.profile_photo %}
                                 <img
-                                    src="{{ attendee.user.profile_photo.url }}"
+                                    src="{{ attendee.user.displayed_profile_photo.url }}"
                                     alt=""
                                 >
                             {% else %}

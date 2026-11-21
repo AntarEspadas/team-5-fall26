@@ -3,23 +3,31 @@
 from django.conf import settings
 from django.contrib.auth import get_user_model
 from django.core.mail import send_mail, send_mass_mail
+from django.db.models import Q
 from django.utils import dateformat, timezone
 from django.utils.text import Truncator
 
 from .filters import NYC_TIMEZONE
 from .models import ContactRequest, Notification
 
-# Edits to these fields send interested users an automatic notice.
+# Edits to these fields send interested and registered users an automatic
+# notice.
 NOTIFIED_CHANGES = ("start_time", "end_time", "location")
 # Event titles can be longer than a notification subject allows.
 SUBJECT_MAX_LENGTH = Notification._meta.get_field("subject").max_length
 
 
 def interested_recipients(event):
-    """Return the users interested in an event, other than its host."""
+    """Return who hears about an event's changes, other than its host.
+
+    That is everyone who selected Interested or registered for it; someone
+    who did both is listed once.
+    """
     return (
         get_user_model()
-        .objects.filter(event_interests__event=event)
+        .objects.filter(
+            Q(event_interests__event=event) | Q(event_registrations__event=event)
+        )
         .exclude(pk=event.host_id)
         .distinct()
     )
@@ -76,7 +84,7 @@ def notify_registration_change(
 
 
 def notify_interested(event, subject, body, event_url):
-    """Send a message to everyone interested in an event.
+    """Send a message to everyone interested in or registered for an event.
 
     Each recipient gets an in-app notification and their own email, so no
     one sees anyone else's address.

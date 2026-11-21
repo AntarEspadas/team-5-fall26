@@ -47,8 +47,6 @@ from .filters import (
     EventFilterForm,
     filter_events,
     filter_params,
-    nyc_today,
-    preset_range,
 )
 from .forms import (
     CancelEventForm,
@@ -93,8 +91,6 @@ SEARCH_PAGE_SIZE = 20
 NOTIFICATION_PAGE_SIZE = 20
 ARCHIVED_EVENT_PREVIEW_LIMIT = 3
 
-# This weekend's events shown on the home page to every visitor.
-WEEKEND_EVENT_LIMIT = 8
 ARCHIVED_EVENT_PAGE_SIZE = 20
 
 
@@ -147,14 +143,15 @@ def get_hosted_upcoming_event(user, pk):
 
 
 def people(count):
-    """Return e.g. "1 interested person" or "3 interested people"."""
-    return f"{count} interested {'person' if count == 1 else 'people'}"
+    """Return e.g. "1 person" or "3 people"."""
+    return f"{count} {'person' if count == 1 else 'people'}"
 
 
 class EventUpdateView(LoginRequiredMixin, UpdateView):
     """Let a host edit their own event until it ends.
 
-    Changing the date, time, or location notifies everyone interested.
+    Changing the date, time, or location notifies everyone interested or
+    registered.
     """
 
     form_class = EventListingForm
@@ -165,7 +162,8 @@ class EventUpdateView(LoginRequiredMixin, UpdateView):
         return get_hosted_upcoming_event(self.request.user, self.kwargs["pk"])
 
     def form_valid(self, form):
-        """Save the changes, notify interested users, and confirm on the page."""
+        """Save the changes, notify interested and registered users, and
+        confirm on the page."""
         notice = change_notice(form.instance, form.initial, form.changed_data)
         response = super().form_valid(form)
         confirmation = "Event updated."
@@ -185,7 +183,8 @@ class EventUpdateView(LoginRequiredMixin, UpdateView):
 @login_required
 @require_POST
 def notify_attendees(request, pk):
-    """Send the host's message to everyone interested in their event."""
+    """Send the host's message to everyone interested in or registered for
+    their event."""
     event = get_hosted_upcoming_event(request.user, pk)
     detail_url = reverse("event_detail", args=[event.pk])
     form = NotifyAttendeesForm(request.POST)
@@ -201,14 +200,17 @@ def notify_attendees(request, pk):
     if count:
         messages.success(request, f"Your message was sent to {people(count)}.")
     else:
-        messages.info(request, "Nobody is interested in this event yet.")
+        messages.info(
+            request, "Nobody is interested in or registered for this event yet."
+        )
     return redirect(detail_url)
 
 
 @login_required
 @require_http_methods(["GET", "POST"])
 def cancel_event(request, pk):
-    """Confirm, then cancel a host's event and tell everyone interested."""
+    """Confirm, then cancel a host's event and tell everyone interested or
+    registered."""
     event = get_hosted_upcoming_event(request.user, pk)
     form = CancelEventForm(request.POST if request.method == "POST" else None)
     if form.is_bound and form.is_valid():
@@ -286,7 +288,13 @@ class MyEventsView(LoginRequiredMixin, TemplateView):
                 and event.host_id != user.pk
                 and rating_window_open(event)
             )
-        context["registered_events"] = registrations
+        # Attended: registrations for events that are over and weren't
+        # cancelled, most recent first. Upcoming ones are on My plans.
+        context["attended_registrations"] = [
+            registration
+            for registration in reversed(registrations)
+            if registration.event.has_ended and not registration.event.is_cancelled
+        ]
         context["plan_days"] = plan_timeline(context["upcoming_events"], registrations)
         context["favorite_events"] = user.favorite_events.select_related("event")
         context["favorites_tab_active"] = self.request.GET.get("tab") == "favorites"
@@ -637,6 +645,9 @@ class EventDetailView(DetailView):
         event = self.object
         user = self.request.user
         is_authenticated = user.is_authenticated
+        context["share_event_url"] = self.request.build_absolute_uri(
+            reverse("event_detail", args=[event.pk])
+        )
         context.update(gallery_context(self.request, event=event))
         context["can_upload_photos"] = (
             uploadable_events(user).filter(pk=event.pk).exists()
@@ -892,9 +903,9 @@ class AboutView(TemplateView):
 class LandingView(TemplateView):
     """Render the home page.
 
-    Every visitor sees this weekend's events. Signed-in visitors also get their
-    personal sections: upcoming events with registration badges, plans, and
-    archived events. Signed-out visitors get a prompt to log in or sign up.
+    Signed-in visitors get their personal sections: recommendations, upcoming
+    events with registration badges, and archived events. Signed-out visitors
+    get a prompt to log in or sign up.
     """
 
     template_name = "events/home.html"
@@ -906,27 +917,15 @@ class LandingView(TemplateView):
         return annotate_for_viewer(events, self.request.user)
 
     def get_context_data(self, **kwargs):
-        """Add this weekend's events and, when signed in, the personal lists."""
+        """Add the search filters and, when signed in, the personal lists."""
         context = super().get_context_data(**kwargs)
         context["filter_form"] = EventFilterForm()
-        upcoming = Event.objects.filter(status=Event.Status.UPCOMING)
+        upcoming = Event.objects.listed().filter(status=Event.Status.UPCOMING)
         upcoming_order = (
             F("start_time").asc(nulls_last=True),
             "end_time",
             "title",
         )
-
-        weekend_start, weekend_end = preset_range("weekend", nyc_today())
-        weekend = filter_events(
-            upcoming,
-            {"date_from": weekend_start, "date_to": weekend_end},
-        )
-        context["weekend_start"] = weekend_start
-        context["weekend_end"] = weekend_end
-        context["weekend_url"] = reverse("search") + "?when=weekend"
-        context["weekend_events"] = self.with_registration(weekend).order_by(
-            *upcoming_order
-        )[:WEEKEND_EVENT_LIMIT]
 
         context["events"] = []
         context["archived_events"] = []
@@ -947,7 +946,7 @@ class LandingView(TemplateView):
 
             # Recently completed events, newest first.
             archived = self.with_registration(
-                Event.objects.filter(status=Event.Status.DONE)
+                Event.objects.listed().filter(status=Event.Status.DONE)
             ).order_by(
                 F("start_time").desc(nulls_last=True),
                 "-end_time",
@@ -983,7 +982,7 @@ class EventSearchMixin:
         else:
             self.filter_form = form
 
-        base_queryset = Event.objects.filter(status=self.event_status)
+        base_queryset = Event.objects.listed().filter(status=self.event_status)
 
         events = filter_events(base_queryset, filters)
 

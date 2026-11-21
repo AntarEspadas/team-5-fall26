@@ -407,7 +407,7 @@
                 {% if profile_user.profile_photo %}
                     <img
                         class="profile-avatar"
-                        src="{{ profile_user.profile_photo.url }}"
+                        src="{{ profile_user.displayed_profile_photo.url }}"
                         alt="{{ profile_user.display_name|default:profile_user.username }}'s profile photo"
                     >
                 {% else %}

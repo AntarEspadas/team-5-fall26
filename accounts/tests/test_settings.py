@@ -213,7 +213,10 @@ class AccountSettingsTests(TestCase):
                 self.user.refresh_from_db()
                 photo = self.user.profile_photo
                 self.assertRegex(photo.name, r"^profile_photos/[0-9a-f]{32}\.jpg$")
-                self.assertContains(response, f'src="{photo.url}"')
+                self.assertContains(
+                    response, f'src="{self.user.profile_photo_crop.url}"'
+                )
+                self.assertContains(response, f'data-source="{photo.url}"')
                 with photo.open("rb") as saved:
                     self.assertNotIn(b"<script>", saved.read())
                     saved.seek(0)
@@ -230,6 +233,39 @@ class AccountSettingsTests(TestCase):
             with Image.open(saved) as image:
                 self.assertEqual(image.size, (1024, 512))
 
+    def test_saved_square_photo_can_be_zoomed_and_repositioned(self):
+        image = Image.new("RGB", (80, 80), "red")
+        image.paste("blue", (40, 0, 80, 80))
+        output = BytesIO()
+        image.save(output, format="PNG")
+        upload = SimpleUploadedFile("photo.png", output.getvalue(), "image/png")
+        self.assertRedirects(
+            self.client.post(self.url, {**self.data, "profile_photo": upload}),
+            self.url,
+        )
+        self.user.refresh_from_db()
+        source_name = self.user.profile_photo.name
+        first_crop_name = self.user.profile_photo_crop.name
+
+        response = self.client.post(
+            self.url,
+            {**self.data, "profile_photo_crop_x": 1, "profile_photo_crop_zoom": 2},
+        )
+        self.assertRedirects(response, self.url)
+        self.user.refresh_from_db()
+        self.assertEqual(self.user.profile_photo.name, source_name)
+        self.assertNotEqual(self.user.profile_photo_crop.name, first_crop_name)
+        self.assertEqual(self.user.profile_photo_crop_zoom, 2)
+        with self.user.profile_photo_crop.open("rb") as saved, Image.open(
+            saved
+        ) as crop:
+            self.assertEqual(crop.size, (40, 40))
+            red, _, blue = crop.getpixel((20, 20))
+            self.assertGreater(blue, red)
+
+        profile = self.client.get(reverse("public_profile", args=[self.user.username]))
+        self.assertContains(profile, f'src="{self.user.profile_photo_crop.url}"')
+
     def test_existing_photo_is_kept_replaced_and_cleared(self):
         """Photos can be kept, replaced, or cleared without displaying a URL."""
         self.client.post(self.url, {**self.data, "profile_photo": photo_upload()})
@@ -245,6 +281,7 @@ class AccountSettingsTests(TestCase):
         self.assertContains(response, 'alt="Your current profile photo"')
         self.assertContains(response, 'type="file"')
         self.assertNotContains(response, "Currently:")
+        self.assertNotContains(response, '<a href="">None</a>')
         self.assertContains(response, 'name="profile_photo-clear"')
         self.assertNotContains(response, f'href="{self.user.profile_photo.url}"')
         self.assertNotContains(response, f">{self.user.profile_photo.name}</a>")
@@ -254,6 +291,7 @@ class AccountSettingsTests(TestCase):
         self.assertRedirects(response, self.url)
         self.user.refresh_from_db()
         self.assertFalse(self.user.profile_photo)
+        self.assertFalse(self.user.profile_photo_crop)
         self.assertNotContains(response, 'name="profile_photo-clear"')
 
     def test_clear_is_not_saved_when_other_fields_are_invalid(self):
@@ -269,7 +307,7 @@ class AccountSettingsTests(TestCase):
         self.assertContains(response, 'id="profile_photo-clear_id" checked')
         self.user.refresh_from_db()
         self.assertEqual(self.user.profile_photo.name, original)
-        self.assertContains(response, f'src="{self.user.profile_photo.url}"')
+        self.assertContains(response, f'src="{self.user.profile_photo_crop.url}"')
 
     def test_invalid_photos_do_not_save_any_changes(self):
         """Spoofed, unsupported, oversized, and excessively wide files fail."""
