@@ -18,6 +18,7 @@ from .views import (
     event_calendar_file,
     notify_attendees,
     register_event,
+    remove_attendee,
     set_event_favorite,
     ArchivedEventsView,
 )
@@ -52,6 +53,11 @@ urlpatterns = [
     path("<int:pk>/notify/", notify_attendees, name="event_notify"),
     path("<int:pk>/cancel/", cancel_event, name="event_cancel"),
     path("<int:pk>/register/", register_event, name="event_register"),
+    path(
+        "<int:pk>/attendees/<int:registration_id>/remove/",
+        remove_attendee,
+        name="event_remove_attendee",
+    ),
     path("<int:pk>/rate-host/", rate_host, name="rate_host"),
     path("<int:pk>/calendar.ics", event_calendar_file, name="event_calendar"),
     path(

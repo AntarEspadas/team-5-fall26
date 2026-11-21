@@ -79,3 +79,62 @@
     font-size: 0.85rem;
     font-weight: 600;
 }
+
+.manage-actions {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    justify-content: flex-end;
+    gap: 10px;
+}
+
+.manage-remove {
+    text-align: right;
+}
+
+.manage-remove summary {
+    display: inline-block;
+    padding: 4px 12px;
+    border: 1px solid var(--line);
+    border-radius: var(--radius-pill);
+    color: #b42318;
+    font-size: 0.85rem;
+    font-weight: 600;
+    cursor: pointer;
+    list-style: none;
+}
+
+.manage-remove summary::-webkit-details-marker {
+    display: none;
+}
+
+.manage-remove summary:focus-visible,
+.manage-remove button:focus-visible {
+    outline: 2px solid var(--leaf);
+    outline-offset: 2px;
+}
+
+.manage-remove form {
+    display: grid;
+    gap: 8px;
+    max-width: 240px;
+    margin-top: 8px;
+    text-align: left;
+}
+
+.manage-remove form p {
+    margin: 0;
+    color: var(--muted);
+    font-size: 0.85rem;
+}
+
+.manage-remove button {
+    justify-self: start;
+    padding: 6px 14px;
+    border: 0;
+    border-radius: var(--radius-pill);
+    background: #b42318;
+    color: #fff;
+    font-weight: 600;
+    cursor: pointer;
+}

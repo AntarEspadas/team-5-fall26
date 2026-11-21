@@ -2,7 +2,7 @@
 
 from django.conf import settings
 from django.contrib.auth import get_user_model
-from django.core.mail import send_mass_mail
+from django.core.mail import send_mail, send_mass_mail
 from django.db.models import Q
 from django.utils import dateformat, timezone
 from django.utils.text import Truncator
@@ -106,6 +106,39 @@ def notify_interested(event, subject, body, event_url):
         ]
     )
     return len(recipients)
+
+
+def notify_attendee_removed(event, guest, event_url):
+    """Tell a guest that the host took them off their event's guest list.
+
+    The guest gets an in-app notification and an email.
+
+    Args:
+        event: the event the guest was registered for.
+        guest: the user whose registration the host removed.
+        event_url: a full link to the event, for the email.
+
+    Returns:
+        Notification: the guest's in-app notification.
+    """
+    host = event.host.get_display_name()
+    subject = Truncator(f"Removed from {event.title}").chars(SUBJECT_MAX_LENGTH)
+    body = (
+        f"{host} removed you from the guest list for {event.title} "
+        f"({describe_when(event.start_time, event.end_time)}). "
+        "You are no longer registered for this event."
+    )
+    notification = Notification.objects.create(
+        recipient=guest, event=event, subject=subject, body=body
+    )
+    if guest.email:
+        send_mail(
+            subject,
+            f"{body}\n\nEvent details: {event_url}",
+            settings.DEFAULT_FROM_EMAIL,
+            [guest.email],
+        )
+    return notification
 
 
 def notify_contact_request(contact_request):
