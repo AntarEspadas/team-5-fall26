@@ -5,6 +5,7 @@ from unittest.mock import patch
 from zoneinfo import ZoneInfo
 
 from django.contrib.auth import get_user_model
+from django.core import mail
 from django.test import TestCase
 from django.urls import reverse
 
@@ -232,6 +233,7 @@ class MessagingViewTests(TestCase):
         self.assertIsNone(message.event)
         self.assertEqual(message.body, "See you there!")
         self.assertFalse(Notification.objects.exists())
+        self.assertEqual(len(mail.outbox), 0)
 
     def test_messages_are_not_listed_as_notifications_and_mark_read_in_chat(self):
         self.accept_contact()

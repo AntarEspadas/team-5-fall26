@@ -3,6 +3,7 @@
 import json
 from unittest import mock
 
+from allauth.account.models import EmailAddress
 from django.contrib.admin.sites import AdminSite
 from django.core import mail
 from django.core.cache import cache
@@ -305,6 +306,9 @@ class AnswerInquiryTests(TestCase):
         )
 
     def test_answering_translates_and_notifies_the_asker(self):
+        EmailAddress.objects.create(
+            user=self.asker, email=self.asker.email, verified=True, primary=True
+        )
         with mock.patch(
             "chatbot.gemini.translate", return_value="Sí, junto al lago."
         ) as translate:
@@ -318,6 +322,37 @@ class AnswerInquiryTests(TestCase):
         self.assertIn("Sí, junto al lago.", notification.body)
         self.assertEqual(mail.outbox[0].to, ["asker@example.com"])
         self.assertFalse(answer_inquiry(self.hosted, "Again", self.host))
+
+    def test_unverified_email_still_gets_chat_and_in_app_answer(self):
+        EmailAddress.objects.create(
+            user=self.asker, email=self.asker.email, verified=False, primary=True
+        )
+        with mock.patch("chatbot.gemini.translate", return_value="Sí."):
+            self.assertTrue(answer_inquiry(self.hosted, "Yes.", self.host))
+        self.hosted.refresh_from_db()
+        self.assertEqual(self.hosted.status, Inquiry.Status.ANSWERED)
+        self.assertEqual(self.hosted.answer_for_asker, "Sí.")
+        self.assertTrue(Notification.objects.filter(recipient=self.asker).exists())
+        self.assertEqual(len(mail.outbox), 0)
+        self.client.force_login(self.asker)
+        with ENABLED:
+            data = self.client.get(reverse("chatbot:history")).json()
+        self.assertEqual(data["updates"], 1)
+        self.assertIn("Sí.", data["messages"][0]["text"])
+
+    def test_missing_email_verification_does_not_send_mail(self):
+        with mock.patch("chatbot.gemini.translate", return_value="Sí."):
+            self.assertTrue(answer_inquiry(self.hosted, "Yes.", self.host))
+        self.assertTrue(Notification.objects.filter(recipient=self.asker).exists())
+        self.assertEqual(len(mail.outbox), 0)
+
+    def test_verified_different_address_does_not_send_mail(self):
+        EmailAddress.objects.create(
+            user=self.asker, email="old@example.com", verified=True, primary=True
+        )
+        with mock.patch("chatbot.gemini.translate", return_value="Sí."):
+            self.assertTrue(answer_inquiry(self.hosted, "Yes.", self.host))
+        self.assertEqual(len(mail.outbox), 0)
 
     def test_translation_failures_still_send_the_answer(self):
         with mock.patch("chatbot.gemini.translate", side_effect=gemini.GeminiError):
