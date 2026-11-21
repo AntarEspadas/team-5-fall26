@@ -47,6 +47,16 @@
         {% include "events/_search_form.html" %}
         </section>
 
+        {% if asked and understood %}
+        <section class="understood" aria-label="How your search was read">
+            <p>Searching past events for <q>{{ asked }}</q> as</p>
+            <ul class="understood-terms">
+                {% for term in understood %}<li>{{ term }}</li>{% endfor %}
+            </ul>
+            <a href="?q={{ asked|urlencode }}&amp;exact=1">Search for these exact words instead</a>
+        </section>
+        {% endif %}
+
         <section class="archive-results" aria-label="Archived events list">
 
             {% if events %}
