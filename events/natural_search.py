@@ -242,15 +242,14 @@ def natural_search_url(request, past=False):
     status = Event.Status.DONE if past else Event.Status.UPCOMING
     broader = any_word_query(keywords)
     if broader:
-        events = filter_events(
-            Event.objects.listed().filter(status=status), filters
-        )
+        events = filter_events(Event.objects.listed().filter(status=status), filters)
         if not search_events(events, keywords).exists():
             keywords = broader
     params = [("q", keywords)] if keywords else []
     params += filter_params(filters) + [("asked", prompt)]
     page = reverse("archived_events" if past else "search")
     return f"{page}?{urlencode(params, quote_via=quote)}"
+
 
 def interpret(prompt, today, past=False):
     """Return what a prompt asks for, using Gemini when it is configured.
