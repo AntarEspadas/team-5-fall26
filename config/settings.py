@@ -294,6 +294,11 @@ if GOOGLE_OAUTH_ENABLED:
 if not DEBUG:
     SECURE_PROXY_SSL_HEADER = ("HTTP_X_FORWARDED_PROTO", "https")
 
+# Hosted events must start and end within this many days from now. Without a
+# limit, 9999-12-31 11:59 PM in New York becomes the year 10000 in UTC, which
+# saves but can't be read back into Python and crashes every page showing it.
+EVENT_MAX_DAYS_AHEAD = 730
+
 # ===== Website assistant (Gemini) =====
 # The chat widget only appears when GEMINI_API_KEY is set. GEMINI_MODEL
 # defaults to Google's always-current Flash alias; pin a specific model name
