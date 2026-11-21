@@ -136,6 +136,7 @@
     }
 
     .detail-description {
+        margin: 0.75rem 0;
         white-space: pre-line;
         line-height: 1.7;
     }
@@ -715,13 +716,8 @@
         {% endif %}
 
         <h2>Description</h2>
-        <div class="detail-description">
-            {% if event.description %}
-                {{ event.description }}
-            {% else %}
-                No description is available for this event.
-            {% endif %}
-        </div>
+        {# No whitespace inside: pre-line would show template line breaks as a gap. #}
+        <div class="detail-description">{% if event.description %}{{ event.description }}{% else %}No description is available for this event.{% endif %}</div>
 
     </main>
 
