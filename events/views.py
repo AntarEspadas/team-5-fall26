@@ -709,11 +709,6 @@ class EventDetailView(DetailView):
 
         context["registered_count"] = registrations.count()
 
-        # Only show attendees who have chosen to share their profiles.
-        context["registered_users"] = registrations.filter(
-            user__share_profile_with_attendees=True
-        )
-
         # Check whether the current user has registered.
         current_registration = (
             Registration.objects.filter(
@@ -725,6 +720,9 @@ class EventDetailView(DetailView):
         )
 
         context["user_is_registered"] = current_registration is not None
+        context["user_participates"] = (
+            current_interest is not None or current_registration is not None
+        )
         context["current_registration"] = current_registration
         context["party_size_choices"] = range(1, Registration.MAX_PARTY_SIZE + 1)
 
@@ -810,6 +808,18 @@ class EventDetailView(DetailView):
         ]
 
         context["attendees"] = attendees
+
+        # Registered attendees use the same contact controls as interested users.
+        registered_users = (
+            registrations.filter(user__share_profile_with_attendees=True)
+            .annotate(recipient_banned=Exists(active_bans))
+            .order_by("user__display_name", "user__username")
+        )
+        for registration in registered_users:
+            registration.contact_request = request_by_recipient.get(
+                registration.user_id
+            )
+        context["registered_users"] = registered_users
 
         # Discover only opted-in profiles for active, related events.
         context["can_explore_similar_interests"] = (

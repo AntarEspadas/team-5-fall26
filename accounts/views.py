@@ -20,6 +20,7 @@ from django.utils.http import url_has_allowed_host_and_scheme
 from django.views.decorators.cache import never_cache
 from django.views.generic import CreateView, DetailView, UpdateView
 
+from events.contact_services import shared_upcoming_events
 from events.models import ContactRequest, Event, EventInterest
 from events.ratings import host_rating_summary, latest_host_comments
 from events.similar_interests import public_match_for_event
@@ -132,14 +133,9 @@ class PublicProfileView(LoginRequiredMixin, DetailView):
             has_pending_request = pair_requests.filter(
                 status=ContactRequest.Status.PENDING
             ).exists()
-            has_shared_upcoming_event = (
-                Event.objects.filter(
-                    status=Event.Status.UPCOMING,
-                    interests__user=self.request.user,
-                )
-                .filter(interests__user=profile_user)
-                .exists()
-            )
+            has_shared_upcoming_event = shared_upcoming_events(
+                self.request.user, profile_user
+            ).exists()
             # Banned recipients cannot receive new invitations, but an
             # already-approved conversation should remain reachable.
             context["can_message"] = has_accepted_request or (

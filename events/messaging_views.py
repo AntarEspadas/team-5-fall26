@@ -16,38 +16,10 @@ from accounts.ban_responses import BAN_MESSAGE
 from accounts.ban_services import get_active_ban
 from accounts.models import User
 
-from .contact_services import create_contact_request
+from .contact_services import create_contact_request, shared_upcoming_events
 from .conversation_services import get_accessible_conversation, has_accepted_contact
 from .forms import ContactStartForm, DirectMessageForm
-from .models import (
-    ContactRequest,
-    Conversation,
-    DirectMessage,
-    Event,
-)
-
-
-def _shared_events(first_user, second_user):
-    """Return events both users marked as interested in."""
-    return (
-        Event.objects.filter(interests__user=first_user)
-        .filter(interests__user=second_user)
-        .distinct()
-        .order_by("start_time", "title", "pk")
-    )
-
-
-def _shared_upcoming_events(first_user, second_user):
-    """Return shared events that still accept new contact requests."""
-    shared_events = _shared_events(first_user, second_user).filter(
-        status=Event.Status.UPCOMING
-    )
-    # Use the same model rules as create_contact_request. In particular,
-    # status alone can be stale and feed cancellations appear in the title.
-    eligible_ids = [
-        event.pk for event in shared_events if event.is_open and not event.is_cancelled
-    ]
-    return shared_events.filter(pk__in=eligible_ids)
+from .models import ContactRequest, Conversation, DirectMessage
 
 
 def _message_data(message):
@@ -137,7 +109,7 @@ def message_user(request, user_id):
             {"recipient": recipient, "recipient_banned": True},
         )
 
-    shared_events = _shared_upcoming_events(request.user, recipient)
+    shared_events = shared_upcoming_events(request.user, recipient)
     pending_request = (
         ContactRequest.objects.filter(status=ContactRequest.Status.PENDING)
         .filter(
@@ -167,7 +139,10 @@ def message_user(request, user_id):
                         "Contact requests are currently unavailable for this member."
                     )
                 else:
-                    error = "Choose an upcoming event that you both are interested in."
+                    error = (
+                        "Choose an upcoming event that you are both interested in "
+                        "or registered for."
+                    )
                 messages.error(request, error)
                 return redirect("message_user", user_id=recipient.pk)
             if contact_request.status == ContactRequest.Status.ACCEPTED:

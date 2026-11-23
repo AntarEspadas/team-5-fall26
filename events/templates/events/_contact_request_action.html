@@ -19,7 +19,7 @@
         <p class="attendee-contact-note">Contact requests are disabled while your account is banned.</p>
     {% elif attendee.recipient_banned %}
         <p class="attendee-contact-note">Contact requests are currently unavailable for this member.</p>
-    {% elif can_interact and user_has_interest %}
+    {% elif can_interact and user_participates %}
         <form method="post" action="{% url 'send_contact_request' event.pk attendee.user.pk %}">
             {% csrf_token %}
             <textarea
@@ -34,7 +34,7 @@
         </form>
     {% elif can_interact %}
         <p class="attendee-contact-note">
-            Select Interested before requesting to connect.
+            Select Interested or register before requesting to connect.
         </p>
     {% else %}
         <p class="attendee-contact-note">New contact requests are closed for this event.</p>
